@@ -18,12 +18,17 @@ import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useLivestreamStore, useAuthStore } from "./stores";
 import "./config/firebase"; // Initialize Firebase
+import { checkForCorsIssues } from "./utils/clearCache";
 
 function App() {
   const { initialize } = useAuthStore();
 
   React.useEffect(() => {
     initialize();
+    // Monitor for CORS issues in development
+    if (process.env.NODE_ENV === 'development') {
+      checkForCorsIssues();
+    }
   }, [initialize]);
 
   return (

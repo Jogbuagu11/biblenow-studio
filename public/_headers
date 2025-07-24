@@ -1,0 +1,31 @@
+# Security Headers
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# CORS Headers for manifest.json
+/manifest.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+  Access-Control-Allow-Headers: Content-Type
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# CORS Headers for static assets
+/*.ico
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+
+/*.png
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+
+/*.jpg
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+
+/*.svg
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS 
