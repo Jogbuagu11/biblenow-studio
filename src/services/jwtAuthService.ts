@@ -175,13 +175,13 @@ export class JWTAuthService {
         };
       }
 
-      // Check if user is active
-      if (data.status !== 'active') {
-        return {
-          success: false,
-          error: 'Account is not active. Please contact support.'
-        };
-      }
+      // Check if user is active (optional - comment out if you don't want this check)
+      // if (data.status !== 'active') {
+      //   return {
+      //     success: false,
+      //     error: 'Account is not active. Please contact support.'
+      //   };
+      // }
 
       // Generate display name using utility function
       const displayName = getDisplayName(data);
