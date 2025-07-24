@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from "react";
 import { jaasConfig } from "../config/firebase";
 import { useAuthStore } from "../stores";
 import jwtAuthService from "../services/jwtAuthService";
-import { canBeModerator } from "../config/jwt";
 
 declare global {
   interface Window {
@@ -120,7 +119,7 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         apiRef.current.dispose();
       }
     };
-  }, [roomName]);
+  }, [roomName, user]);
 
   return <div ref={containerRef} style={{ height: "100vh", width: "100%" }} />;
 };

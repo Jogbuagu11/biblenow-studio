@@ -1,8 +1,7 @@
-import { jaasConfig } from '../config/firebase';
-import { jwtConfig, canBeModerator as canBeModeratorConfig } from '../config/jwt';
+import { jwtConfig } from '../config/jwt';
 import { supabase } from '../config/supabase';
 import { VerifiedProfile } from '../types/database';
-import { getDisplayName, canBeModerator } from '../utils/profileUtils';
+import { getDisplayName } from '../utils/profileUtils';
 import jwt from 'jsonwebtoken';
 
 export interface JWTPayload {
