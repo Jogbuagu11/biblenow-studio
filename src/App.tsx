@@ -99,17 +99,6 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <button 
-            onClick={async () => {
-              setIsStreaming(false);
-              if (currentStream) {
-                await stopStream(currentStream.id);
-              }
-            }}
-            className="absolute top-4 left-4 z-10 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-          >
-            Stop Stream
-          </button>
           <LiveStream roomName={roomName} />
         </div>
       ) : (

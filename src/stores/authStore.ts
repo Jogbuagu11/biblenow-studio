@@ -1,22 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import jwtAuthService from '../services/jwtAuthService';
 
-// Verified profiles table - in a real app, this would come from a database
-const VERIFIED_PROFILES = [
-  {
-    email: 'mrs.ogbuagu@gmail.com',
-    password: 'admin123',
-    displayName: 'Mrs. Ogbuagu',
-    role: 'user' as const
-  },
-  // Add more verified profiles here as needed
-  // {
-  //   email: 'user@example.com',
-  //   password: 'password123',
-  //   displayName: 'John Doe',
-  //   role: 'user' as const
-  // }
-];
+// Authentication now handled by Supabase verified_profiles table
 
 export interface User {
   uid: string;
@@ -78,24 +64,20 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Email and password are required');
           }
           
-          // Check if user exists in verified_profiles table
-          const verifiedProfile = VERIFIED_PROFILES.find(profile => profile.email === email);
+          // Authenticate against Supabase verified_profiles table
+          const authResult = await jwtAuthService.authenticateUser(email, password);
           
-          if (!verifiedProfile) {
-            throw new Error('Email not found in verified profiles. Please contact support for access.');
+          if (!authResult.success || !authResult.user) {
+            throw new Error(authResult.error || 'Authentication failed');
           }
           
-          // Validate password
-          if (verifiedProfile.password !== password) {
-            throw new Error('Invalid email or password');
-          }
-          
-          // Create user object from verified profile data
+          // Create user object from Supabase data
+          // All verified users are moderators
           const user: User = {
-            uid: `user-${Date.now()}`,
-            email: verifiedProfile.email,
-            displayName: verifiedProfile.displayName,
-            role: verifiedProfile.role
+            uid: authResult.user.id,
+            email: authResult.user.email,
+            displayName: authResult.user.displayName,
+            role: 'moderator' // All verified users are moderators
           };
           
           set({ 
@@ -163,8 +145,12 @@ export const useAuthStore = create<AuthState>()(
 
         set({ isLoading: true, error: null });
         try {
-          // TODO: Implement Firebase Auth profile update
-          // await updateProfile(auth.currentUser!, updates);
+          // Update profile in Supabase
+          const updateResult = await jwtAuthService.updateUserProfile(user.uid, updates);
+          
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || 'Profile update failed');
+          }
           
           const updatedUser = { ...user, ...updates };
           set({ 
