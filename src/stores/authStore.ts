@@ -1,6 +1,23 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Verified profiles table - in a real app, this would come from a database
+const VERIFIED_PROFILES = [
+  {
+    email: 'mrs.ogbuagu@gmail.com',
+    password: 'admin123',
+    displayName: 'Mrs. Ogbuagu',
+    role: 'user' as const
+  },
+  // Add more verified profiles here as needed
+  // {
+  //   email: 'user@example.com',
+  //   password: 'password123',
+  //   displayName: 'John Doe',
+  //   role: 'user' as const
+  // }
+];
+
 export interface User {
   uid: string;
   email: string;
@@ -15,6 +32,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
   
   // Actions
   setUser: (user: User | null) => void;
@@ -26,6 +44,7 @@ interface AuthState {
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   clearError: () => void;
+  initialize: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -36,6 +55,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      isInitialized: false,
 
       // Actions
       setUser: (user) => set({ 
@@ -53,20 +73,33 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Implement Firebase Auth login
-          // const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          // const user = userCredential.user;
+          // Validate required fields
+          if (!email || !password) {
+            throw new Error('Email and password are required');
+          }
           
-          // Mock login for now
-          const mockUser: User = {
-            uid: 'mock-uid',
-            email,
-            displayName: email.split('@')[0],
-            role: 'user'
+          // Check if user exists in verified_profiles table
+          const verifiedProfile = VERIFIED_PROFILES.find(profile => profile.email === email);
+          
+          if (!verifiedProfile) {
+            throw new Error('Email not found in verified profiles. Please contact support for access.');
+          }
+          
+          // Validate password
+          if (verifiedProfile.password !== password) {
+            throw new Error('Invalid email or password');
+          }
+          
+          // Create user object from verified profile data
+          const user: User = {
+            uid: `user-${Date.now()}`,
+            email: verifiedProfile.email,
+            displayName: verifiedProfile.displayName,
+            role: verifiedProfile.role
           };
           
           set({ 
-            user: mockUser, 
+            user, 
             isAuthenticated: true, 
             isLoading: false 
           });
@@ -81,9 +114,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         set({ isLoading: true });
         try {
-          // TODO: Implement Firebase Auth logout
-          // await signOut(auth);
-          
+          // Simple frontend logout
           set({ 
             user: null, 
             isAuthenticated: false, 
@@ -101,23 +132,8 @@ export const useAuthStore = create<AuthState>()(
       signUp: async (email, password, displayName) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Implement Firebase Auth signup
-          // const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          // const user = userCredential.user;
-          
-          // Mock signup for now
-          const mockUser: User = {
-            uid: 'mock-uid-' + Date.now(),
-            email,
-            displayName,
-            role: 'user'
-          };
-          
-          set({ 
-            user: mockUser, 
-            isAuthenticated: true, 
-            isLoading: false 
-          });
+          // Signup is disabled - users must be pre-verified
+          throw new Error('New user registration is not allowed. Please contact support to be added to verified profiles.');
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Signup failed', 
@@ -161,6 +177,10 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false 
           });
         }
+      },
+
+      initialize: () => {
+        set({ isInitialized: true });
       },
     }),
     {

@@ -139,9 +139,7 @@ const EndStream: React.FC = () => {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-darkBrown-900 to-transparent animate-pulse" />
       </div>
 
-      {/* Corner Accents */}
-      <div className="absolute top-8 left-8 w-16 h-16 border-2 border-yellow-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }} />
-      <div className="absolute top-8 right-8 w-12 h-12 border-2 border-orange-400/30 rounded-full animate-spin" style={{ animationDuration: '6s', animationDirection: 'reverse' }} />
+
 
       {/* Custom CSS for animations */}
       <style>{`
