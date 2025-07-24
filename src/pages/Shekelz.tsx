@@ -26,12 +26,7 @@ interface ShekelGift {
   recipient_name?: string;
 }
 
-// Interface for verified_profiles table
-interface VerifiedProfile {
-  id: string;
-  shekel_balance: number;
-  // Add other fields as needed
-}
+
 
 interface ShekelSummary {
   total_received: number;
@@ -61,7 +56,7 @@ const Shekelz: React.FC = () => {
   const [shekelSummary, setShekelSummary] = useState<ShekelSummary | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
 
   // Helper method for API calls
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
@@ -103,7 +98,6 @@ const Shekelz: React.FC = () => {
         
         // For now, use a mock user ID - in real app, get from auth
         const userId = 'current-user';
-        setCurrentUserId(userId);
         
         // Fetch user's shekel balance from verified_profiles
         const profile = await apiCall(`/verified-profiles/current`);
@@ -194,7 +188,7 @@ const Shekelz: React.FC = () => {
     };
 
     fetchShekelData();
-  }, []);
+  }, [toast]);
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {

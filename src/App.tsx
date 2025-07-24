@@ -14,7 +14,7 @@ import NotFound from "./pages/NotFound";
 import LiveStream from "./components/LiveStream";
 import EndStream from "./pages/EndStream";
 import ThemeProvider from "./components/ThemeProvider";
-import { useLivestreamStore, useAuthStore } from "./stores";
+import { useLivestreamStore } from "./stores";
 import "./config/firebase"; // Initialize Firebase
 
 function App() {

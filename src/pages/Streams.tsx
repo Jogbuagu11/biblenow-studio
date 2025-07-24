@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/Dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
@@ -13,96 +13,9 @@ import RecentStreams from '../components/Dashboard/RecentStreams';
 import { format } from 'date-fns';
 import { useLivestreamStore } from '../stores';
 
-interface StreamCardProps {
-  id: string;
-  title: string;
-  description: string;
-  date: Date;
-  views?: number;
-  thumbnail?: string;
-  isPast?: boolean;
-  onEdit?: (id: string) => void;
-  onCancel?: (id: string) => void;
-  platform?: string;
-}
 
-const StreamCard = ({ 
-  id, 
-  title, 
-  description, 
-  date, 
-  views, 
-  thumbnail, 
-  isPast = false,
-  onEdit,
-  onCancel,
-  platform
-}: StreamCardProps) => {
-  return (
-    <Card className="overflow-hidden">
-      <div className="relative aspect-video bg-gray-100 dark:bg-chocolate-700">
-        {thumbnail ? (
-          <img 
-            src={thumbnail} 
-            alt={title}
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-16 h-16 text-gray-400 dark:text-chocolate-300">📺</div>
-          </div>
-        )}
-        {isPast && (
-          <div className="absolute top-2 right-2 bg-white/80 dark:bg-chocolate-800/80 px-2 py-1 rounded text-xs font-medium">
-            {views} views
-          </div>
-        )}
-      </div>
-      <CardHeader className="p-4">
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <CardDescription className="text-sm text-gray-600 dark:text-chocolate-200">
-          {date.toLocaleDateString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-          })}
-          {platform && (
-            <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-chocolate-700 rounded-full text-xs">
-              {platform}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <p className="text-sm line-clamp-2">{description}</p>
-      </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-end gap-2">
-        {!isPast && onEdit && onCancel && (
-          <>
-            <Button 
-              onClick={() => onEdit(id)}
-              variant="outline" 
-              size="sm"
-            >
-              <span className="mr-1">✏️</span> Edit
-            </Button>
-            <Button 
-              onClick={() => onCancel(id)}
-              variant="outline" 
-              size="sm"
-              className="text-red-600 hover:text-red-700"
-            >
-              <span className="mr-1">🗑️</span> Cancel
-            </Button>
-          </>
-        )}
-      </CardFooter>
-    </Card>
-  );
-};
+
+
 
 interface EditStreamFormValues {
   title: string;
@@ -113,15 +26,12 @@ interface EditStreamFormValues {
 
 const Streams: React.FC = () => {
   const { scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
-  const [activeTab, setActiveTab] = useState<string>("streams");
-  const [upcomingStreams, setUpcomingStreams] = useState<StreamCardProps[]>([]);
-  const [pastStreams, setPastStreams] = useState<StreamCardProps[]>([]);
+  const [activeTab] = useState<string>("streams");
 
   // Fetch scheduled streams on component mount
   useEffect(() => {
     fetchScheduledStreams();
   }, [fetchScheduledStreams]);
-  const [isLoading, setIsLoading] = useState(false);
   
   // Stream editing states
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -134,11 +44,13 @@ const Streams: React.FC = () => {
     description: "",
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleEditStream = (id: string) => {
     setCurrentStreamId(id);
     setIsEditDialogOpen(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCancelStreamPrompt = (id: string) => {
     setCurrentStreamId(id);
     setIsCancelDialogOpen(true);

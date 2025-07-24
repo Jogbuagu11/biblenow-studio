@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { jaasConfig } from "../config/firebase";
 
 declare global {
@@ -13,7 +13,6 @@ interface Props {
 }
 
 const LiveStream: React.FC<Props> = ({ roomName }) => {
-  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
 
