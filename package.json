@@ -2,7 +2,7 @@
   "name": "jaas-livestream-app",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://studio.biblenow.io",
+
   "dependencies": {
     "@supabase/supabase-js": "^2.52.1",
     "@testing-library/jest-dom": "^5.16.4",
