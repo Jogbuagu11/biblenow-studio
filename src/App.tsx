@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes, useNavigate } from "react-router-dom";
 import Landing from "./pages/Landing";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Schedule from "./pages/Schedule";
 import Streams from "./pages/Streams";
@@ -14,67 +15,38 @@ import NotFound from "./pages/NotFound";
 import LiveStream from "./components/LiveStream";
 import EndStream from "./pages/EndStream";
 import ThemeProvider from "./components/ThemeProvider";
-import { useLivestreamStore } from "./stores";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { useLivestreamStore, useAuthStore } from "./stores";
 import "./config/firebase"; // Initialize Firebase
 
 function App() {
+  const { initialize } = useAuthStore();
+
+  React.useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   return (
     <ThemeProvider>
       <Router>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Landing />} />
-          <Route path="/dashboard" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Dashboard />
-            </div>
-          } />
-          <Route path="/schedule" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Schedule />
-            </div>
-          } />
-          <Route path="/streams" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Streams />
-            </div>
-          } />
-          <Route path="/go-live" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <GoLive />
-            </div>
-          } />
-          <Route path="/live-stream" element={<LiveStreamPage />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/endstream" element={<EndStream />} />
-          <Route path="/viewers" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Viewers />
-            </div>
-          } />
-          <Route path="/shekelz" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Shekelz />
-            </div>
-          } />
-          <Route path="/payments" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Payments />
-            </div>
-          } />
-          <Route path="/analytics" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Analytics />
-            </div>
-          } />
-          <Route path="/settings" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <Settings />
-            </div>
-          } />
-          <Route path="*" element={
-            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
-              <NotFound />
-            </div>
-          } />
+
+          {/* Protected Routes */}
+          <Route path="/dashboard" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Dashboard /></div></ProtectedRoute>} />
+          <Route path="/schedule" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Schedule /></div></ProtectedRoute>} />
+          <Route path="/streams" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Streams /></div></ProtectedRoute>} />
+          <Route path="/go-live" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><GoLive /></div></ProtectedRoute>} />
+          <Route path="/live-stream" element={<ProtectedRoute><LiveStreamPage /></ProtectedRoute>} />
+          <Route path="/viewers" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Viewers /></div></ProtectedRoute>} />
+          <Route path="/shekelz" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Shekelz /></div></ProtectedRoute>} />
+          <Route path="/payments" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Payments /></div></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Analytics /></div></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Settings /></div></ProtectedRoute>} />
+          <Route path="*" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><NotFound /></div></ProtectedRoute>} />
         </Routes>
       </Router>
     </ThemeProvider>
