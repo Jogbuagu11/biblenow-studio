@@ -1,77 +1,174 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, useNavigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
+import Schedule from "./pages/Schedule";
+import Streams from "./pages/Streams";
+import GoLive from "./pages/GoLive";
+import Viewers from "./pages/Viewers";
+import Shekelz from "./pages/Shekelz";
+import Payments from "./pages/Payments";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import LiveStream from "./components/LiveStream";
+import EndStream from "./pages/EndStream";
+import ThemeProvider from "./components/ThemeProvider";
+import { useLivestreamStore, useAuthStore } from "./stores";
+import "./config/firebase"; // Initialize Firebase
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/live-stream" element={<LiveStreamPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Dashboard />
+            </div>
+          } />
+          <Route path="/schedule" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Schedule />
+            </div>
+          } />
+          <Route path="/streams" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Streams />
+            </div>
+          } />
+          <Route path="/go-live" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <GoLive />
+            </div>
+          } />
+          <Route path="/live-stream" element={<LiveStreamPage />} />
+          <Route path="/endstream" element={<EndStream />} />
+          <Route path="/viewers" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Viewers />
+            </div>
+          } />
+          <Route path="/shekelz" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Shekelz />
+            </div>
+          } />
+          <Route path="/payments" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Payments />
+            </div>
+          } />
+          <Route path="/analytics" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Analytics />
+            </div>
+          } />
+          <Route path="/settings" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <Settings />
+            </div>
+          } />
+          <Route path="*" element={
+            <div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200">
+              <NotFound />
+            </div>
+          } />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 
 // LiveStream page component
 const LiveStreamPage: React.FC = () => {
-  const [isStreaming, setIsStreaming] = React.useState(false);
-  const [roomName, setRoomName] = React.useState("vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372/SampleRoom123");
-  const [jwt, setJwt] = React.useState("");
+  const navigate = useNavigate();
+  const { isStreaming, setIsStreaming, currentStream, stopStream } = useLivestreamStore();
+  
+  const [roomName, setRoomName] = React.useState("");
 
-  return isStreaming ? (
-    <div style={{ height: "100vh" }}>
-      <button 
-        onClick={() => setIsStreaming(false)}
-        className="absolute top-4 left-4 z-10 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-      >
-        Stop Stream
-      </button>
-      <LiveStream roomName={roomName} jwt={jwt} />
-    </div>
-  ) : (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">BibleNOW Studio - Live Stream</h1>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Room Name
-            </label>
-            <input
-              type="text"
-              placeholder="Room name"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              JWT (optional)
-            </label>
-            <textarea
-              placeholder="JWT (optional)"
-              value={jwt}
-              onChange={(e) => setJwt(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              rows={4}
-            />
-          </div>
+  // Parse URL parameters on component mount
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    
+    if (roomParam) {
+      setRoomName(roomParam);
+      setIsStreaming(true);
+    }
+  }, [setIsStreaming]);
+
+  // Cleanup when component unmounts
+  React.useEffect(() => {
+    return () => {
+      // If we're leaving the stream page and still streaming, stop the stream
+      if (isStreaming && currentStream) {
+        stopStream(currentStream.id);
+        setIsStreaming(false);
+      }
+    };
+  }, [isStreaming, currentStream, stopStream, setIsStreaming]);
+
+  const handleStartStream = () => {
+    if (!roomName.trim()) {
+      alert("Please enter a room name");
+      return;
+    }
+    setIsStreaming(true);
+  };
+
+  return (
+    <>
+      {isStreaming ? (
+        <div style={{ height: "100vh" }}>
           <button 
-            onClick={() => setIsStreaming(true)}
-            className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md font-semibold hover:bg-indigo-700 transition-colors"
+            onClick={async () => {
+              setIsStreaming(false);
+              if (currentStream) {
+                await stopStream(currentStream.id);
+              }
+              navigate('/dashboard');
+            }}
+            className="absolute top-4 left-4 z-10 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
           >
-            Start Livestream
+            Stop Stream
           </button>
+          <LiveStream roomName={roomName} />
         </div>
-      </div>
-    </div>
+      ) : (
+        <div className="min-h-screen p-8 transition-colors duration-200">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 transition-colors duration-200">BibleNOW Studio - Live Stream</h1>
+            <div className="bg-offWhite-25 dark:bg-chocolate-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+                  Room Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter room name (letters, numbers, hyphens, underscores only)"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-chocolate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-chocolate-500 bg-white dark:bg-chocolate-700 text-gray-900 dark:text-white transition-colors duration-200"
+                  required
+                />
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 transition-colors duration-200">
+                  Room names can contain letters, numbers, hyphens, and underscores. Avoid special characters and spaces.
+                </p>
+              </div>
+              <button 
+                onClick={handleStartStream}
+                disabled={!roomName.trim()}
+                className="w-full bg-chocolate-600 text-white py-3 px-4 rounded-md font-semibold hover:bg-chocolate-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Start Livestream
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -9,9 +9,214 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  @apply transition-colors duration-200;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Dark mode transitions */
+* {
+  @apply transition-colors duration-200;
+}
+
+/* Light mode warm beige background */
+body {
+  background-color: #f2ece2 !important;
+}
+
+html {
+  background-color: #f2ece2 !important;
+}
+
+#root {
+  background-color: #f2ece2 !important;
+  min-height: 100vh;
+}
+
+/* Custom dark mode styles - Dark Brown Theme */
+.dark body {
+  background-color: #2e2213 !important; /* darkBrown-900 */
+  color: white !important;
+}
+
+/* Ensure the entire app has brown background in dark mode */
+.dark #root {
+  background-color: #2e2213 !important; /* darkBrown-900 */
+  min-height: 100vh;
+}
+
+.dark html {
+  background-color: #2e2213 !important; /* darkBrown-900 */
+}
+
+.dark .bg-white {
+  @apply bg-darkBrown-700;
+}
+
+.dark .text-gray-900 {
+  @apply text-white;
+}
+
+.dark .text-gray-600 {
+  @apply text-darkBrown-200;
+}
+
+.dark .text-gray-500 {
+  @apply text-darkBrown-300;
+}
+
+.dark .border-gray-200 {
+  @apply border-darkBrown-700;
+}
+
+.dark .border-gray-300 {
+  @apply border-darkBrown-600;
+}
+
+.dark .bg-gray-50 {
+  @apply bg-darkBrown-700;
+}
+
+.dark .bg-gray-100 {
+  @apply bg-darkBrown-500;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  @apply hover:bg-darkBrown-500;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  @apply hover:bg-darkBrown-500;
+}
+
+/* Remove any remaining amber/orange colors */
+.dark .bg-amber-600,
+.dark .bg-amber-700,
+.dark .hover\:bg-amber-600:hover,
+.dark .hover\:bg-amber-700:hover {
+  background-color: transparent !important;
+}
+
+/* Remove amber overrides to prevent orange colors */
+
+/* Dark mode focus ring overrides for better visibility */
+.dark .focus\:ring-yellow-500:focus {
+  --tw-ring-color: #fbbf24 !important;
+}
+
+.dark .focus\:ring-yellow-600:focus {
+  --tw-ring-color: #d97706 !important;
+}
+
+/* Ensure yellow buttons look good in dark mode */
+.dark .bg-yellow-500 {
+  background-color: #f59e0b !important;
+}
+
+.dark .bg-yellow-600 {
+  background-color: #d97706 !important;
+}
+
+.dark .hover\:bg-yellow-600:hover {
+  background-color: #b45309 !important;
+}
+
+.dark .hover\:bg-yellow-700:hover {
+  background-color: #92400e !important;
+}
+
+/* Reduce gold border opacity by 50% globally */
+.dark .border-yellow-500 {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.dark .border-yellow-600 {
+  border-color: rgba(217, 119, 6, 0.25) !important;
+}
+
+.dark .border-yellow-400 {
+  border-color: rgba(251, 191, 36, 0.25) !important;
+}
+
+.dark .border-yellow-300 {
+  border-color: rgba(253, 224, 71, 0.25) !important;
+}
+
+/* Force dark mode on main containers */
+.dark .min-h-screen {
+  @apply bg-darkBrown-900;
+}
+
+/* Remove amber border and text overrides */
+
+/* Remove amber hover and focus overrides */
+
+/* Landing page overrides - always use light theme */
+.dark .landing-page .bg-white {
+  background-color: #ffffff !important;
+}
+
+/* Light mode warm beige overrides - but allow dark mode to work properly */
+
+.bg-gray-50 {
+  background-color: #f2ece2 !important;
+}
+
+.bg-gray-100 {
+  background-color: #ede6dc !important;
+}
+
+.dark .landing-page .text-gray-900 {
+  color: #111827 !important;
+}
+
+.dark .landing-page .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.dark .landing-page .text-gray-700 {
+  color: #374151 !important;
+}
+
+.dark .landing-page .border-gray-300 {
+  border-color: #d1d5db !important;
+}
+
+.dark .landing-page .hover\:bg-gray-50:hover {
+  background-color: #f9fafb !important;
+}
+
+/* Additional dark mode overrides for brown theme */
+.dark .bg-gray-800 {
+  @apply bg-darkBrown-700;
+}
+
+.dark .bg-gray-900 {
+  @apply bg-darkBrown-900;
+}
+
+.dark .border-gray-700 {
+  @apply border-darkBrown-700;
+}
+
+.dark .text-gray-300 {
+  @apply text-darkBrown-200;
+}
+
+.dark .text-gray-400 {
+  @apply text-darkBrown-400;
+}
+
+/* Force specific overrides for problematic elements */
+.dark .bg-gray-100 {
+  background-color: #7d5d2f !important; /* darkBrown-500 instead of light yellow */
+}
+
+.dark .text-gray-600 {
+  color: #d1c2a8 !important;
+}
+
+/* Dark mode styling is now handled by Tailwind classes */

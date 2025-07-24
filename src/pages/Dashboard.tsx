@@ -4,6 +4,7 @@ import DashboardHeader from '../components/Dashboard/DashboardHeader';
 import MetricCard from '../components/Dashboard/MetricCard';
 import UsageCard from '../components/Dashboard/UsageCard';
 import ChartCard from '../components/Dashboard/ChartCard';
+import WeeklyUsageBar from '../components/Dashboard/WeeklyUsageBar';
 
 const Dashboard: React.FC = () => {
   return (
@@ -16,34 +17,42 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard 
           title="Total Views" 
-          value="12,847" 
-          change="+12% from last month"
-          changeType="positive"
+          value="0" 
+          change="No change from last month"
+          changeType="neutral"
         />
         <MetricCard 
           title="Active Streams" 
-          value="3" 
-          change="+1 from yesterday"
-          changeType="positive"
+          value="0" 
+          change="No change from yesterday"
+          changeType="neutral"
         />
         <MetricCard 
-          title="Subscribers" 
-          value="1,234" 
-          change="+5% from last week"
-          changeType="positive"
+          title="Followers" 
+          value="0" 
+          change="No change from last week"
+          changeType="neutral"
         />
         <MetricCard 
           title="Revenue" 
-          value="$2,847" 
-          change="-2% from last month"
-          changeType="negative"
+          value="$0" 
+          change="No change from last month"
+          changeType="neutral"
         />
       </div>
+
+      {/* Weekly Streaming Usage Bar */}
+      <WeeklyUsageBar 
+        currentHours={0}
+        weeklyLimit={3}
+        unit="hours"
+        daysRemaining={7}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UsageCard 
           title="Storage Usage" 
-          current={45.2} 
+          current={0} 
           limit={100} 
           unit="GB"
         />

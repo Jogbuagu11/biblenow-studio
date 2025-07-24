@@ -13,7 +13,7 @@ const NotFound: React.FC = () => {
         <div className="space-x-4">
           <Link 
             to="/" 
-            className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+            className="bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-700 transition-colors"
           >
             Go Home
           </Link>
