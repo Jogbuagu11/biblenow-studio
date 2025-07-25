@@ -17,6 +17,7 @@ const Schedule: React.FC = () => {
   const [formState, setFormState] = useState({
     title: "",
     description: "",
+    thumbnailUrl: "",
     platform: "",
     streamType: "video",
     date: null as Date | null,
@@ -104,7 +105,7 @@ const Schedule: React.FC = () => {
         scheduled_at: dateTime.toISOString(),
         embed_url: '',
         stream_key: '',
-        thumbnail_url: undefined,
+        thumbnail_url: formState.thumbnailUrl || undefined,
         stream_mode: 'solo',
         tags: [],
         flag_count: 0,
@@ -166,6 +167,7 @@ const Schedule: React.FC = () => {
       setFormState({
         title: "",
         description: "",
+        thumbnailUrl: "",
         platform: "",
         streamType: "video",
         date: null,
@@ -299,6 +301,22 @@ const Schedule: React.FC = () => {
                       onChange={handleInputChange}
                       rows={3}
                     />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="thumbnailUrl">Thumbnail Image URL</Label>
+                    <Input 
+                      id="thumbnailUrl" 
+                      name="thumbnailUrl"
+                      type="url"
+                      placeholder="https://example.com/thumbnail.jpg"
+                      value={formState.thumbnailUrl}
+                      onChange={handleInputChange}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-chocolate-200 mt-1">
+                      Recommended dimensions: 1280x720 pixels (16:9 aspect ratio). 
+                      Maximum file size: 5MB. Supported formats: JPG, PNG, GIF.
+                    </p>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
