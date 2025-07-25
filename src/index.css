@@ -220,3 +220,39 @@ html {
 }
 
 /* Dark mode styling is now handled by Tailwind classes */
+
+/* Dropdown suggestion text color - make it white */
+.dark .text-gray-400 {
+  @apply text-white;
+}
+
+/* Dropdown menu highlight colors - light brown */
+.dark .hover\:bg-gray-100:hover {
+  background-color: #d1c2a8 !important; /* darkBrown-200 - light brown */
+}
+
+.dark .focus\:bg-gray-100:focus {
+  background-color: #d1c2a8 !important; /* darkBrown-200 - light brown */
+}
+
+/* Ensure dropdown items have white text */
+.dark .text-sm {
+  color: white !important;
+}
+
+/* Specific override for dropdown content */
+.dark .absolute.z-50.w-full.mt-1.bg-white.border.border-gray-300.rounded-md.shadow-lg.max-h-60.overflow-auto {
+  background-color: #3d2d18 !important; /* darkBrown-800 */
+  border-color: #4f3a1e !important; /* darkBrown-700 */
+}
+
+/* Dropdown item hover states */
+.dark .w-full.px-3.py-2.text-sm.text-left.hover\:bg-gray-100.focus\:bg-gray-100.focus\:outline-none:hover {
+  background-color: #d1c2a8 !important; /* darkBrown-200 - light brown */
+  color: white !important;
+}
+
+.dark .w-full.px-3.py-2.text-sm.text-left.hover\:bg-gray-100.focus\:bg-gray-100.focus\:outline-none:focus {
+  background-color: #d1c2a8 !important; /* darkBrown-200 - light brown */
+  color: white !important;
+}
