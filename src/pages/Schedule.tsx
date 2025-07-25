@@ -87,9 +87,6 @@ const Schedule: React.FC = () => {
       const [hours, minutes] = formState.time.split(':');
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
-      // Convert to ISO string for the database
-      const startedAt = dateTime.toISOString();
-      
       // Create room name
       const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
       const cleanRoomName = formState.title
