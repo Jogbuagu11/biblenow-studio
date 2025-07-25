@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
   jitsi_room_config JSONB DEFAULT '{}',
   room_name VARCHAR(255),
   livestream_type VARCHAR(50) DEFAULT 'public',
-  redirect_url TEXT
+  redirect_url TEXT,
+  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled'))
 );
 
 -- Create indexes for better performance
