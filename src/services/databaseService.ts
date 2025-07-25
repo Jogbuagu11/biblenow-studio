@@ -249,6 +249,36 @@ class DatabaseService {
       .eq('is_live', true);
     if (error) throw new Error(error.message);
   }
+
+  // End stream when user lands on endstream page
+  async endStreamOnRedirect(userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('livestreams')
+      .update({
+        is_live: false,
+        ended_at: new Date().toISOString(),
+        status: 'ended',
+        updated_at: new Date().toISOString()
+      })
+      .eq('streamer_id', userId)
+      .eq('is_live', true);
+    if (error) throw new Error(error.message);
+  }
+
+  // End stream by ID (for manual ending)
+  async endStreamById(streamId: string): Promise<void> {
+    const { error } = await supabase
+      .from('livestreams')
+      .update({
+        is_live: false,
+        ended_at: new Date().toISOString(),
+        status: 'ended',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', streamId)
+      .eq('is_live', true);
+    if (error) throw new Error(error.message);
+  }
 }
 
 export const databaseService = new DatabaseService();

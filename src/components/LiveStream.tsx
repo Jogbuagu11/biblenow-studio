@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { jaasConfig } from "../config/firebase";
 import { useAuthStore } from "../stores";
 import jwtAuthService from "../services/jwtAuthService";
+import { databaseService } from "../services/databaseService";
 
 declare global {
   interface Window {
@@ -91,15 +92,33 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
 
     // Add event listeners for meeting end
     apiRef.current.addEventListeners({
-      readyToClose: () => {
+      readyToClose: async () => {
         console.log('Meeting ready to close');
+        // End the stream in database before redirecting
+        if (user) {
+          try {
+            await databaseService.endStreamOnRedirect(user.uid);
+            console.log('Stream ended in database');
+          } catch (error) {
+            console.error('Error ending stream:', error);
+          }
+        }
         window.location.href = '/endstream';
       },
       videoConferenceJoined: () => {
         console.log('Joined video conference');
       },
-      videoConferenceLeft: () => {
+      videoConferenceLeft: async () => {
         console.log('Left video conference');
+        // End the stream in database before redirecting
+        if (user) {
+          try {
+            await databaseService.endStreamOnRedirect(user.uid);
+            console.log('Stream ended in database');
+          } catch (error) {
+            console.error('Error ending stream:', error);
+          }
+        }
         window.location.href = '/endstream';
       },
       participantLeft: (participant: any) => {
@@ -108,8 +127,17 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
       participantJoined: (participant: any) => {
         console.log('Participant joined:', participant);
       },
-      hangup: () => {
+      hangup: async () => {
         console.log('Meeting hung up');
+        // End the stream in database before redirecting
+        if (user) {
+          try {
+            await databaseService.endStreamOnRedirect(user.uid);
+            console.log('Stream ended in database');
+          } catch (error) {
+            console.error('Error ending stream:', error);
+          }
+        }
         window.location.href = '/endstream';
       }
     });

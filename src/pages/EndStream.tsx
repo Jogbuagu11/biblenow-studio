@@ -1,9 +1,26 @@
 import React, { useEffect, useState } from 'react';
+import { useAuthStore } from '../stores/authStore';
+import { databaseService } from '../services/databaseService';
 
 const EndStream: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { user } = useAuthStore();
 
   useEffect(() => {
+    // End any active streams when landing on endstream page
+    const endActiveStreams = async () => {
+      if (user) {
+        try {
+          await databaseService.endStreamOnRedirect(user.uid);
+          console.log('Active streams ended for user:', user.uid);
+        } catch (error) {
+          console.error('Error ending streams:', error);
+        }
+      }
+    };
+
+    endActiveStreams();
+
     // Update time every second
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
@@ -12,7 +29,7 @@ const EndStream: React.FC = () => {
     return () => {
       clearInterval(timeInterval);
     };
-  }, []);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-darkBrown-900 via-darkBrown-800 to-chocolate-900 overflow-hidden relative">
