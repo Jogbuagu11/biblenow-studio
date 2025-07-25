@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
   room_name VARCHAR(255),
   livestream_type VARCHAR(50) DEFAULT 'public',
   redirect_url TEXT,
-  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled'))
+  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled')),
+  category VARCHAR(100) DEFAULT 'general'
 );
 
 -- Create indexes for better performance

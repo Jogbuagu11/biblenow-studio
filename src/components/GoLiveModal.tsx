@@ -46,6 +46,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     stream_mode: 'solo' as 'solo' | 'interactive',
     is_scheduled: false,
     redirect_url: 'https://stream.biblenow.io/endstream',
+    category: 'general',
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
@@ -166,6 +167,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
         max_viewers: 0,
         jitsi_room_config: {},
         redirect_url: formData.redirect_url || undefined,
+        category: formData.category,
       };
 
       const newStream = await createStream(streamData);

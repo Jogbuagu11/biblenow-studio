@@ -32,6 +32,7 @@ export interface StreamInfo {
   room_name?: string;
   livestream_type: string; // default 'public'
   redirect_url?: string; // Custom redirect URL when stream ends
+  category?: string; // Stream category
 }
 
 export interface LivestreamState {
