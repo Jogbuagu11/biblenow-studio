@@ -12,7 +12,7 @@ import { useLivestreamStore } from '../stores';
 import { useEffect } from 'react';
 
 const Schedule: React.FC = () => {
-  const { createStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
+  const { createScheduledStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
   const [date, setDate] = useState<Date>();
   const [formState, setFormState] = useState({
     title: "",
@@ -154,13 +154,13 @@ const Schedule: React.FC = () => {
         
         // Create all streams
         for (const episodeStream of streams) {
-          await createStream(episodeStream);
+          await createScheduledStream(episodeStream);
         }
         
         alert(`Recurring Stream Series Created: ${episodes} episodes of "${formState.title}" have been scheduled!`);
       } else {
         // Create single stream
-        await createStream(streamData);
+        await createScheduledStream(streamData);
         alert(`Stream Scheduled: ${formState.title} has been scheduled for ${format(dateTime, "PPP 'at' p")}`);
       }
       

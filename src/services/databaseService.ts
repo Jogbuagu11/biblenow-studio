@@ -1,5 +1,6 @@
 import { dbConfig } from '../config/firebase';
 import { StreamInfo } from '../stores/livestreamStore';
+import { supabase } from '../config/supabase';
 
 class DatabaseService {
   private apiUrl: string;
@@ -44,12 +45,54 @@ class DatabaseService {
     }
   }
 
-  // Create a new livestream
-  async createLivestream(streamData: Omit<StreamInfo, 'id' | 'created_at' | 'updated_at' | 'is_live' | 'viewer_count'>): Promise<StreamInfo> {
-    return this.apiCall('/livestreams', {
-      method: 'POST',
-      body: JSON.stringify(streamData),
-    });
+  // Check if user has an active livestream
+  async hasActiveLivestream(userId: string) {
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('id')
+      .eq('streamer_id', userId)
+      .eq('is_live', true)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return !!data;
+  }
+
+  // Create a scheduled stream (not live yet)
+  async createScheduledStream(livestreamData: any) {
+    const { data, error } = await supabase
+      .from('livestreams')
+      .insert([{
+        ...livestreamData,
+        is_live: false,
+        started_at: null,
+        ended_at: null,
+        viewer_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  // Create a new livestream (for going live)
+  async createLivestream(livestreamData: any) {
+    const { data, error } = await supabase
+      .from('livestreams')
+      .insert([{
+        ...livestreamData,
+        is_live: true,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        viewer_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   // Get all livestreams

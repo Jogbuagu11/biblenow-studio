@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { databaseService } from '../services/databaseService';
+import { useAuthStore } from './authStore';
 
 export interface StreamInfo {
   id: string; // UUID
@@ -57,6 +58,7 @@ export interface LivestreamState {
   stopStream: (streamId: string) => Promise<void>;
   updateStream: (streamId: string, updates: Partial<StreamInfo>) => Promise<void>;
   deleteStream: (streamId: string) => Promise<void>;
+  createScheduledStream: (streamData: Omit<StreamInfo, 'id' | 'created_at' | 'updated_at' | 'is_live' | 'viewer_count'>) => Promise<StreamInfo>;
   
   // Stream fetching
   fetchStreams: () => Promise<void>;
@@ -94,20 +96,59 @@ export const useLivestreamStore = create<LivestreamState>()(
       createStream: async (streamData) => {
         set({ isLoading: true, error: null });
         try {
-          const newStream = await databaseService.createLivestream(streamData);
+          const { user } = useAuthStore.getState();
+          if (!user) throw new Error('User not authenticated');
+          // 1. Check for active stream
+          const hasActive = await databaseService.hasActiveLivestream(user.uid);
+          if (hasActive) throw new Error('You already have an active livestream. Please end it before starting a new one.');
+          // 2. Add streamer_id
+          const newStream = await databaseService.createLivestream({
+            ...streamData,
+            streamer_id: user.uid,
+            is_live: true,
+            started_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
           const { streams } = get();
           const updatedStreams = [...streams, newStream];
-          
           set({ 
             streams: updatedStreams,
             currentStream: newStream,
             isLoading: false 
           });
-
           return newStream;
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Failed to create stream', 
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      createScheduledStream: async (streamData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { user } = useAuthStore.getState();
+          if (!user) throw new Error('User not authenticated');
+          
+          // Add streamer_id for scheduled stream
+          const newStream = await databaseService.createScheduledStream({
+            ...streamData,
+            streamer_id: user.uid,
+          });
+          
+          const { scheduledStreams } = get();
+          const updatedScheduledStreams = [...scheduledStreams, newStream];
+          set({ 
+            scheduledStreams: updatedScheduledStreams,
+            isLoading: false 
+          });
+          return newStream;
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to create scheduled stream', 
             isLoading: false 
           });
           throw error;
