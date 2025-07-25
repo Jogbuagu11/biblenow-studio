@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
   is_live BOOLEAN DEFAULT false,
   started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   embed_url TEXT,
   stream_type VARCHAR(50) DEFAULT 'video',
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
 CREATE INDEX IF NOT EXISTS idx_livestreams_streamer_id ON public.livestreams(streamer_id);
 CREATE INDEX IF NOT EXISTS idx_livestreams_is_live ON public.livestreams(is_live);
 CREATE INDEX IF NOT EXISTS idx_livestreams_scheduled_at ON public.livestreams(scheduled_at);
-CREATE INDEX IF NOT EXISTS idx_livestreams_created_at ON public.livestreams(created_at);
+
 CREATE INDEX IF NOT EXISTS idx_livestreams_platform ON public.livestreams(platform);
 CREATE INDEX IF NOT EXISTS idx_livestreams_room_name ON public.livestreams(room_name);
 

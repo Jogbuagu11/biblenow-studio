@@ -34,7 +34,6 @@ class DatabaseService {
         const mockStream = {
           id: `mock_${Date.now()}`,
           ...JSON.parse(options.body as string),
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           is_live: false,
           viewer_count: 0,
@@ -73,7 +72,6 @@ class DatabaseService {
         started_at: null,
         ended_at: null,
         viewer_count: 0,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
       .select()
@@ -92,7 +90,6 @@ class DatabaseService {
         started_at: new Date().toISOString(),
         ended_at: null,
         viewer_count: 0,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
       .select()
@@ -106,7 +103,7 @@ class DatabaseService {
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data || [];
   }

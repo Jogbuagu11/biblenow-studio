@@ -11,7 +11,7 @@ export interface StreamInfo {
   is_live: boolean;
   started_at?: string; // timestamptz
   ended_at?: string; // timestamptz
-  created_at: string; // timestamptz
+
   embed_url?: string;
   stream_type?: string;
   platform?: string;
@@ -50,12 +50,12 @@ export interface LivestreamState {
   clearError: () => void;
   
   // Stream management
-  createStream: (streamData: Omit<StreamInfo, 'id' | 'created_at' | 'updated_at' | 'is_live' | 'viewer_count'>) => Promise<StreamInfo>;
+  createStream: (streamData: Omit<StreamInfo, 'id' | 'updated_at' | 'is_live' | 'viewer_count'>) => Promise<StreamInfo>;
   startStream: (streamId: string) => Promise<void>;
   stopStream: (streamId: string) => Promise<void>;
   updateStream: (streamId: string, updates: Partial<StreamInfo>) => Promise<void>;
   deleteStream: (streamId: string) => Promise<void>;
-  createScheduledStream: (streamData: Omit<StreamInfo, 'id' | 'created_at' | 'updated_at' | 'is_live' | 'viewer_count'>) => Promise<StreamInfo>;
+  createScheduledStream: (streamData: Omit<StreamInfo, 'id' | 'updated_at' | 'is_live' | 'viewer_count'>) => Promise<StreamInfo>;
   
   // Stream fetching
   fetchStreams: () => Promise<void>;
@@ -107,7 +107,7 @@ export const useLivestreamStore = create<LivestreamState>()(
             streamer_id: user.uid,
             is_live: true,
             started_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
+
             updated_at: new Date().toISOString(),
           });
           const { streams } = get();
