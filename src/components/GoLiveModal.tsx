@@ -77,6 +77,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       setFormData((prev) => ({ 
         ...prev, 
         platform: value, 
+        category: value, // Set category to match platform
         stream_type: streamType,
         embed_url: embedUrl,
         stream_key: streamKey,
