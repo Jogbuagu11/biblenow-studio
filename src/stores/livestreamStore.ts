@@ -17,22 +17,18 @@ export interface StreamInfo {
   platform?: string;
   stream_key?: string;
   thumbnail_url?: string;
-  owner_id?: string; // UUID
   stream_url?: string;
-  start_time: string; // timestamptz
+  scheduled_at?: string; // timestamptz - when stream is scheduled to start
   updated_at: string; // timestamptz
   flag_count: number;
   is_hidden: boolean;
-  type: string; // default 'video'
   stream_mode: string; // default 'solo'
   tags: string[];
   viewer_count: number;
   max_viewers: number;
   jitsi_room_config?: any; // jsonb
   room_name?: string;
-  livestream_type: string; // default 'public'
   redirect_url?: string; // Custom redirect URL when stream ends
-  category?: string; // Stream category
 }
 
 export interface LivestreamState {

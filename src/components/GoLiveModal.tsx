@@ -42,11 +42,10 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     stream_type: 'video' as 'video' | 'audio' | 'call-based',
     embed_url: '',
     stream_key: '',
-    start_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    scheduled_at: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     stream_mode: 'solo' as 'solo' | 'interactive',
     is_scheduled: false,
     redirect_url: 'https://stream.biblenow.io/endstream',
-    category: 'livestream',
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
@@ -77,7 +76,6 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       setFormData((prev) => ({ 
         ...prev, 
         platform: value, 
-        category: value, // Set category to match platform
         stream_type: streamType,
         embed_url: embedUrl,
         stream_key: streamKey,
@@ -119,7 +117,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       return false;
     }
 
-    if (!formData.start_time) {
+    if (!formData.scheduled_at) {
       alert("Please set a start time for your stream");
       return false;
     }
@@ -155,20 +153,18 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
         room_name: `${jaasAppId}/${cleanRoomName}`,
         platform: formData.platform,
         stream_type: formData.stream_type,
-        start_time: formData.start_time,
+        scheduled_at: formData.scheduled_at,
+        started_at: formData.scheduled_at, // For immediate streams, scheduled = started
         embed_url: formData.embed_url,
         stream_key: formData.stream_key,
         thumbnail_url: thumbnailPreview || undefined,
-        type: formData.stream_type,
         stream_mode: formData.stream_mode,
-        livestream_type: 'public',
         tags: [],
         flag_count: 0,
         is_hidden: false,
         max_viewers: 0,
         jitsi_room_config: {},
         redirect_url: formData.redirect_url || undefined,
-        category: formData.category,
       };
 
       const newStream = await createStream(streamData);
@@ -277,15 +273,15 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
 
           {/* Start Time */}
           <div>
-            <label htmlFor="start_time" className="block text-sm font-semibold text-gray-900 dark:text-yellow-100 mb-3">
+            <label htmlFor="scheduled_at" className="block text-sm font-semibold text-gray-900 dark:text-yellow-100 mb-3">
               Start Time <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <Input
-                id="start_time"
-                name="start_time"
+                id="scheduled_at"
+                name="scheduled_at"
                 type="datetime-local"
-                value={formData.start_time}
+                value={formData.scheduled_at}
                 onChange={handleInputChange}
                 required
                 className="h-12 border border-gray-300 dark:border-darkBrown-600 focus:border-yellow-500 focus:ring-yellow-500 dark:bg-darkBrown-800 dark:text-yellow-300 dark:placeholder-white"

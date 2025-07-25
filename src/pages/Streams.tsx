@@ -144,7 +144,7 @@ const Streams: React.FC = () => {
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600 dark:text-chocolate-200">Next episode:</span>
                           <span className="text-gray-900 dark:text-white">
-                            {format(new Date(series.nextEpisode.start_time), "MMM d, yyyy 'at' h:mm a")}
+                            {format(new Date(series.nextEpisode.scheduled_at || 0), "MMM d, yyyy 'at' h:mm a")}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">

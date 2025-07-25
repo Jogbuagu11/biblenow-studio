@@ -88,7 +88,7 @@ const Schedule: React.FC = () => {
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       // Convert to ISO string for the database
-      const startTime = dateTime.toISOString();
+      const startedAt = dateTime.toISOString();
       
       // Create room name
       const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
@@ -104,13 +104,11 @@ const Schedule: React.FC = () => {
         room_name: `${jaasAppId}/${cleanRoomName}`,
         platform: formState.platform,
         stream_type: formState.streamType,
-        start_time: startTime,
+        scheduled_at: dateTime.toISOString(),
         embed_url: '',
         stream_key: '',
         thumbnail_url: undefined,
-        type: formState.streamType,
         stream_mode: 'solo',
-        livestream_type: 'public',
         tags: [],
         flag_count: 0,
         is_hidden: false,
@@ -145,7 +143,7 @@ const Schedule: React.FC = () => {
           const episodeStreamData = {
             ...streamData,
             title: `${formState.title} - Episode ${i + 1}`,
-            start_time: episodeDateTime.toISOString(),
+            scheduled_at: episodeDateTime.toISOString(),
             room_name: `${jaasAppId}/${cleanRoomName}_ep${i + 1}`,
           };
           
@@ -232,7 +230,8 @@ const Schedule: React.FC = () => {
                       <div className="space-y-2">
                         {scheduledStreams
                           .filter(stream => {
-                            const streamDate = new Date(stream.start_time);
+                            // For display, use scheduled_at for future streams
+                            const streamDate = new Date(stream.scheduled_at || 0);
                             return streamDate.toDateString() === date.toDateString();
                           })
                           .map(stream => (
@@ -242,7 +241,7 @@ const Schedule: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{stream.title}</p>
                                   <p className="text-gray-700 dark:text-darkBrown-200 text-xs">
-                                    {format(new Date(stream.start_time), "h:mm a")} - {stream.platform}
+                                    {format(new Date(stream.scheduled_at || 0), "h:mm a")} - {stream.platform}
                                   </p>
                                   {stream.description && (
                                     <p className="text-gray-600 dark:text-darkBrown-200 mt-1 text-xs line-clamp-2">{stream.description}</p>
@@ -252,7 +251,8 @@ const Schedule: React.FC = () => {
                             </div>
                           ))}
                         {scheduledStreams.filter(stream => {
-                          const streamDate = new Date(stream.start_time);
+                          // For display, use scheduled_at for future streams
+                          const streamDate = new Date(stream.scheduled_at || 0);
                           return streamDate.toDateString() === date.toDateString();
                         }).length === 0 && (
                           <div className="text-center py-3">

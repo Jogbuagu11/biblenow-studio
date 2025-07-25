@@ -190,8 +190,8 @@ class DatabaseService {
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .gte('start_time', new Date().toISOString())
-      .order('start_time', { ascending: true });
+      .gte('scheduled_at', new Date().toISOString())
+      .order('scheduled_at', { ascending: true });
     if (error) throw new Error(error.message);
     return data || [];
   }
@@ -202,8 +202,8 @@ class DatabaseService {
       .from('livestreams')
       .select('*')
       .eq('is_live', false)
-      .gte('start_time', new Date().toISOString())
-      .order('start_time', { ascending: true });
+      .gte('scheduled_at', new Date().toISOString())
+      .order('scheduled_at', { ascending: true });
     if (error) throw new Error(error.message);
     return data || [];
   }
@@ -231,10 +231,7 @@ class DatabaseService {
     return this.apiCall(`/livestreams/search?q=${encodeURIComponent(query)}`);
   }
 
-  // Get livestreams by type
-  async getLivestreamsByType(type: string): Promise<StreamInfo[]> {
-    return this.apiCall(`/livestreams/type/${type}`);
-  }
+
 
   // Get livestreams by platform
   async getLivestreamsByPlatform(platform: string): Promise<StreamInfo[]> {

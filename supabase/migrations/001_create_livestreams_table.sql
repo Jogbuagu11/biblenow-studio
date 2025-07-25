@@ -14,28 +14,24 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
   platform VARCHAR(100),
   stream_key TEXT,
   thumbnail_url TEXT,
-  owner_id UUID REFERENCES public.verified_profiles(id) ON DELETE CASCADE,
   stream_url TEXT,
-  start_time TIMESTAMPTZ NOT NULL,
+  scheduled_at TIMESTAMPTZ,
   flag_count INTEGER DEFAULT 0,
   is_hidden BOOLEAN DEFAULT false,
-  type VARCHAR(50) DEFAULT 'video',
   stream_mode VARCHAR(50) DEFAULT 'solo',
   tags TEXT[] DEFAULT '{}',
   viewer_count INTEGER DEFAULT 0,
   max_viewers INTEGER DEFAULT 0,
   jitsi_room_config JSONB DEFAULT '{}',
   room_name VARCHAR(255),
-  livestream_type VARCHAR(50) DEFAULT 'public',
   redirect_url TEXT,
-  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled')),
-  category VARCHAR(100) DEFAULT 'livestream'
+  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled'))
 );
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_livestreams_streamer_id ON public.livestreams(streamer_id);
 CREATE INDEX IF NOT EXISTS idx_livestreams_is_live ON public.livestreams(is_live);
-CREATE INDEX IF NOT EXISTS idx_livestreams_start_time ON public.livestreams(start_time);
+CREATE INDEX IF NOT EXISTS idx_livestreams_scheduled_at ON public.livestreams(scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_livestreams_created_at ON public.livestreams(created_at);
 CREATE INDEX IF NOT EXISTS idx_livestreams_platform ON public.livestreams(platform);
 CREATE INDEX IF NOT EXISTS idx_livestreams_room_name ON public.livestreams(room_name);

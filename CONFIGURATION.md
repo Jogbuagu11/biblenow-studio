@@ -79,11 +79,11 @@ REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
 The application uses the following PostgreSQL table:
 
 - `livestreams` - Main table storing all livestream information including:
-  - Basic info: title, description, streamer_id, owner_id
+  - Basic info: title, description, streamer_id
   - Status: is_live, started_at, ended_at
   - Configuration: stream_type, platform, stream_key, embed_url
   - Metadata: tags, viewer_count, max_viewers, flag_count
-  - JAAS config: jitsi_room_config, room_name, livestream_type
+  - JAAS config: jitsi_room_config, room_name
 
 ## Testing Database Connection
 
