@@ -46,7 +46,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     stream_mode: 'solo' as 'solo' | 'interactive',
     is_scheduled: false,
     redirect_url: 'https://stream.biblenow.io/endstream',
-    category: 'general',
+    category: 'livestream',
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);

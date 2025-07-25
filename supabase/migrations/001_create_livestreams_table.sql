@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.livestreams (
   livestream_type VARCHAR(50) DEFAULT 'public',
   redirect_url TEXT,
   status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'ended', 'scheduled')),
-  category VARCHAR(100) DEFAULT 'general'
+  category VARCHAR(100) DEFAULT 'livestream'
 );
 
 -- Create indexes for better performance
