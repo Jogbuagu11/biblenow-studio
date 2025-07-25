@@ -97,7 +97,12 @@ class DatabaseService {
 
   // Get all livestreams
   async getLivestreams(): Promise<StreamInfo[]> {
-    return this.apiCall('/livestreams');
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
   // Get livestream by ID
@@ -136,17 +141,36 @@ class DatabaseService {
 
   // Get recent livestreams
   async getRecentLivestreams(limit: number = 10): Promise<StreamInfo[]> {
-    return this.apiCall(`/livestreams/recent?limit=${limit}`);
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
   // Get upcoming livestreams
   async getUpcomingLivestreams(): Promise<StreamInfo[]> {
-    return this.apiCall('/livestreams/upcoming');
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('*')
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
   // Get scheduled livestreams (future streams that are not live)
   async getScheduledLivestreams(): Promise<StreamInfo[]> {
-    return this.apiCall('/livestreams/scheduled');
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('*')
+      .eq('is_live', false)
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
   // Get live livestreams
