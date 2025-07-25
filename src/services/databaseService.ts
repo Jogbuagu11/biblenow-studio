@@ -112,31 +112,60 @@ class DatabaseService {
 
   // Update livestream
   async updateLivestream(id: string, updates: Partial<StreamInfo>): Promise<StreamInfo> {
-    return this.apiCall(`/livestreams/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
+    const { data, error } = await supabase
+      .from('livestreams')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   // Delete livestream
   async deleteLivestream(id: string): Promise<void> {
-    return this.apiCall(`/livestreams/${id}`, {
-      method: 'DELETE',
-    });
+    const { error } = await supabase
+      .from('livestreams')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(error.message);
   }
 
   // Start livestream
   async startLivestream(id: string): Promise<StreamInfo> {
-    return this.apiCall(`/livestreams/${id}/start`, {
-      method: 'POST',
-    });
+    const { data, error } = await supabase
+      .from('livestreams')
+      .update({
+        is_live: true,
+        started_at: new Date().toISOString(),
+        status: 'active',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   // Stop livestream
   async stopLivestream(id: string): Promise<StreamInfo> {
-    return this.apiCall(`/livestreams/${id}/stop`, {
-      method: 'POST',
-    });
+    const { data, error } = await supabase
+      .from('livestreams')
+      .update({
+        is_live: false,
+        ended_at: new Date().toISOString(),
+        status: 'ended',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   // Get recent livestreams
