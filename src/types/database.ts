@@ -37,6 +37,28 @@ export interface VerifiedProfile {
   preferences?: Record<string, any>;
 }
 
+export interface Livestream {
+  id: string;
+  streamer_id: string;
+  title: string;
+  description?: string;
+  is_live: boolean;
+  started_at?: string;
+  ended_at?: string;
+  status: 'active' | 'ended';
+  scheduled_at?: string;
+  updated_at: string;
+  flag_count: number;
+  is_hidden: boolean;
+  stream_mode: string;
+  tags: string[];
+  viewer_count: number;
+  max_viewers: number;
+  jitsi_room_config?: any;
+  room_name?: string;
+  redirect_url?: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -44,6 +66,11 @@ export interface Database {
         Row: VerifiedProfile;
         Insert: Omit<VerifiedProfile, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<VerifiedProfile, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      livestreams: {
+        Row: Livestream;
+        Insert: Omit<Livestream, 'id' | 'updated_at'>;
+        Update: Partial<Omit<Livestream, 'id' | 'updated_at'>>;
       };
     };
     Views: {

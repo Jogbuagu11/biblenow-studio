@@ -11,6 +11,7 @@ export interface StreamInfo {
   is_live: boolean;
   started_at?: string; // timestamptz
   ended_at?: string; // timestamptz
+  status: 'active' | 'ended'; // Stream lifecycle status
 
   embed_url?: string;
   stream_type?: string;
@@ -98,6 +99,12 @@ export const useLivestreamStore = create<LivestreamState>()(
         try {
           const { user } = useAuthStore.getState();
           if (!user) throw new Error('User not authenticated');
+          
+          // Debug: Log the user ID to see what format it's in
+          console.log('User ID being used:', user.uid);
+          console.log('User ID type:', typeof user.uid);
+          console.log('User ID length:', user.uid.length);
+          
           // 1. Check for active stream
           const hasActive = await databaseService.hasActiveLivestream(user.uid);
           if (hasActive) throw new Error('You already have an active livestream. Please end it before starting a new one.');

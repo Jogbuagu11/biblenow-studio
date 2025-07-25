@@ -6,10 +6,10 @@ DO $$
 DECLARE
     record_count INTEGER;
 BEGIN
-    -- Count records with non-UUID IDs
+    -- Count records with non-UUID IDs (cast to text first)
     SELECT COUNT(*) INTO record_count
     FROM public.verified_profiles
-    WHERE id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+    WHERE id::text !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
     
     RAISE NOTICE 'Found % records with non-UUID IDs', record_count;
     
@@ -17,7 +17,7 @@ BEGIN
     IF record_count > 0 THEN
         UPDATE public.verified_profiles
         SET id = gen_random_uuid()
-        WHERE id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        WHERE id::text !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         
         RAISE NOTICE 'Updated % records to use proper UUIDs', record_count;
     END IF;

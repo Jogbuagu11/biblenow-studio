@@ -46,6 +46,10 @@ class DatabaseService {
 
   // Check if user has an active livestream
   async hasActiveLivestream(userId: string) {
+    // Debug: Log the userId being used
+    console.log('hasActiveLivestream called with userId:', userId);
+    console.log('userId type:', typeof userId);
+    
     const { data, error } = await supabase
       .from('livestreams')
       .select('id, title, started_at, ended_at')
@@ -82,6 +86,9 @@ class DatabaseService {
 
   // Create a new livestream (for going live)
   async createLivestream(livestreamData: any) {
+    // Debug: Log the data being sent to see if it contains category
+    console.log('createLivestream called with data:', JSON.stringify(livestreamData, null, 2));
+    
     const { data, error } = await supabase
       .from('livestreams')
       .insert([{
@@ -252,17 +259,46 @@ class DatabaseService {
 
   // End stream when user lands on endstream page
   async endStreamOnRedirect(userId: string): Promise<void> {
-    const { error } = await supabase
+    console.log('Attempting to end stream for user:', userId);
+    
+    // First, find the active stream
+    const { data: activeStreams, error: findError } = await supabase
       .from('livestreams')
-      .update({
-        is_live: false,
-        ended_at: new Date().toISOString(),
-        status: 'ended',
-        updated_at: new Date().toISOString()
-      })
+      .select('id, title')
       .eq('streamer_id', userId)
       .eq('is_live', true);
-    if (error) throw new Error(error.message);
+    
+    if (findError) {
+      console.error('Error finding active streams:', findError);
+      throw new Error(findError.message);
+    }
+    
+    if (!activeStreams || activeStreams.length === 0) {
+      console.log('No active streams found for user:', userId);
+      return;
+    }
+    
+    console.log('Found active streams:', activeStreams);
+    
+    // End each active stream
+    for (const stream of activeStreams) {
+      const { error } = await supabase
+        .from('livestreams')
+        .update({
+          is_live: false,
+          ended_at: new Date().toISOString(),
+          status: 'ended',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stream.id);
+      
+      if (error) {
+        console.error('Error ending stream:', stream.id, error);
+        throw new Error(error.message);
+      }
+      
+      console.log('Successfully ended stream:', stream.id, stream.title);
+    }
   }
 
   // End stream by ID (for manual ending)
