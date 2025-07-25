@@ -45,7 +45,7 @@ export interface Livestream {
   is_live: boolean;
   started_at?: string;
   ended_at?: string;
-  status: 'active' | 'ended';
+  status?: 'active' | 'ended';
   scheduled_at?: string;
   updated_at: string;
   flag_count: number;

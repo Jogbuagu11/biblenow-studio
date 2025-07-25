@@ -75,6 +75,7 @@ class DatabaseService {
         is_live: false,
         started_at: null,
         ended_at: null,
+        status: 'active',
         viewer_count: 0,
         updated_at: new Date().toISOString()
       }])
@@ -96,6 +97,7 @@ class DatabaseService {
         is_live: true,
         started_at: new Date().toISOString(),
         ended_at: null,
+        status: 'active',
         viewer_count: 0,
         updated_at: new Date().toISOString()
       }])

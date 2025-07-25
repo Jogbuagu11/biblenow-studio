@@ -11,7 +11,7 @@ export interface StreamInfo {
   is_live: boolean;
   started_at?: string; // timestamptz
   ended_at?: string; // timestamptz
-  status: 'active' | 'ended'; // Stream lifecycle status
+  status?: 'active' | 'ended'; // Stream lifecycle status (optional, defaults to 'active')
 
   embed_url?: string;
   stream_type?: string;
