@@ -71,6 +71,9 @@ export interface LivestreamState {
   updateViewerCount: (streamId: string, count: number) => void;
   incrementViewerCount: (streamId: string) => void;
   decrementViewerCount: (streamId: string) => void;
+  
+  // Debug/cleanup
+  cleanupOrphanedStreams: () => Promise<void>;
 }
 
 export const useLivestreamStore = create<LivestreamState>()(
@@ -350,6 +353,21 @@ export const useLivestreamStore = create<LivestreamState>()(
           streams: updatedStreams,
           currentStream: updatedCurrentStream
         });
+      },
+
+      cleanupOrphanedStreams: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { user } = useAuthStore.getState();
+          if (!user) throw new Error('User not authenticated');
+          await databaseService.cleanupOrphanedActiveStreams(user.uid);
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to cleanup streams', 
+            isLoading: false 
+          });
+        }
       },
     }),
     {

@@ -49,11 +49,17 @@ class DatabaseService {
   async hasActiveLivestream(userId: string) {
     const { data, error } = await supabase
       .from('livestreams')
-      .select('id')
+      .select('id, title, started_at, ended_at')
       .eq('streamer_id', userId)
       .eq('is_live', true)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    
+    // Debug logging
+    if (data) {
+      console.log('Found active stream:', data);
+    }
+    
     return !!data;
   }
 
@@ -233,6 +239,21 @@ class DatabaseService {
   // Get livestreams by platform
   async getLivestreamsByPlatform(platform: string): Promise<StreamInfo[]> {
     return this.apiCall(`/livestreams/platform/${platform}`);
+  }
+
+  // Clean up orphaned active streams (for debugging/fixing)
+  async cleanupOrphanedActiveStreams(userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('livestreams')
+      .update({
+        is_live: false,
+        ended_at: new Date().toISOString(),
+        status: 'ended',
+        updated_at: new Date().toISOString()
+      })
+      .eq('streamer_id', userId)
+      .eq('is_live', true);
+    if (error) throw new Error(error.message);
   }
 }
 
