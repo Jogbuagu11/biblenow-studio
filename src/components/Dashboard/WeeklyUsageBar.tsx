@@ -5,19 +5,24 @@ interface WeeklyUsageBarProps {
   weeklyLimit: number;
   unit?: string;
   daysRemaining?: number;
+  subscriptionPlan?: string;
 }
 
 const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
   currentHours = 0,
-  weeklyLimit = 40,
+  weeklyLimit = 0, // Default to 0 minutes
   unit = "hours",
-  daysRemaining = 7
+  daysRemaining = 7,
+  subscriptionPlan = ""
 }) => {
-  const percentage = Math.min((currentHours / weeklyLimit) * 100, 100);
-  const remainingHours = Math.max(weeklyLimit - currentHours, 0);
+  // Convert weekly limit from minutes to the display unit
+  const weeklyLimitInUnit = unit === "hours" ? weeklyLimit / 60 : weeklyLimit;
+  const percentage = weeklyLimitInUnit > 0 ? Math.min((currentHours / weeklyLimitInUnit) * 100, 100) : 0;
+  const remainingInUnit = Math.max(weeklyLimitInUnit - currentHours, 0);
   
-  // Calculate daily average
-  const dailyAverage = currentHours / (7 - daysRemaining);
+  // Calculate daily average (avoid division by zero)
+  const daysElapsed = Math.max(7 - daysRemaining, 1); // At least 1 day to avoid division by zero
+  const dailyAverage = currentHours / daysElapsed;
   const projectedWeekly = dailyAverage * 7;
   
   // Determine color based on usage
@@ -43,13 +48,16 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
           <p className="text-sm text-gray-500 dark:text-darkBrown-200 transition-colors duration-200">
             {daysRemaining} days remaining this week
           </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+            {subscriptionPlan ? `Plan: ${subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1).toLowerCase()}` : 'No plan set'}
+          </p>
         </div>
         <div className="text-right">
           <div className={`text-2xl font-bold ${getTextColorClass()}`}>
-            {currentHours.toFixed(1)}/{weeklyLimit} {unit}
+            {weeklyLimitInUnit > 0 ? `${currentHours.toFixed(1)}/${weeklyLimitInUnit} ${unit}` : `${currentHours.toFixed(1)}/0 ${unit}`}
           </div>
           <div className="text-sm text-gray-500 dark:text-darkBrown-200 transition-colors duration-200">
-            {percentage.toFixed(1)}% used
+            {weeklyLimitInUnit > 0 ? `${percentage.toFixed(1)}% used` : 'No streaming limit set'}
           </div>
         </div>
       </div>
@@ -58,7 +66,7 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
       <div className="mb-4">
         <div className="flex justify-between text-sm text-gray-600 dark:text-darkBrown-200 mb-2 transition-colors duration-200">
           <span>0 {unit}</span>
-          <span>{weeklyLimit} {unit}</span>
+          <span>{weeklyLimitInUnit > 0 ? `${weeklyLimitInUnit} ${unit}` : `0 ${unit}`}</span>
         </div>
         <div className="w-full bg-gray-200 dark:bg-darkBrown-500 rounded-full h-3 transition-colors duration-200">
           <div 
@@ -73,7 +81,7 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
         <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-yellow-500 transition-colors duration-200">
           <div className="text-sm text-gray-500 dark:text-darkBrown-200 transition-colors duration-200">Remaining</div>
           <div className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-200">
-            {remainingHours.toFixed(1)} {unit}
+            {weeklyLimitInUnit > 0 ? `${remainingInUnit.toFixed(1)} ${unit}` : `0 ${unit}`}
           </div>
         </div>
         <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-yellow-500 transition-colors duration-200">
@@ -85,7 +93,7 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
         <div className="text-center p-3 rounded-lg border border-gray-200 dark:border-yellow-500 transition-colors duration-200">
           <div className="text-sm text-gray-500 dark:text-darkBrown-200 transition-colors duration-200">Projected Weekly</div>
           <div className={`text-lg font-semibold transition-colors duration-200 ${
-            projectedWeekly > weeklyLimit ? 'text-red-600' : 'text-gray-900 dark:text-white'
+            weeklyLimitInUnit > 0 && projectedWeekly > weeklyLimitInUnit ? 'text-red-600' : 'text-gray-900 dark:text-white'
           }`}>
             {projectedWeekly.toFixed(1)} {unit}
           </div>
@@ -112,11 +120,13 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
           </div>
           <div className="ml-3">
             <p className="text-sm text-blue-800 dark:text-darkBrown-200 transition-colors duration-200">
-              {percentage >= 90 
+              {weeklyLimitInUnit === 0 
+                ? `No streaming plan active. Please subscribe to start streaming.`
+                : percentage >= 90 
                 ? `You're approaching your weekly limit. Consider upgrading your plan.`
                 : percentage >= 75 
                 ? `You're using ${percentage.toFixed(1)}% of your weekly allocation.`
-                : `You have ${remainingHours.toFixed(1)} ${unit} remaining this week.`
+                : `You have ${remainingInUnit.toFixed(1)} ${unit} remaining this week.`
               }
             </p>
           </div>

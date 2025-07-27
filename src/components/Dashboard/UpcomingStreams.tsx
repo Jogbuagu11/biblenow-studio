@@ -31,46 +31,47 @@ const UpcomingStreams: React.FC = () => {
             <p className="text-gray-500">Loading upcoming streams...</p>
           </div>
         ) : scheduledStreams.length > 0 ? (
-          <div className="space-y-4">
-            {scheduledStreams.slice(0, 5).map((stream) => (
-              <div key={stream.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                <div className="flex items-center space-x-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {scheduledStreams.slice(0, 6).map((stream) => (
+              <div key={stream.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                <div className="aspect-video bg-gray-100 dark:bg-gray-800 relative">
                   {stream.thumbnail_url ? (
                     <img 
                       src={stream.thumbnail_url} 
                       alt={stream.title}
-                      className="w-16 h-12 object-cover rounded-md"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-16 h-12 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                      <span className="text-gray-500 text-xs">No Image</span>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-gray-500 text-sm">No Image</span>
                     </div>
                   )}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{stream.title}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {format(new Date(stream.scheduled_at || 0), "MMM d, yyyy 'at' h:mm a")}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Platform: {stream.platform} • Type: {stream.stream_type}
-                    </p>
+                  <div className="absolute top-2 right-2">
+                    <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                      Scheduled
+                    </span>
                   </div>
                 </div>
-                <Button 
-                  onClick={() => handleGoLive(stream.id)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Go Live
-                </Button>
+                <div className="p-4">
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 mb-2">
+                    {stream.title}
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                    {format(new Date(stream.scheduled_at || 0), "MMM d, yyyy 'at' h:mm a")}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    <span>{stream.platform}</span>
+                    <span>{stream.stream_type}</span>
+                  </div>
+                  <Button 
+                    onClick={() => handleGoLive(stream.id)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2"
+                  >
+                    Go Live
+                  </Button>
+                </div>
               </div>
             ))}
-            {scheduledStreams.length > 5 && (
-              <div className="text-center pt-4">
-                <Button variant="outline" onClick={() => window.location.href = '/streams'}>
-                  View All ({scheduledStreams.length} streams)
-                </Button>
-              </div>
-            )}
           </div>
         ) : (
           <div className="text-center py-8">
@@ -80,6 +81,13 @@ const UpcomingStreams: React.FC = () => {
               className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               Schedule a Stream
+            </Button>
+          </div>
+        )}
+        {scheduledStreams.length > 6 && (
+          <div className="text-center pt-4">
+            <Button variant="outline" onClick={() => window.location.href = '/streams'}>
+              View All ({scheduledStreams.length} streams)
             </Button>
           </div>
         )}

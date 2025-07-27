@@ -23,6 +23,7 @@ export interface VerifiedProfile {
   subscription_end_date?: string;
   subscription_expires_at?: string;
   subscription_plan?: string;
+  subscription_plan_id?: string;
   first_name?: string;
   last_name?: string;
   shekel_balance?: number;
@@ -35,6 +36,25 @@ export interface VerifiedProfile {
   avatar_url?: string;
   bio?: string;
   preferences?: Record<string, any>;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  streaming_minutes_limit: number;
+  price_usd: number;
+  features: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WeeklyUsage {
+  id: string;
+  user_id: string;
+  week_start_date: string;
+  streamed_minutes: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Livestream {
@@ -66,6 +86,16 @@ export interface Database {
         Row: VerifiedProfile;
         Insert: Omit<VerifiedProfile, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<VerifiedProfile, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      subscription_plans: {
+        Row: SubscriptionPlan;
+        Insert: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      weekly_usage: {
+        Row: WeeklyUsage;
+        Insert: Omit<WeeklyUsage, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<WeeklyUsage, 'id' | 'created_at' | 'updated_at'>>;
       };
       livestreams: {
         Row: Livestream;
