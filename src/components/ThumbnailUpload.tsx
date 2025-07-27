@@ -60,7 +60,6 @@ const ThumbnailUpload: React.FC<ThumbnailUploadProps> = ({
     event.preventDefault();
     const files = event.dataTransfer.files;
     if (files.length > 0) {
-      const file = files[0];
       const input = fileInputRef.current;
       if (input) {
         input.files = files;
