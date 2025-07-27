@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import Button from './ui/Button';
 import { StreamInfo } from '../stores/livestreamStore';
 import { format } from 'date-fns';
-import { jaasConfig } from '../config/firebase';
 
 interface StreamDetailsModalProps {
   stream: StreamInfo | null;
