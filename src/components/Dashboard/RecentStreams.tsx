@@ -1,11 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { useLivestreamStore } from '../../stores/livestreamStore';
 import { format } from 'date-fns';
+import StreamDetailsModal from '../StreamDetailsModal';
+import { StreamInfo } from '../../stores/livestreamStore';
 
 const RecentStreams: React.FC = () => {
   const { recentStreams, fetchRecentStreams, isLoading } = useLivestreamStore();
+  const [selectedStream, setSelectedStream] = useState<StreamInfo | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchRecentStreams();
@@ -23,6 +27,11 @@ const RecentStreams: React.FC = () => {
       return `${hours}h ${remainingMinutes}m`;
     }
     return `${minutes}m`;
+  };
+
+  const handleViewDetails = (stream: StreamInfo) => {
+    setSelectedStream(stream);
+    setIsModalOpen(true);
   };
 
   return (
@@ -81,7 +90,7 @@ const RecentStreams: React.FC = () => {
                     <span>{stream.viewer_count || 0} viewers</span>
                   </div>
                   <Button 
-                    onClick={() => window.location.href = `/streams/${stream.id}`}
+                    onClick={() => handleViewDetails(stream)}
                     className="w-full bg-gray-600 hover:bg-gray-700 text-white text-xs py-1"
                   >
                     View Details
@@ -110,6 +119,12 @@ const RecentStreams: React.FC = () => {
           </div>
         )}
       </CardContent>
+      
+      <StreamDetailsModal
+        stream={selectedStream}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      />
     </Card>
   );
 };

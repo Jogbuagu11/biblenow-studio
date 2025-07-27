@@ -49,6 +49,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const defaultThumbnailUrl = "https://jhlawjmyorpmafokxtuh.supabase.co/storage/v1/object/sign/attachments/defaultstream.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82OWRmNmQwOC1iYTlmLTQ2NDItYmQ4MS05ZDIzNGNmYTI1M2QiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhdHRhY2htZW50cy9kZWZhdWx0c3RyZWFtLnBuZyIsImlhdCI6MTc1MzY0ODA0OSwiZXhwIjoyMDY5MDA4MDQ5fQ.cMcADdSsi7Scklnf0qU_D0yeQnOjn-_wY-bMvFDRnos";
 
   // Determine platform types
   const isExternalPlatform = formData.platform === 'external';
@@ -157,7 +158,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
         started_at: formData.scheduled_at, // For immediate streams, scheduled = started
         embed_url: formData.embed_url,
         stream_key: formData.stream_key,
-        thumbnail_url: thumbnailPreview || undefined,
+        thumbnail_url: thumbnailPreview || defaultThumbnailUrl,
         stream_mode: formData.stream_mode,
         tags: [],
         flag_count: 0,
@@ -383,13 +384,14 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
                     className="hidden"
                   />
                   <label htmlFor="thumbnail" className="cursor-pointer">
-                    <svg className="w-12 h-12 text-gray-400 dark:text-yellow-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 text-gray-400 dark:text-yellow-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <div className="text-sm text-gray-600 dark:text-yellow-200">
                       <span className="font-medium text-yellow-600 hover:text-yellow-500 dark:text-yellow-400 dark:hover:text-yellow-300">Click to upload</span> or drag and drop
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-yellow-300 mt-2">A default thumbnail will be used if none is uploaded</p>
+                    <p className="text-xs text-gray-500 dark:text-yellow-300 mt-2">Recommended: 1280x720 pixels (16:9 ratio)</p>
+                    <p className="text-xs text-gray-500 dark:text-yellow-300">A default thumbnail will be used if none is uploaded</p>
                   </label>
                 </div>
               </div>
@@ -397,17 +399,11 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
                 {thumbnailPreview ? (
                   <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="text-center">
-                    <div className="w-16 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center mb-2">
-                      <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-yellow-200">
-                      <div className="font-medium text-yellow-600 dark:text-yellow-300">LIVE STREAM</div>
-                      <div>BIBLE STUDY</div>
-                    </div>
-                  </div>
+                  <img 
+                    src={defaultThumbnailUrl} 
+                    alt="Default thumbnail preview" 
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
             </div>
