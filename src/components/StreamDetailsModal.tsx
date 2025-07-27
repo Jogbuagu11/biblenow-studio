@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import Button from './ui/Button';
 import { StreamInfo } from '../stores/livestreamStore';
 import { format } from 'date-fns';
+import { jaasConfig } from '../config/firebase';
 
 interface StreamDetailsModalProps {
   stream: StreamInfo | null;
@@ -163,9 +164,9 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
                   <span className="font-medium font-mono">{stream.room_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">JaaS Room URL:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Custom Branded URL:</span>
                   <span className="font-medium text-blue-600 dark:text-blue-400 truncate ml-2">
-                    https://8x8.vc/{stream.room_name?.split('/').pop() || 'room'}
+                    https://stream.biblenow.io/{stream.room_name?.split('/').pop() || 'room'}
                   </span>
                 </div>
                 {stream.redirect_url && (
