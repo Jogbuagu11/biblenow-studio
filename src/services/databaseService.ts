@@ -289,6 +289,19 @@ class DatabaseService {
     console.log('Attempting to end stream for user:', userId);
     
     try {
+      // First, check if user has any active streams
+      const { data: activeStreams, error: checkError } = await supabase
+        .from('livestreams')
+        .select('id, title, is_live, status')
+        .eq('streamer_id', userId)
+        .or('is_live.eq.true,status.eq.active');
+      
+      if (checkError) {
+        console.error('Error checking active streams:', checkError);
+      } else {
+        console.log('Active streams found for user:', activeStreams);
+      }
+      
       // Use the new comprehensive end stream function
       const { data, error } = await supabase
         .rpc('end_stream_comprehensive', {
@@ -297,6 +310,7 @@ class DatabaseService {
       
       if (error) {
         console.error('Error ending stream via RPC:', error);
+        console.error('Error details:', error.details, error.hint, error.code);
         throw new Error(error.message);
       }
       
@@ -307,6 +321,20 @@ class DatabaseService {
       } else {
         console.log('No active streams found for user:', userId);
       }
+      
+      // Verify the streams were actually ended
+      const { data: verifyStreams, error: verifyError } = await supabase
+        .from('livestreams')
+        .select('id, title, is_live, status, ended_at')
+        .eq('streamer_id', userId)
+        .or('is_live.eq.true,status.eq.active');
+      
+      if (verifyError) {
+        console.error('Error verifying streams:', verifyError);
+      } else {
+        console.log('Streams after ending attempt:', verifyStreams);
+      }
+      
     } catch (error) {
       console.error('Error in endStreamOnRedirect:', error);
       throw error;

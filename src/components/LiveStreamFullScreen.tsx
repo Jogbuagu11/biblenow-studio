@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatStore, useAuthStore, useLivestreamStore } from '../stores';
 import { jaasConfig } from '../config/firebase';
+import jwtAuthService from '../services/jwtAuthService';
 
 declare global {
   interface Window {
@@ -79,18 +80,33 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
 
   // Initialize Jitsi with branding
   useEffect(() => {
-    if (!window.JitsiMeetExternalAPI) {
-      console.error("Jitsi script not loaded.");
-      return;
-    }
+    const initializeJitsi = async () => {
+      if (!window.JitsiMeetExternalAPI) {
+        console.error("Jitsi script not loaded.");
+        return;
+      }
 
-    const container = document.getElementById('jitsi-container');
-    if (!container) {
-      console.error("Jitsi container not found.");
-      return;
-    }
+      const container = document.getElementById('jitsi-container');
+      if (!container) {
+        console.error("Jitsi container not found.");
+        return;
+      }
 
     const domain = jaasConfig.domain;
+    
+    // Get user avatar for both authenticated and anonymous users
+    let userAvatar = undefined;
+    if (user) {
+      try {
+        const profileResult = await jwtAuthService.getUserProfile(user.uid);
+        if (profileResult.success && profileResult.profile?.avatar_url) {
+          userAvatar = profileResult.profile.avatar_url;
+        }
+      } catch (error) {
+        console.error('Error fetching user avatar:', error);
+      }
+    }
+    
     // Room name already includes the full JAAS App ID prefix from GoLiveModal
     const options: any = {
       roomName: roomName,
@@ -101,7 +117,8 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
       appId: jaasConfig.appId,
       userInfo: {
         displayName: user?.displayName || "BibleNOW Studio User",
-        email: user?.email || "user@biblenowstudio.com"
+        email: user?.email || "user@biblenowstudio.com",
+        avatar: userAvatar // Add avatar for both authenticated and anonymous users
       },
       // Public room settings - allow room creation without moderator or JWT
       configOverwrite: {
@@ -165,12 +182,17 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
       }
     });
 
+    };
+
+    // Call the async function
+    initializeJitsi();
+
     return () => {
       if (jitsiApiRef.current) {
         jitsiApiRef.current.dispose();
       }
     };
-  }, [roomName, user]);
+  }, [roomName, user, navigate]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

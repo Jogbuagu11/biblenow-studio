@@ -40,10 +40,10 @@ export class JWTAuthService {
   /**
    * Generate JWT token for moderator authentication
    */
-  public generateModeratorToken(
+  public async generateModeratorToken(
     user: { uid: string; email: string; displayName: string; role: string },
     roomName: string
-  ): string | null {
+  ): Promise<string | null> {
     if (!this.jwtSecret) {
       console.error('JWT secret not configured');
       return null;
@@ -53,6 +53,12 @@ export class JWTAuthService {
     console.log('Generating moderator token for user:', user.email);
 
     try {
+      // Get user profile to fetch avatar_url
+      const profileResult = await this.getUserProfile(user.uid);
+      const avatarUrl = profileResult.success && profileResult.profile?.avatar_url 
+        ? profileResult.profile.avatar_url 
+        : undefined;
+
       const now = Math.floor(Date.now() / 1000);
       const payload: JWTPayload = {
         aud: jwtConfig.audience,
@@ -65,7 +71,7 @@ export class JWTAuthService {
             name: user.displayName,
             email: user.email,
             moderator: true,
-            avatar: undefined
+            avatar: avatarUrl
           }
         },
         exp: now + jwtConfig.expiresIn,
