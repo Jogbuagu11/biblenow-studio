@@ -1,6 +1,7 @@
 import { dbConfig } from '../config/firebase';
 import { StreamInfo } from '../stores/livestreamStore';
 import { supabase } from '../config/supabase';
+import { useAuthStore } from '../stores/authStore';
 
 class DatabaseService {
   private apiUrl: string;
@@ -68,15 +69,16 @@ class DatabaseService {
 
   // Create a scheduled stream (not live yet)
   async createScheduledStream(livestreamData: any) {
-    // Ensure streamer_id is set from the authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get user from auth store instead of Supabase auth
+    const user = useAuthStore.getState().user;
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
     
     const scheduledStreamWithUser = {
       ...livestreamData,
-      streamer_id: user.id, // Ensure streamer_id is set to the authenticated user's ID
+      streamer_id: user.uid, // Use uid from auth store
       is_live: false,
       started_at: null,
       ended_at: null,
@@ -101,15 +103,16 @@ class DatabaseService {
     // Debug: Log the data being sent to see if it contains category
     console.log('createLivestream called with data:', JSON.stringify(livestreamData, null, 2));
     
-    // Ensure streamer_id is set from the authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get user from auth store instead of Supabase auth
+    const user = useAuthStore.getState().user;
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
     
     const livestreamWithUser = {
       ...livestreamData,
-      streamer_id: user.id, // Ensure streamer_id is set to the authenticated user's ID
+      streamer_id: user.uid, // Use uid from auth store
       is_live: true,
       started_at: new Date().toISOString(),
       ended_at: null,
