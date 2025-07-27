@@ -50,8 +50,9 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
               throw error;
             }
             
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+            // Wait before retrying - capture attempts value to avoid closure issue
+            const currentAttempt = attempts;
+            await new Promise(resolve => setTimeout(resolve, 1000 * currentAttempt));
           }
         }
       }
