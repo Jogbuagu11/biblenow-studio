@@ -7,9 +7,11 @@ import Label from '../components/ui/Label';
 import Textarea from '../components/ui/Textarea';
 import Checkbox from '../components/ui/Checkbox';
 import Button from '../components/ui/Button';
+import ThumbnailUpload from '../components/ThumbnailUpload';
 import { format } from 'date-fns';
 import { useLivestreamStore } from '../stores';
 import { useEffect } from 'react';
+import { UploadResult } from '../services/fileUploadService';
 
 const Schedule: React.FC = () => {
   const { createScheduledStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
@@ -27,6 +29,22 @@ const Schedule: React.FC = () => {
     repeatFrequency: "weekly",
     repeatCount: "",
   });
+
+  const handleThumbnailUpload = (result: UploadResult) => {
+    if (result.url) {
+      setFormState((prev) => ({
+        ...prev,
+        thumbnailUrl: result.url,
+      }));
+    }
+  };
+
+  const handleThumbnailRemove = () => {
+    setFormState((prev) => ({
+      ...prev,
+      thumbnailUrl: "",
+    }));
+  };
 
   // Fetch scheduled streams on component mount
   useEffect(() => {
@@ -303,21 +321,12 @@ const Schedule: React.FC = () => {
                     />
                   </div>
                   
-                  <div>
-                    <Label htmlFor="thumbnailUrl">Thumbnail Image URL</Label>
-                    <Input 
-                      id="thumbnailUrl" 
-                      name="thumbnailUrl"
-                      type="url"
-                      placeholder="https://example.com/thumbnail.jpg"
-                      value={formState.thumbnailUrl}
-                      onChange={handleInputChange}
-                    />
-                    <p className="text-xs text-gray-500 dark:text-chocolate-200 mt-1">
-                      Recommended dimensions: 1280x720 pixels (16:9 aspect ratio). 
-                      Maximum file size: 5MB. Supported formats: JPG, PNG, GIF.
-                    </p>
-                  </div>
+                  <ThumbnailUpload
+                    onUploadComplete={handleThumbnailUpload}
+                    onRemove={handleThumbnailRemove}
+                    currentUrl={formState.thumbnailUrl}
+                    disabled={isLoading}
+                  />
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
