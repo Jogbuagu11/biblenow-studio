@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
+import Button from '../ui/Button';
 import { useLivestreamStore } from '../../stores/livestreamStore';
 import { format } from 'date-fns';
 
@@ -71,12 +72,18 @@ const RecentStreams: React.FC = () => {
                     <span>{stream.platform}</span>
                     <span>{stream.stream_type}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-3">
                     {stream.started_at && stream.ended_at && (
                       <span>Duration: {calculateDuration(stream.started_at, stream.ended_at)}</span>
                     )}
                     <span>{stream.viewer_count || 0} viewers</span>
                   </div>
+                  <Button 
+                    onClick={() => window.location.href = `/streams/${stream.id}`}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white text-sm py-2"
+                  >
+                    View Details
+                  </Button>
                 </div>
               </div>
             ))}
@@ -85,16 +92,19 @@ const RecentStreams: React.FC = () => {
           <div className="text-center py-8">
             <p className="text-gray-500">No recent streams found.</p>
             <p className="text-sm text-gray-400 mt-1">Start streaming to see your history here.</p>
+            <Button 
+              onClick={() => window.location.href = '/schedule'}
+              className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Schedule a Stream
+            </Button>
           </div>
         )}
         {recentStreams.length > 6 && (
           <div className="text-center pt-4">
-            <button 
-              onClick={() => window.location.href = '/streams'}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
+            <Button variant="outline" onClick={() => window.location.href = '/streams'}>
               View All ({recentStreams.length} streams)
-            </button>
+            </Button>
           </div>
         )}
       </CardContent>

@@ -210,7 +210,9 @@ class DatabaseService {
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .order('created_at', { ascending: false })
+      .eq('is_live', false)
+      .not('ended_at', 'is', null)
+      .order('ended_at', { ascending: false })
       .limit(limit);
     if (error) throw new Error(error.message);
     return data || [];
