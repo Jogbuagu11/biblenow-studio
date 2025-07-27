@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { jaasConfig } from "../config/firebase";
 import { useAuthStore } from "../stores";
 import jwtAuthService from "../services/jwtAuthService";
@@ -18,6 +18,51 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
   const { user } = useAuthStore();
+  const [isEnding, setIsEnding] = useState(false);
+
+  // Robust stream end handler
+  const handleStreamEnd = async (eventType: string) => {
+    if (isEnding) {
+      console.log('Stream end already in progress, skipping:', eventType);
+      return;
+    }
+
+    setIsEnding(true);
+    console.log(`Handling stream end event: ${eventType}`);
+
+    try {
+      if (user) {
+        // Try multiple times to ensure stream is ended
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+          try {
+            await databaseService.endStreamOnRedirect(user.uid);
+            console.log(`Stream ended successfully on attempt ${attempts + 1}`);
+            break;
+          } catch (error) {
+            attempts++;
+            console.error(`Attempt ${attempts} failed to end stream:`, error);
+            
+            if (attempts >= maxAttempts) {
+              console.error('All attempts to end stream failed');
+              throw error;
+            }
+            
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error ending stream:', error);
+      // Don't throw here - we still want to redirect even if ending fails
+    } finally {
+      // Always redirect to endstream page
+      window.location.href = '/endstream';
+    }
+  };
 
   useEffect(() => {
     if (!window.JitsiMeetExternalAPI) {
@@ -90,36 +135,18 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
 
     apiRef.current = new window.JitsiMeetExternalAPI(domain, options);
 
-    // Add event listeners for meeting end
+    // Add event listeners for meeting end with robust error handling
     apiRef.current.addEventListeners({
       readyToClose: async () => {
         console.log('Meeting ready to close');
-        // End the stream in database before redirecting
-        if (user) {
-          try {
-            await databaseService.endStreamOnRedirect(user.uid);
-            console.log('Stream ended in database');
-          } catch (error) {
-            console.error('Error ending stream:', error);
-          }
-        }
-        window.location.href = '/endstream';
+        await handleStreamEnd('readyToClose');
       },
       videoConferenceJoined: () => {
         console.log('Joined video conference');
       },
       videoConferenceLeft: async () => {
         console.log('Left video conference');
-        // End the stream in database before redirecting
-        if (user) {
-          try {
-            await databaseService.endStreamOnRedirect(user.uid);
-            console.log('Stream ended in database');
-          } catch (error) {
-            console.error('Error ending stream:', error);
-          }
-        }
-        window.location.href = '/endstream';
+        await handleStreamEnd('videoConferenceLeft');
       },
       participantLeft: (participant: any) => {
         console.log('Participant left:', participant);
@@ -129,16 +156,21 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
       },
       hangup: async () => {
         console.log('Meeting hung up');
-        // End the stream in database before redirecting
-        if (user) {
-          try {
-            await databaseService.endStreamOnRedirect(user.uid);
-            console.log('Stream ended in database');
-          } catch (error) {
-            console.error('Error ending stream:', error);
-          }
-        }
-        window.location.href = '/endstream';
+        await handleStreamEnd('hangup');
+      },
+      // Add additional event listeners for better coverage
+      conferenceTerminated: async () => {
+        console.log('Conference terminated');
+        await handleStreamEnd('conferenceTerminated');
+      },
+      videoConferenceWillJoin: () => {
+        console.log('Will join video conference');
+      },
+      audioMuteStatusChanged: (data: any) => {
+        console.log('Audio mute status changed:', data);
+      },
+      videoMuteStatusChanged: (data: any) => {
+        console.log('Video mute status changed:', data);
       }
     });
 

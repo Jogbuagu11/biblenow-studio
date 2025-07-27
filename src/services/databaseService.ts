@@ -77,14 +77,14 @@ class DatabaseService {
     }
     
     const scheduledStreamWithUser = {
-      ...livestreamData,
+        ...livestreamData,
       streamer_id: user.uid, // Use uid from auth store
-      is_live: false,
-      started_at: null,
-      ended_at: null,
-      status: 'active',
-      viewer_count: 0,
-      updated_at: new Date().toISOString()
+        is_live: false,
+        started_at: null,
+        ended_at: null,
+        status: 'active',
+        viewer_count: 0,
+        updated_at: new Date().toISOString()
     };
     
     console.log('Scheduled stream data with user ID:', JSON.stringify(scheduledStreamWithUser, null, 2));
@@ -111,14 +111,14 @@ class DatabaseService {
     }
     
     const livestreamWithUser = {
-      ...livestreamData,
+        ...livestreamData,
       streamer_id: user.uid, // Use uid from auth store
-      is_live: true,
-      started_at: new Date().toISOString(),
-      ended_at: null,
-      status: 'active',
-      viewer_count: 0,
-      updated_at: new Date().toISOString()
+        is_live: true,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        status: 'active',
+        viewer_count: 0,
+        updated_at: new Date().toISOString()
     };
     
     console.log('Livestream data with user ID:', JSON.stringify(livestreamWithUser, null, 2));
@@ -288,59 +288,130 @@ class DatabaseService {
   async endStreamOnRedirect(userId: string): Promise<void> {
     console.log('Attempting to end stream for user:', userId);
     
-    // First, find the active stream
-    const { data: activeStreams, error: findError } = await supabase
-      .from('livestreams')
-      .select('id, title')
-      .eq('streamer_id', userId)
-      .eq('is_live', true);
-    
-    if (findError) {
-      console.error('Error finding active streams:', findError);
-      throw new Error(findError.message);
-    }
-    
-    if (!activeStreams || activeStreams.length === 0) {
-      console.log('No active streams found for user:', userId);
-      return;
-    }
-    
-    console.log('Found active streams:', activeStreams);
-    
-    // End each active stream
-    for (const stream of activeStreams) {
-      const { error } = await supabase
-        .from('livestreams')
-        .update({
-          is_live: false,
-          ended_at: new Date().toISOString(),
-          status: 'ended',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', stream.id);
+    try {
+      // Use the new comprehensive end stream function
+      const { data, error } = await supabase
+        .rpc('end_stream_comprehensive', {
+          p_streamer_id: userId
+        });
       
       if (error) {
-        console.error('Error ending stream:', stream.id, error);
+        console.error('Error ending stream via RPC:', error);
         throw new Error(error.message);
       }
       
-      console.log('Successfully ended stream:', stream.id, stream.title);
+      console.log('End stream result:', data);
+      
+      if (data && data.affected_streams > 0) {
+        console.log(`Successfully ended ${data.affected_streams} streams for user:`, userId);
+      } else {
+        console.log('No active streams found for user:', userId);
+      }
+    } catch (error) {
+      console.error('Error in endStreamOnRedirect:', error);
+      throw error;
     }
   }
 
   // End stream by ID (for manual ending)
   async endStreamById(streamId: string): Promise<void> {
-    const { error } = await supabase
-      .from('livestreams')
-      .update({
-        is_live: false,
-        ended_at: new Date().toISOString(),
-        status: 'ended',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', streamId)
-      .eq('is_live', true);
-    if (error) throw new Error(error.message);
+    try {
+      const { data, error } = await supabase
+        .rpc('end_stream_comprehensive', {
+          p_stream_id: streamId
+        });
+      
+      if (error) {
+        console.error('Error ending stream by ID:', error);
+        throw new Error(error.message);
+      }
+      
+      console.log('End stream by ID result:', data);
+      
+      if (data && !data.success) {
+        throw new Error(data.message || 'Failed to end stream');
+      }
+    } catch (error) {
+      console.error('Error in endStreamById:', error);
+      throw error;
+    }
+  }
+
+  // Force end all active streams (admin function)
+  async forceEndAllStreams(): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .rpc('end_stream_comprehensive', {
+          p_force_end_all: true
+        });
+      
+      if (error) {
+        console.error('Error force ending all streams:', error);
+        throw new Error(error.message);
+      }
+      
+      console.log('Force end all streams result:', data);
+    } catch (error) {
+      console.error('Error in forceEndAllStreams:', error);
+      throw error;
+    }
+  }
+
+  // Get stream status
+  async getStreamStatus(streamId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_stream_status', {
+          p_stream_id: streamId
+        });
+      
+      if (error) {
+        console.error('Error getting stream status:', error);
+        throw new Error(error.message);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in getStreamStatus:', error);
+      throw error;
+    }
+  }
+
+  // List all active streams
+  async listActiveStreams(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .rpc('list_active_streams');
+      
+      if (error) {
+        console.error('Error listing active streams:', error);
+        throw new Error(error.message);
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error in listActiveStreams:', error);
+      throw error;
+    }
+  }
+
+  // Auto-end inactive streams
+  async autoEndInactiveStreams(): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .rpc('auto_end_inactive_streams');
+      
+      if (error) {
+        console.error('Error auto-ending inactive streams:', error);
+        throw new Error(error.message);
+      }
+      
+      console.log(`Auto-ended ${data} inactive streams`);
+      return data || 0;
+    } catch (error) {
+      console.error('Error in autoEndInactiveStreams:', error);
+      throw error;
+    }
   }
 
   // Get weekly streaming usage for a user from the weekly_usage table
@@ -381,34 +452,34 @@ class DatabaseService {
       console.log('No weekly usage record found, falling back to livestreams calculation');
       
       // Fallback to calculating from livestreams table
-      const { data, error } = await supabase
-        .from('livestreams')
-        .select('started_at, ended_at, title')
-        .eq('streamer_id', userId)
-        .eq('status', 'ended')
-        .not('started_at', 'is', null)
-        .not('ended_at', 'is', null)
-        .gte('started_at', startOfWeek.toISOString())
-        .lte('started_at', now.toISOString());
+    const { data, error } = await supabase
+      .from('livestreams')
+      .select('started_at, ended_at, title')
+      .eq('streamer_id', userId)
+      .eq('status', 'ended')
+      .not('started_at', 'is', null)
+      .not('ended_at', 'is', null)
+      .gte('started_at', startOfWeek.toISOString())
+      .lte('started_at', now.toISOString());
 
-      if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
 
-      // Calculate total minutes from all streams
-      if (data && data.length > 0) {
-        console.log(`Found ${data.length} completed streams this week:`, data);
+    // Calculate total minutes from all streams
+    if (data && data.length > 0) {
+      console.log(`Found ${data.length} completed streams this week:`, data);
+      
+      totalMinutes = data.reduce((total, stream) => {
+        const startTime = new Date(stream.started_at);
+        const endTime = new Date(stream.ended_at);
+        const durationMs = endTime.getTime() - startTime.getTime();
+        const durationMinutes = Math.floor(durationMs / (1000 * 60));
         
-        totalMinutes = data.reduce((total, stream) => {
-          const startTime = new Date(stream.started_at);
-          const endTime = new Date(stream.ended_at);
-          const durationMs = endTime.getTime() - startTime.getTime();
-          const durationMinutes = Math.floor(durationMs / (1000 * 60));
-          
-          console.log(`Stream "${stream.title}": ${durationMinutes} minutes`);
-          
-          return total + durationMinutes;
-        }, 0);
-      } else {
-        console.log('No completed streams found for this week');
+        console.log(`Stream "${stream.title}": ${durationMinutes} minutes`);
+        
+        return total + durationMinutes;
+      }, 0);
+    } else {
+      console.log('No completed streams found for this week');
       }
     }
 

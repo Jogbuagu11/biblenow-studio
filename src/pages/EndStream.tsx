@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { databaseService } from '../services/databaseService';
+import EndStreamHandler from '../components/EndStreamHandler';
 
 const EndStream: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [streamEnded, setStreamEnded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuthStore();
 
   useEffect(() => {
@@ -11,10 +14,13 @@ const EndStream: React.FC = () => {
     const endActiveStreams = async () => {
       if (user) {
         try {
+          console.log('EndStream page: Ending active streams for user:', user.uid);
           await databaseService.endStreamOnRedirect(user.uid);
-          console.log('Active streams ended for user:', user.uid);
+          console.log('EndStream page: Active streams ended successfully');
+          setStreamEnded(true);
         } catch (error) {
-          console.error('Error ending streams:', error);
+          console.error('EndStream page: Error ending streams:', error);
+          setError(error instanceof Error ? error.message : 'Failed to end streams');
         }
       }
     };
@@ -124,6 +130,31 @@ const EndStream: React.FC = () => {
               minute: '2-digit',
               second: '2-digit'
             })}
+          </div>
+
+          {/* Stream Status and Controls */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-900/50 text-red-300 rounded-lg border border-red-400/30 animate-fade-in-delay-3">
+              <p className="font-semibold">Error:</p>
+              <p>{error}</p>
+            </div>
+          )}
+          
+          {streamEnded && (
+            <div className="mb-6 p-4 bg-green-900/50 text-green-300 rounded-lg border border-green-400/30 animate-fade-in-delay-3">
+              <p className="font-semibold">Success:</p>
+              <p>Your livestream has been ended successfully.</p>
+            </div>
+          )}
+
+          {/* Manual Stream Controls */}
+          <div className="mb-6 p-6 bg-gradient-to-r from-darkBrown-800/50 to-chocolate-800/50 rounded-2xl backdrop-blur-sm border border-yellow-400/20 animate-fade-in-delay-3">
+            <h3 className="text-yellow-200 font-semibold mb-4">Stream Management</h3>
+            <EndStreamHandler 
+              onStreamEnded={() => setStreamEnded(true)}
+              onError={(error) => setError(error)}
+              autoEnd={false}
+            />
           </div>
 
           {/* Action Buttons */}
