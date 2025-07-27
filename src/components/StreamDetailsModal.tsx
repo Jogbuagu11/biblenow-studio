@@ -33,7 +33,7 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{stream.title}</DialogTitle>
           <DialogDescription>
@@ -161,6 +161,12 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Room Name:</span>
                   <span className="font-medium font-mono">{stream.room_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">JaaS Room URL:</span>
+                  <span className="font-medium text-blue-600 dark:text-blue-400 truncate ml-2">
+                    https://8x8.vc/{stream.room_name?.split('/').pop() || 'room'}
+                  </span>
                 </div>
                 {stream.redirect_url && (
                   <div className="flex justify-between">
