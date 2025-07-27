@@ -160,11 +160,7 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Room Information</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Room Name:</span>
-                  <span className="font-medium font-mono">{stream.room_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Custom Branded URL:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Room URL:</span>
                   <span className="font-medium text-blue-600 dark:text-blue-400 truncate ml-2">
                     https://stream.biblenow.io/{stream.room_name?.split('/').pop() || 'room'}
                   </span>
