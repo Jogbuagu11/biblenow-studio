@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { jaasConfig } from "../config/firebase";
 import { useAuthStore } from "../stores";
 import jwtAuthService from "../services/jwtAuthService";
@@ -21,7 +21,7 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
   const [isEnding, setIsEnding] = useState(false);
 
   // Robust stream end handler
-  const handleStreamEnd = async (eventType: string) => {
+  const handleStreamEnd = useCallback(async (eventType: string) => {
     if (isEnding) {
       console.log('Stream end already in progress, skipping:', eventType);
       return;
@@ -62,7 +62,7 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
       // Always redirect to endstream page
       window.location.href = '/endstream';
     }
-  };
+  }, [user, isEnding]);
 
   useEffect(() => {
     if (!window.JitsiMeetExternalAPI) {
@@ -179,7 +179,7 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         apiRef.current.dispose();
       }
     };
-  }, [roomName, user]);
+  }, [roomName, user, handleStreamEnd]);
 
   return <div ref={containerRef} style={{ height: "100vh", width: "100%" }} />;
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { databaseService } from '../services/databaseService';
 
@@ -19,14 +19,7 @@ const EndStreamHandler: React.FC<EndStreamHandlerProps> = ({
   const [isEnding, setIsEnding] = useState(false);
   const [streamStatus, setStreamStatus] = useState<any>(null);
 
-  // Auto-end stream when component mounts
-  useEffect(() => {
-    if (autoEnd && user) {
-      endStream();
-    }
-  }, [user, autoEnd]);
-
-  const endStream = async () => {
+  const endStream = useCallback(async () => {
     if (!user) {
       onError?.('User not authenticated');
       return;
@@ -56,7 +49,14 @@ const EndStreamHandler: React.FC<EndStreamHandlerProps> = ({
     } finally {
       setIsEnding(false);
     }
-  };
+  }, [user, streamId, onStreamEnded, onError]);
+
+  // Auto-end stream when component mounts
+  useEffect(() => {
+    if (autoEnd && user) {
+      endStream();
+    }
+  }, [user, autoEnd, endStream]);
 
   const getStreamStatus = async () => {
     if (!streamId) return;
