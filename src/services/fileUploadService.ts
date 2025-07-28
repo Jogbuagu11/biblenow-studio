@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { useAuthStore } from '../stores/authStore';
 
 export interface UploadResult {
   url: string;
@@ -29,23 +30,39 @@ class FileUploadService {
         throw new Error('Invalid file type. Only JPG, PNG, and GIF are allowed');
       }
 
+      // Get current user
+      const user = useAuthStore.getState().user;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       // Generate unique filename with better naming
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 15);
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${timestamp}_${randomId}.${fileExtension}`;
+      
+      // Create user-specific path: thumbnails/{user_id}/{filename}
+      const userPath = `thumbnails/${user.uid}/${fileName}`;
 
       console.log('Uploading thumbnail to bucket:', this.bucketName);
       console.log('File name:', fileName);
+      console.log('User path:', userPath);
       console.log('File size:', file.size, 'bytes');
       console.log('File type:', file.type);
 
       // Try to upload to thumbnails bucket first
       let { data, error } = await supabase.storage
         .from(this.bucketName)
-        .upload(fileName, file, {
+        .upload(userPath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          metadata: {
+            owner_id: user.uid,
+            uploaded_at: new Date().toISOString(),
+            file_type: file.type,
+            file_size: file.size
+          }
         });
 
       // If thumbnails bucket doesn't exist, fall back to attachments bucket
@@ -53,9 +70,15 @@ class FileUploadService {
         console.log('Thumbnails bucket not found, falling back to attachments bucket');
         const fallbackResult = await supabase.storage
           .from(this.fallbackBucketName)
-          .upload(`thumbnails/${fileName}`, file, {
+          .upload(userPath, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            metadata: {
+              owner_id: user.uid,
+              uploaded_at: new Date().toISOString(),
+              file_type: file.type,
+              file_size: file.size
+            }
           });
         
         data = fallbackResult.data;
@@ -65,13 +88,13 @@ class FileUploadService {
           // Get public URL from fallback bucket
           const { data: urlData } = supabase.storage
             .from(this.fallbackBucketName)
-            .getPublicUrl(`thumbnails/${fileName}`);
+            .getPublicUrl(userPath);
 
           console.log('Upload successful to fallback bucket, URL:', urlData.publicUrl);
 
           return {
             url: urlData.publicUrl,
-            path: `thumbnails/${fileName}`
+            path: userPath
           };
         }
       }
@@ -92,7 +115,7 @@ class FileUploadService {
 
       return {
         url: urlData.publicUrl,
-        path: fileName
+        path: userPath
       };
 
     } catch (error) {
@@ -107,8 +130,22 @@ class FileUploadService {
 
   async deleteThumbnail(path: string): Promise<boolean> {
     try {
+      // Get current user to verify ownership
+      const user = useAuthStore.getState().user;
+      if (!user) {
+        console.error('User not authenticated for delete operation');
+        return false;
+      }
+
       console.log('Deleting thumbnail from bucket:', this.bucketName);
       console.log('File path:', path);
+      console.log('User ID:', user.uid);
+      
+      // Verify the path belongs to the current user
+      if (!path.includes(`thumbnails/${user.uid}/`)) {
+        console.error('Cannot delete thumbnail: path does not belong to current user');
+        return false;
+      }
       
       let { error } = await supabase.storage
         .from(this.bucketName)
