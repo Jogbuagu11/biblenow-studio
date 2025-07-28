@@ -4,12 +4,15 @@ import { useLivestreamStore } from '../../stores/livestreamStore';
 import { format } from 'date-fns';
 import Button from '../ui/Button';
 import StreamDetailsModal from '../StreamDetailsModal';
+import Pagination from '../ui/Pagination';
 import { StreamInfo } from '../../stores/livestreamStore';
 
 const UpcomingStreams: React.FC = () => {
   const { scheduledStreams, fetchScheduledStreams, isLoading } = useLivestreamStore();
   const [selectedStream, setSelectedStream] = useState<StreamInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     fetchScheduledStreams();
@@ -24,6 +27,16 @@ const UpcomingStreams: React.FC = () => {
     setSelectedStream(stream);
     setIsModalOpen(true);
   };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Calculate pagination
+  const totalPages = Math.ceil(scheduledStreams.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentStreams = scheduledStreams.slice(startIndex, endIndex);
 
   return (
     <Card>
@@ -40,8 +53,8 @@ const UpcomingStreams: React.FC = () => {
             <p className="text-gray-500">Loading upcoming streams...</p>
           </div>
         ) : scheduledStreams.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {scheduledStreams.slice(0, 10).map((stream) => (
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+            {currentStreams.map((stream) => (
               <div key={stream.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                 <div className="aspect-video bg-gray-100 dark:bg-gray-800 relative">
                   {stream.thumbnail_url ? (
@@ -103,12 +116,14 @@ const UpcomingStreams: React.FC = () => {
             </Button>
           </div>
         )}
-        {scheduledStreams.length > 10 && (
-          <div className="text-center pt-4">
-            <Button variant="outline" onClick={() => window.location.href = '/streams'}>
-              View All ({scheduledStreams.length} streams)
-            </Button>
-          </div>
+        {scheduledStreams.length > itemsPerPage && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            totalItems={scheduledStreams.length}
+            itemsPerPage={itemsPerPage}
+          />
         )}
       </CardContent>
       
