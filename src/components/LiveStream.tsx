@@ -103,9 +103,12 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         }
       }
 
-      // Room name already includes the full JAAS App ID prefix from GoLiveModal
+      // Extract the actual room name from the full JaaS room name
+      // roomName format: "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372/roomname"
+      const actualRoomName = roomName.includes('/') ? roomName.split('/')[1] : roomName;
+      
       const options: any = {
-        roomName: roomName,
+        roomName: actualRoomName,
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",

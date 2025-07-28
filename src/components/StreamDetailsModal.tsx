@@ -164,6 +164,12 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
                     https://stream.biblenow.io/{stream.room_name?.split('/').pop() || 'room'}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">JaaS Room:</span>
+                  <span className="font-medium text-gray-500 dark:text-gray-400 truncate ml-2">
+                    {stream.room_name || 'Not set'}
+                  </span>
+                </div>
                 {stream.redirect_url && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Redirect URL:</span>
