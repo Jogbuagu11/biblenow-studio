@@ -53,7 +53,7 @@ const UpcomingStreams: React.FC = () => {
             <p className="text-gray-500">Loading upcoming streams...</p>
           </div>
         ) : scheduledStreams.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {currentStreams.map((stream) => (
               <div key={stream.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                 <div className="aspect-video bg-gray-100 dark:bg-gray-800 relative">
