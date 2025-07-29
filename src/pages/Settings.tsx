@@ -1,10 +1,50 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { useThemeStore } from '../stores';
+import { useAuthStore } from '../stores/authStore';
+import { databaseService } from '../services/databaseService';
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
+  const { user } = useAuthStore();
+  const [streamingLimitEmails, setStreamingLimitEmails] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load email preferences on component mount
+  useEffect(() => {
+    const loadEmailPreferences = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const preferences = await databaseService.getEmailPreferences(user.uid);
+        setStreamingLimitEmails(preferences.streamingLimitEmails);
+      } catch (error) {
+        console.error('Error loading email preferences:', error);
+      }
+    };
+
+    loadEmailPreferences();
+  }, [user?.uid]);
+
+  const handleStreamingLimitEmailsToggle = async () => {
+    if (!user?.uid) return;
+    
+    setIsLoading(true);
+    try {
+      const newValue = !streamingLimitEmails;
+      await databaseService.updateEmailPreferences(user.uid, {
+        streamingLimitEmails: newValue
+      });
+      setStreamingLimitEmails(newValue);
+    } catch (error) {
+      console.error('Error updating email preferences:', error);
+      // Revert the toggle if update failed
+      setStreamingLimitEmails(!streamingLimitEmails);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Layout>
@@ -43,27 +83,30 @@ const Settings: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Configure how you receive notifications.</CardDescription>
+            <CardTitle>Email Notifications</CardTitle>
+            <CardDescription>Configure your email notification preferences.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Email Notifications</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive updates via email.</p>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Weekly Streaming Limit Emails</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Receive email notifications when you reach 75% or 100% of your weekly streaming limit.
+                  </p>
                 </div>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-yellow-500">
-                  <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Push Notifications</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive push notifications in your browser.</p>
-                </div>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
-                  <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
+                <button 
+                  onClick={handleStreamingLimitEmailsToggle}
+                  disabled={isLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    streamingLimitEmails ? 'bg-yellow-500' : 'bg-gray-200'
+                  } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      streamingLimitEmails ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
                 </button>
               </div>
             </div>

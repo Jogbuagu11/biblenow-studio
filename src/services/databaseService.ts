@@ -2,6 +2,7 @@ import { dbConfig } from '../config/firebase';
 import { StreamInfo } from '../stores/livestreamStore';
 import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { emailService } from './emailService';
 
 class DatabaseService {
   private apiUrl: string;
@@ -579,64 +580,211 @@ class DatabaseService {
     return data;
   }
 
-  // Get weekly limit based on subscription plan (returns minutes for accuracy)
+  // Get weekly limit from plan
   getWeeklyLimitFromPlan(subscriptionPlan?: string, streamingMinutesLimit?: number): number {
-    console.log('getWeeklyLimitFromPlan called with:', subscriptionPlan);
-    console.log('Streaming minutes limit:', streamingMinutesLimit);
-    
-    // If subscription plan is empty/null, return 0 minutes
-    if (!subscriptionPlan || subscriptionPlan.trim() === '') {
-      console.log('No subscription plan found, returning 0 minutes');
-      return 0;
-    }
-    
-    // If we have the actual streaming minutes limit from the database, use that
-    if (streamingMinutesLimit && streamingMinutesLimit > 0) {
-      console.log('Using streaming minutes limit from database:', streamingMinutesLimit, 'minutes');
+    if (streamingMinutesLimit) {
       return streamingMinutesLimit;
     }
     
-    // Also check if streamingMinutesLimit is 0 (which means no limit set)
-    if (streamingMinutesLimit === 0) {
-      console.log('Streaming minutes limit is 0, returning 0 minutes');
-      return 0;
-    }
-    
-    // Fallback to plan name mapping if no minutes limit provided
-    const plan = subscriptionPlan?.toLowerCase();
-    console.log('Normalized plan:', plan);
-    
-    let limitMinutes: number;
-    switch (plan) {
-      case 'basic':
-        limitMinutes = 180; // 180 minutes per week
-        break;
-      case 'standard':
-        limitMinutes = 360; // 360 minutes per week
-        break;
-      case 'premium':
-        limitMinutes = 900; // 900 minutes per week
-        break;
+    // Default limits based on plan names
+    switch (subscriptionPlan?.toLowerCase()) {
       case 'olive':
-        limitMinutes = 180; // 180 minutes per week
-        break;
-      case 'branch':
-        limitMinutes = 360; // 360 minutes per week
-        break;
-      case 'vine':
-        limitMinutes = 900; // 900 minutes per week
-        break;
+      case 'basic':
+        return 60; // 1 hour per week
       case 'cedar':
-        limitMinutes = 1200; // 1200 minutes per week
-        break;
+      case 'premium':
+        return 0; // Unlimited
+      case 'cypress':
+      case 'standard':
+        return 180; // 3 hours per week
       default:
-        limitMinutes = 0; // No valid plan found, return 0 minutes
-        console.log('No valid plan found, returning 0 minutes');
-        break;
+        return 60; // Default to 1 hour
     }
-    
-    console.log('Returning weekly limit:', limitMinutes, 'minutes');
-    return limitMinutes;
+  }
+
+  // Check if user has reached their weekly streaming limit
+  async checkWeeklyStreamingLimit(userId: string): Promise<{
+    hasReachedLimit: boolean;
+    currentMinutes: number;
+    limitMinutes: number;
+    remainingMinutes: number;
+    usagePercentage: number;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .rpc('check_weekly_streaming_limit', { user_id_param: userId })
+        .single();
+
+      if (error) {
+        console.error('Error checking weekly streaming limit:', error);
+        throw new Error(error.message);
+      }
+
+      // Type the response data
+      const responseData = data as {
+        has_reached_limit: boolean;
+        current_minutes: number;
+        limit_minutes: number;
+        remaining_minutes: number;
+        usage_percentage: number;
+      };
+
+      return {
+        hasReachedLimit: responseData.has_reached_limit,
+        currentMinutes: responseData.current_minutes,
+        limitMinutes: responseData.limit_minutes,
+        remainingMinutes: responseData.remaining_minutes,
+        usagePercentage: responseData.usage_percentage
+      };
+    } catch (error) {
+      console.error('Error checking weekly streaming limit:', error);
+      // Return default values if function doesn't exist
+      return {
+        hasReachedLimit: false,
+        currentMinutes: 0,
+        limitMinutes: 0,
+        remainingMinutes: 0,
+        usagePercentage: 0
+      };
+    }
+  }
+
+  // Update user's email preferences
+  async updateEmailPreferences(userId: string, preferences: {
+    streamingLimitEmails?: boolean;
+  }): Promise<void> {
+    try {
+      // Get current preferences
+      const { data: currentProfile, error: fetchError } = await supabase
+        .from('verified_profiles')
+        .select('preferences')
+        .eq('id', userId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
+
+      // Merge with existing preferences
+      const currentPreferences = currentProfile?.preferences || {};
+      const updatedPreferences = {
+        ...currentPreferences,
+        ...preferences
+      };
+
+      // Update preferences
+      const { error: updateError } = await supabase
+        .from('verified_profiles')
+        .update({ preferences: updatedPreferences })
+        .eq('id', userId);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+    } catch (error) {
+      console.error('Error updating email preferences:', error);
+      throw error;
+    }
+  }
+
+  // Get user's email preferences
+  async getEmailPreferences(userId: string): Promise<{
+    streamingLimitEmails: boolean;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('verified_profiles')
+        .select('preferences')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const preferences = data?.preferences || {};
+      return {
+        streamingLimitEmails: preferences.streamingLimitEmails !== false // Default to true
+      };
+    } catch (error) {
+      console.error('Error getting email preferences:', error);
+      // Return default preferences
+      return {
+        streamingLimitEmails: true
+      };
+    }
+  }
+
+  // Send streaming limit emails
+  async sendStreamingLimitEmails(userId: string): Promise<{
+    warningSent: boolean;
+    reachedSent: boolean;
+  }> {
+    try {
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('verified_profiles')
+        .select('email, first_name, preferences')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      // Check email preferences
+      const preferences = profile?.preferences || {};
+      const shouldSendEmails = preferences.streamingLimitEmails !== false;
+
+      if (!shouldSendEmails) {
+        return { warningSent: false, reachedSent: false };
+      }
+
+      // Get current streaming limits
+      const limitData = await this.checkWeeklyStreamingLimit(userId);
+      
+      // Calculate reset date (next Monday)
+      const now = new Date();
+      const daysUntilMonday = (8 - now.getDay()) % 7;
+      const resetDate = new Date(now);
+      resetDate.setDate(now.getDate() + daysUntilMonday);
+      resetDate.setHours(0, 0, 0, 0);
+
+      const resetDateString = resetDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      let warningSent = false;
+      let reachedSent = false;
+
+      // Send warning email at 75% threshold
+      if (limitData.usagePercentage >= 75 && limitData.usagePercentage < 100) {
+        warningSent = await emailService.sendWeeklyStreamingLimitWarning(
+          profile.email,
+          profile.first_name || 'User',
+          resetDateString,
+          limitData.remainingMinutes,
+          limitData.limitMinutes
+        );
+      }
+
+      // Send limit reached email at 100% threshold
+      if (limitData.usagePercentage >= 100) {
+        reachedSent = await emailService.sendWeeklyStreamingLimitReached(
+          profile.email,
+          profile.first_name || 'User',
+          resetDateString
+        );
+      }
+
+      return { warningSent, reachedSent };
+    } catch (error) {
+      console.error('Error sending streaming limit emails:', error);
+      return { warningSent: false, reachedSent: false };
+    }
   }
 }
 

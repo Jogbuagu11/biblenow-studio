@@ -212,13 +212,27 @@ export const useLivestreamStore = create<LivestreamState>()(
         set({ isLoading: true, error: null });
         try {
           const updatedStream = await databaseService.updateLivestream(streamId, updates);
-          const { streams } = get();
+          const { streams, scheduledStreams, recentStreams, upcomingStreams } = get();
+          
+          // Update stream in all arrays
           const updatedStreams = streams.map(stream => 
+            stream.id === streamId ? updatedStream : stream
+          );
+          const updatedScheduledStreams = scheduledStreams.map(stream => 
+            stream.id === streamId ? updatedStream : stream
+          );
+          const updatedRecentStreams = recentStreams.map(stream => 
+            stream.id === streamId ? updatedStream : stream
+          );
+          const updatedUpcomingStreams = upcomingStreams.map(stream => 
             stream.id === streamId ? updatedStream : stream
           );
           
           set({ 
             streams: updatedStreams,
+            scheduledStreams: updatedScheduledStreams,
+            recentStreams: updatedRecentStreams,
+            upcomingStreams: updatedUpcomingStreams,
             currentStream: updatedStream,
             isLoading: false 
           });
@@ -234,11 +248,19 @@ export const useLivestreamStore = create<LivestreamState>()(
         set({ isLoading: true, error: null });
         try {
           await databaseService.deleteLivestream(streamId);
-          const { streams, currentStream } = get();
+          const { streams, currentStream, scheduledStreams, recentStreams, upcomingStreams } = get();
+          
+          // Remove stream from all arrays
           const updatedStreams = streams.filter(stream => stream.id !== streamId);
+          const updatedScheduledStreams = scheduledStreams.filter(stream => stream.id !== streamId);
+          const updatedRecentStreams = recentStreams.filter(stream => stream.id !== streamId);
+          const updatedUpcomingStreams = upcomingStreams.filter(stream => stream.id !== streamId);
           
           set({ 
             streams: updatedStreams,
+            scheduledStreams: updatedScheduledStreams,
+            recentStreams: updatedRecentStreams,
+            upcomingStreams: updatedUpcomingStreams,
             currentStream: currentStream?.id === streamId ? null : currentStream,
             isLoading: false 
           });

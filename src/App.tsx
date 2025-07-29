@@ -12,7 +12,7 @@ import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import LiveStream from "./components/LiveStream";
+import LiveStreamWithChat from "./components/LiveStreamWithChat";
 import EndStream from "./pages/EndStream";
 import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -99,7 +99,7 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <LiveStream roomName={roomName} />
+          <LiveStreamWithChat roomName={roomName} isStreamer={true} />
         </div>
       ) : (
         <div className="min-h-screen p-8 transition-colors duration-200">

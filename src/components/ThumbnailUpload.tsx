@@ -2,10 +2,10 @@ import React, { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import Button from './ui/Button';
 import Label from './ui/Label';
-import { fileUploadService, UploadResult } from '../services/fileUploadService';
+import { thumbnailService, ThumbnailUploadResult } from '../services/thumbnailService';
 
 interface ThumbnailUploadProps {
-  onUploadComplete: (result: UploadResult) => void;
+  onUploadComplete: (result: ThumbnailUploadResult) => void;
   onRemove: () => void;
   currentUrl?: string;
   disabled?: boolean;
@@ -30,7 +30,7 @@ const ThumbnailUpload: React.FC<ThumbnailUploadProps> = ({
     setUploadError('');
 
     try {
-      const result = await fileUploadService.uploadThumbnail(file);
+      const result = await thumbnailService.uploadThumbnail(file);
       
       if (result.error) {
         setUploadError(result.error);

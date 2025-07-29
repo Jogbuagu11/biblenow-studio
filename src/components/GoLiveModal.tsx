@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -8,13 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/Dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/AlertDialog';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import { RadioGroup, RadioGroupItem } from './ui/RadioGroup';
 import { useLivestreamStore } from '../stores';
-
-
+import { useAuthStore } from '../stores/authStore';
+import { databaseService } from '../services/databaseService';
+import { thumbnailService } from '../services/thumbnailService';
 
 interface GoLiveModalProps {
   open: boolean;
@@ -34,6 +36,15 @@ const streamPlatforms = [
 
 const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   const { createStream, isLoading, setError, clearError } = useLivestreamStore();
+  const { user } = useAuthStore();
+  const [streamingLimit, setStreamingLimit] = useState<{
+    hasReachedLimit: boolean;
+    currentMinutes: number;
+    limitMinutes: number;
+    remainingMinutes: number;
+    usagePercentage: number;
+  } | null>(null);
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -49,7 +60,23 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  const defaultThumbnailUrl = "https://jhlawjmyorpmafokxtuh.supabase.co/storage/v1/object/sign/attachments/defaultstream.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82OWRmNmQwOC1iYTlmLTQ2NDItYmQ4MS05ZDIzNGNmYTI1M2QiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhdHRhY2htZW50cy9kZWZhdWx0c3RyZWFtLnBuZyIsImlhdCI6MTc1MzY0ODA0OSwiZXhwIjoyMDY5MDA4MDQ5fQ.cMcADdSsi7Scklnf0qU_D0yeQnOjn-_wY-bMvFDRnos";
+  const defaultThumbnailUrl = thumbnailService.getDefaultThumbnailUrl();
+
+  // Check streaming limits when modal opens
+  useEffect(() => {
+    const checkStreamingLimits = async () => {
+      if (!user?.uid || !open) return;
+      
+      try {
+        const limitData = await databaseService.checkWeeklyStreamingLimit(user.uid);
+        setStreamingLimit(limitData);
+      } catch (error) {
+        console.error('Error checking streaming limits:', error);
+      }
+    };
+
+    checkStreamingLimits();
+  }, [user?.uid, open]);
 
   // Determine platform types
   const isExternalPlatform = formData.platform === 'external';
@@ -86,24 +113,23 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // Check if file is JPG or PNG
-      if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        alert("Please upload a JPG or PNG image");
-        return;
+      try {
+        const result = await thumbnailService.uploadThumbnail(file);
+        
+        if (result.error) {
+          alert(result.error);
+          return;
+        }
+        
+        setThumbnailPreview(result.url);
+      } catch (error) {
+        alert('Failed to upload thumbnail. Please try again.');
+        console.error('Thumbnail upload error:', error);
       }
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbnailPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      
-
     }
   };
 
@@ -114,16 +140,10 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     }
 
     if (!formData.platform) {
-      alert("Please select a streaming platform");
+      alert("Please select a platform");
       return false;
     }
 
-    if (!formData.scheduled_at) {
-      alert("Please set a start time for your stream");
-      return false;
-    }
-
-    // Validate external platform requirements
     if (isExternalPlatform && !formData.embed_url.trim()) {
       alert("Please enter an embed URL for external platforms");
       return false;
@@ -135,6 +155,12 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+    
+    // Check streaming limits before allowing going live
+    if (streamingLimit?.hasReachedLimit) {
+      setShowLimitDialog(true);
+      return;
+    }
     
     clearError();
     
@@ -409,6 +435,68 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
             </div>
           </div>
 
+          {/* Streaming Limit Warning - Only show at 75% or 100% usage */}
+          {streamingLimit && (streamingLimit.usagePercentage >= 75 || streamingLimit.hasReachedLimit) && (
+            <div className={`p-4 rounded-lg border ${
+              streamingLimit.hasReachedLimit 
+                ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' 
+                : streamingLimit.usagePercentage >= 75 
+                ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
+                : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+            }`}>
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  {streamingLimit.hasReachedLimit ? (
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  ) : streamingLimit.usagePercentage >= 75 ? (
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <div className="ml-3">
+                  <h3 className={`text-sm font-medium ${
+                    streamingLimit.hasReachedLimit 
+                      ? 'text-red-800 dark:text-red-200' 
+                      : streamingLimit.usagePercentage >= 75 
+                      ? 'text-yellow-800 dark:text-yellow-200'
+                      : 'text-blue-800 dark:text-blue-200'
+                  }`}>
+                    {streamingLimit.hasReachedLimit 
+                      ? 'Weekly Streaming Limit Reached' 
+                      : streamingLimit.usagePercentage >= 75 
+                      ? 'Weekly Streaming Limit Warning'
+                      : 'Weekly Streaming Usage'
+                    }
+                  </h3>
+                  <div className={`mt-2 text-sm ${
+                    streamingLimit.hasReachedLimit 
+                      ? 'text-red-700 dark:text-red-300' 
+                      : streamingLimit.usagePercentage >= 75 
+                      ? 'text-yellow-700 dark:text-yellow-300'
+                      : 'text-blue-700 dark:text-blue-300'
+                  }`}>
+                    {streamingLimit.hasReachedLimit ? (
+                      <p>You have reached your weekly streaming limit. You cannot go live until next week.</p>
+                    ) : (
+                      <p>
+                        You have used {streamingLimit.currentMinutes} of {streamingLimit.limitMinutes} minutes 
+                        ({streamingLimit.usagePercentage.toFixed(1)}% of your weekly limit).
+                        {streamingLimit.remainingMinutes > 0 && ` ${streamingLimit.remainingMinutes} minutes remaining.`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="pt-6 border-t border-gray-100 dark:border-darkBrown-700 bg-gradient-to-r from-white to-offWhite-25 dark:from-darkBrown-900 dark:to-darkBrown-800 rounded-b-xl">
             <Button
               type="button"
@@ -421,8 +509,8 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
             </Button>
             <Button
               type="submit"
-              disabled={isLoading}
-              className="bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-white px-8 py-3 font-semibold shadow-lg"
+              disabled={isLoading || streamingLimit?.hasReachedLimit}
+              className="bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-white px-8 py-3 font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
@@ -436,6 +524,28 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Streaming Limit Dialog */}
+      <AlertDialog open={showLimitDialog} onOpenChange={setShowLimitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Weekly Streaming Limit Reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have reached your weekly streaming limit. You cannot go live until your limit resets next week. 
+              Consider upgrading your subscription plan for unlimited streaming access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => window.location.href = '/payments'}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Upgrade Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
