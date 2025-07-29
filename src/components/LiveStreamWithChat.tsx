@@ -4,7 +4,7 @@ import { databaseService } from '../services/databaseService';
 import { jaasConfig } from '../config/firebase';
 import jwtAuthService from '../services/jwtAuthService';
 import LiveStreamChat from './LiveStreamChat';
-import { MessageCircle, Video, X, Maximize2, Minimize2 } from 'lucide-react';
+import { MessageCircle, X, Maximize2, Minimize2 } from 'lucide-react';
 
 declare global {
   interface Window {

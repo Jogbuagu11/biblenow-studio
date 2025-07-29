@@ -287,7 +287,7 @@ const Schedule: React.FC = () => {
     }
   };
 
-  const availablePlatforms = ["YouTube", "Zoom", "Facebook", "Instagram", "TikTok", "Custom"];
+
 
   return (
     <Layout>
