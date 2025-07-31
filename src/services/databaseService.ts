@@ -295,34 +295,43 @@ class DatabaseService {
       // First, check if user has any active streams
       const { data: activeStreams, error: checkError } = await supabase
         .from('livestreams')
-        .select('id, title, is_live, status')
+        .select('id, title, is_live, status, started_at')
         .eq('streamer_id', userId)
         .or('is_live.eq.true,status.eq.active');
       
       if (checkError) {
         console.error('Error checking active streams:', checkError);
-      } else {
-        console.log('Active streams found for user:', activeStreams);
+        throw new Error(checkError.message);
       }
       
-      // Use the new comprehensive end stream function
-      const { data, error } = await supabase
-        .rpc('end_stream_comprehensive', {
-          p_streamer_id: userId
-        });
+      console.log('Active streams found for user:', activeStreams);
       
-      if (error) {
-        console.error('Error ending stream via RPC:', error);
-        console.error('Error details:', error.details, error.hint, error.code);
-        throw new Error(error.message);
-      }
-      
-      console.log('End stream result:', data);
-      
-      if (data && data.affected_streams > 0) {
-        console.log(`Successfully ended ${data.affected_streams} streams for user:`, userId);
-      } else {
+      if (!activeStreams || activeStreams.length === 0) {
         console.log('No active streams found for user:', userId);
+        return;
+      }
+      
+      // End each active stream directly using direct update
+      for (const stream of activeStreams) {
+        console.log(`Ending stream: ${stream.id} - ${stream.title}`);
+        
+        const { data, error } = await supabase
+          .from('livestreams')
+          .update({
+            is_live: false,
+            ended_at: new Date().toISOString(),
+            status: 'ended',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stream.id)
+          .select();
+        
+        if (error) {
+          console.error(`Error ending stream ${stream.id}:`, error);
+          throw new Error(error.message);
+        }
+        
+        console.log(`Successfully ended stream: ${stream.id}`, data);
       }
       
       // Verify the streams were actually ended
@@ -336,6 +345,11 @@ class DatabaseService {
         console.error('Error verifying streams:', verifyError);
       } else {
         console.log('Streams after ending attempt:', verifyStreams);
+        if (verifyStreams && verifyStreams.length === 0) {
+          console.log('All streams successfully ended');
+        } else {
+          console.log('Some streams may still be active:', verifyStreams);
+        }
       }
       
     } catch (error) {
@@ -347,10 +361,18 @@ class DatabaseService {
   // End stream by ID (for manual ending)
   async endStreamById(streamId: string): Promise<void> {
     try {
+      console.log(`Ending stream by ID: ${streamId}`);
+      
       const { data, error } = await supabase
-        .rpc('end_stream_comprehensive', {
-          p_stream_id: streamId
-        });
+        .from('livestreams')
+        .update({
+          is_live: false,
+          ended_at: new Date().toISOString(),
+          status: 'ended',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', streamId)
+        .select();
       
       if (error) {
         console.error('Error ending stream by ID:', error);
@@ -359,8 +381,8 @@ class DatabaseService {
       
       console.log('End stream by ID result:', data);
       
-      if (data && !data.success) {
-        throw new Error(data.message || 'Failed to end stream');
+      if (!data || data.length === 0) {
+        throw new Error('Stream not found or already ended');
       }
     } catch (error) {
       console.error('Error in endStreamById:', error);
@@ -371,10 +393,18 @@ class DatabaseService {
   // Force end all active streams (admin function)
   async forceEndAllStreams(): Promise<void> {
     try {
+      console.log('Force ending all active streams');
+      
       const { data, error } = await supabase
-        .rpc('end_stream_comprehensive', {
-          p_force_end_all: true
-        });
+        .from('livestreams')
+        .update({
+          is_live: false,
+          ended_at: new Date().toISOString(),
+          status: 'ended',
+          updated_at: new Date().toISOString()
+        })
+        .or('is_live.eq.true,status.eq.active')
+        .select();
       
       if (error) {
         console.error('Error force ending all streams:', error);
@@ -382,6 +412,7 @@ class DatabaseService {
       }
       
       console.log('Force end all streams result:', data);
+      console.log(`Ended ${data?.length || 0} streams`);
     } catch (error) {
       console.error('Error in forceEndAllStreams:', error);
       throw error;

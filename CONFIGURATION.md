@@ -39,6 +39,11 @@ REACT_APP_JAAS_APP_ID=your-jaas-app-id
 REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
 ```
 
+### Stripe Configuration
+```
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+```
+
 ## Setup Instructions
 
 1. **Firebase Setup (for authentication only):**
@@ -53,13 +58,31 @@ REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
    - Run the provided SQL schema to create the `livestreams` table
    - Update the database configuration in your `.env` file
 
-2. **JAAS Setup:**
+3. **JAAS Setup:**
    - Sign up for JAAS at https://jaas.8x8.vc
    - Get your App ID and JWT Secret from the dashboard
    - Update the JAAS configuration in your `.env` file
 
-3. **Start the Application:**
+4. **Stripe Setup:**
+   - Create a Stripe account at https://stripe.com
+   - Get your publishable and secret keys from the Stripe Dashboard
+   - Update the Stripe configuration in your `.env` file
+   - Set up webhooks for account updates (see server setup below)
+
+5. **Backend Server Setup:**
+   - Navigate to the `server/` directory
+   - Copy `env.example` to `.env` and fill in your credentials
+   - Install dependencies: `npm install`
+   - Start the server: `npm run dev`
+
+6. **Start the Application:**
    ```bash
+   # Terminal 1: Start the backend server
+   cd server
+   npm install
+   npm run dev
+   
+   # Terminal 2: Start the frontend
    npm start
    ```
 
@@ -67,12 +90,8 @@ REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
 
 - **Stream URL Navigation:** When users click "Start Stream", they are redirected to `/live-stream` with room parameters
 - **JAAS Integration:** Uses 8x8.vc (JAAS) instead of jitsi.meet for better reliability
-- **PostgreSQL Database:** Uses PostgreSQL for data persistence with the `livestreams` table
-- **Stream Scheduling:** Schedule future streams with date/time selection and calendar view
-- **Recurring Streams:** Create recurring stream series (daily, weekly, bi-weekly, monthly) with automatic episode generation
-- **Real-time Viewer Count:** Tracks active viewers in real-time using API polling
-- **Configurable Database:** All database settings are configurable via environment variables
-- **Moderator Bypass:** Users can bypass moderator requirements if needed
+- **Stripe Connect Integration:** Full Stripe Connect onboarding for receiving donations
+- **Real-time Account Status:** Live updates of Stripe account verification status
 
 ## Database Schema
 

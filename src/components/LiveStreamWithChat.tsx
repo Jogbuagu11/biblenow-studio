@@ -71,6 +71,33 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
   }, [user, isEnding]);
 
   useEffect(() => {
+    // Add beforeunload event listener to end stream when browser closes
+    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+      if (isStreamer && user) {
+        console.log('Browser closing, ending stream...');
+        try {
+          await databaseService.endStreamOnRedirect(user.uid);
+        } catch (error) {
+          console.error('Error ending stream on browser close:', error);
+        }
+      }
+    };
+
+    // Add page visibility change handler to end stream when user switches tabs
+    const handleVisibilityChange = async () => {
+      if (isStreamer && user && document.hidden) {
+        console.log('Page hidden, ending stream...');
+        try {
+          await databaseService.endStreamOnRedirect(user.uid);
+        } catch (error) {
+          console.error('Error ending stream on page hide:', error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const initializeJitsi = async () => {
       if (!window.JitsiMeetExternalAPI) {
         console.error("Jitsi script not loaded.");
@@ -210,8 +237,23 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
       if (apiRef.current) {
         apiRef.current.dispose();
       }
+      // Remove event listeners
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [roomName, user, handleStreamEnd]);
+  }, [roomName, user, handleStreamEnd, isStreamer]);
+
+  // Cleanup function to end stream when component unmounts
+  useEffect(() => {
+    return () => {
+      if (isStreamer && user) {
+        console.log('Component unmounting, ending stream...');
+        databaseService.endStreamOnRedirect(user.uid).catch(error => {
+          console.error('Error ending stream on unmount:', error);
+        });
+      }
+    };
+  }, [isStreamer, user]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {

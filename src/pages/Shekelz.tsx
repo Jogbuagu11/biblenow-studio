@@ -7,9 +7,8 @@ import Badge from '../components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Button from '../components/ui/Button';
 import { useToast } from '../hooks/use-toast';
-import { dbConfig } from '../config/firebase';
 
-// Interface for shekel_gifts table
+// Interface for shekel_gifts table (for future implementation)
 interface ShekelGift {
   id: string;
   sender_id: string;
@@ -25,8 +24,6 @@ interface ShekelGift {
   sender_name?: string;
   recipient_name?: string;
 }
-
-
 
 interface ShekelSummary {
   total_received: number;
@@ -57,70 +54,79 @@ const Shekelz: React.FC = () => {
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-
-  // Helper method for API calls
-  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const url = `${dbConfig.apiUrl}${endpoint}`;
-    
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
-
-      if (!response.ok) {
-        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error(`API call failed for ${endpoint}:`, error);
-      // Return empty data when API is not available
-      if (endpoint === '/shekel-gifts') {
-        return [];
-      }
-      if (endpoint === '/verified-profiles/current') {
-        return { id: 'current-user', shekel_balance: 0 };
-      }
-      throw error;
-    }
-  };
-
-
-
-    useEffect(() => {
+  useEffect(() => {
     const fetchShekelData = async () => {
       try {
         setIsLoading(true);
         
-        // For now, use a mock user ID - in real app, get from auth
-        const userId = 'current-user';
+        // For now, use mock data since the API endpoints don't exist yet
+        // In the future, this would fetch from actual Supabase tables
         
-        // Fetch user's shekel balance from verified_profiles
-        const profile = await apiCall(`/verified-profiles/current`);
+        // Mock user profile with shekel balance
+        const mockProfile = {
+          id: 'current-user',
+          shekel_balance: 150 // Mock balance
+        };
         
-        // Fetch shekel gifts (both sent and received)
-        const gifts = await apiCall('/shekel-gifts');
+        // Mock shekel gifts data
+        const mockGifts: ShekelGift[] = [
+          {
+            id: '1',
+            sender_id: 'user-1',
+            recipient_id: 'current-user',
+            amount: 50,
+            message: 'Great stream!',
+            is_anonymous: false,
+            gift_type: 'tip',
+            context: 'livestream',
+            context_id: 'stream-1',
+            status: 'completed',
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+            sender_name: 'John Doe'
+          },
+          {
+            id: '2',
+            sender_id: 'current-user',
+            recipient_id: 'user-2',
+            amount: 25,
+            message: 'Supporting your ministry',
+            is_anonymous: false,
+            gift_type: 'donation',
+            context: 'livestream',
+            context_id: 'stream-2',
+            status: 'completed',
+            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+            recipient_name: 'Jane Smith'
+          },
+          {
+            id: '3',
+            sender_id: 'user-3',
+            recipient_id: 'current-user',
+            amount: 100,
+            message: null,
+            is_anonymous: true,
+            gift_type: 'gift',
+            context: 'livestream',
+            context_id: 'stream-3',
+            status: 'completed',
+            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+            sender_name: 'Anonymous'
+          }
+        ];
         
-        // Ensure gifts is an array
-        const giftsArray = Array.isArray(gifts) ? gifts : [];
-        
-        // Calculate summary
-        const receivedGifts = giftsArray.filter((gift: ShekelGift) => 
-          gift.recipient_id === userId && gift.status === 'completed'
+        // Calculate summary from mock data
+        const receivedGifts = mockGifts.filter(gift => 
+          gift.recipient_id === 'current-user' && gift.status === 'completed'
         );
-        const sentGifts = giftsArray.filter((gift: ShekelGift) => 
-          gift.sender_id === userId && gift.status === 'completed'
+        const sentGifts = mockGifts.filter(gift => 
+          gift.sender_id === 'current-user' && gift.status === 'completed'
         );
         
         const summary: ShekelSummary = {
-          total_received: receivedGifts.reduce((sum: number, gift: ShekelGift) => sum + gift.amount, 0),
-          total_sent: sentGifts.reduce((sum: number, gift: ShekelGift) => sum + gift.amount, 0),
+          total_received: receivedGifts.reduce((sum, gift) => sum + gift.amount, 0),
+          total_sent: sentGifts.reduce((sum, gift) => sum + gift.amount, 0),
           total_purchased: 0, // This would come from a separate purchases table
-          balance: profile?.shekel_balance || 0
+          balance: mockProfile.shekel_balance
         };
 
         setShekelSummary(summary);
@@ -129,7 +135,7 @@ const Shekelz: React.FC = () => {
         const transactions: CombinedTransaction[] = [];
         
         // Add received gifts
-        receivedGifts.forEach((gift: ShekelGift) => {
+        receivedGifts.forEach((gift) => {
           transactions.push({
             id: gift.id,
             type: 'gift_received',
@@ -147,7 +153,7 @@ const Shekelz: React.FC = () => {
         });
         
         // Add sent gifts
-        sentGifts.forEach((gift: ShekelGift) => {
+        sentGifts.forEach((gift) => {
           transactions.push({
             id: gift.id,
             type: 'gift_sent',
