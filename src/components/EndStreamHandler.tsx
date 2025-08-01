@@ -5,7 +5,7 @@ import { databaseService } from '../services/databaseService';
 interface EndStreamHandlerProps {
   streamId?: string;
   onStreamEnded?: () => void;
-  onError?: (error: string) => void;
+  onError?: (error: string | Error) => void;
   autoEnd?: boolean;
 }
 
@@ -45,7 +45,7 @@ const EndStreamHandler: React.FC<EndStreamHandlerProps> = ({
       
     } catch (error) {
       console.error('EndStreamHandler: Error ending stream:', error);
-      onError?.(error instanceof Error ? error.message : 'Failed to end stream');
+      onError?.(error instanceof Error ? error.message : String(error));
     } finally {
       setIsEnding(false);
     }
@@ -84,7 +84,7 @@ const EndStreamHandler: React.FC<EndStreamHandlerProps> = ({
       onStreamEnded?.();
     } catch (error) {
       console.error('EndStreamHandler: Error force ending streams:', error);
-      onError?.(error instanceof Error ? error.message : 'Failed to force end streams');
+      onError?.(error instanceof Error ? error.message : String(error));
     } finally {
       setIsEnding(false);
     }

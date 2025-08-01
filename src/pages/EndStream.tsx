@@ -152,7 +152,7 @@ const EndStream: React.FC = () => {
             <h3 className="text-yellow-200 font-semibold mb-4">Stream Management</h3>
             <EndStreamHandler 
               onStreamEnded={() => setStreamEnded(true)}
-              onError={(error) => setError(error)}
+              onError={(error) => setError(typeof error === 'string' ? error : error.message)}
               autoEnd={false}
             />
           </div>
