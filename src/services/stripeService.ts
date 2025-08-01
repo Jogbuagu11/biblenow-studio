@@ -30,7 +30,13 @@ class StripeService {
   private apiUrl: string;
 
   constructor() {
-    this.apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+    // In production, use the Render backend URL if REACT_APP_API_URL is not set
+    const isProduction = process.env.NODE_ENV === 'production';
+    const defaultApiUrl = isProduction 
+      ? 'https://biblenow-studio-backend.onrender.com/api'
+      : 'http://localhost:3001/api';
+    
+    this.apiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
   }
 
   // Get Stripe instance
@@ -41,6 +47,8 @@ class StripeService {
   // Connect existing Stripe account (for streamers who already have accounts)
   async connectExistingAccount(accountId: string, userId: string): Promise<StripeAccount> {
     try {
+      console.log('Attempting to connect Stripe account:', { accountId, userId, apiUrl: this.apiUrl });
+      
       const response = await fetch(`${this.apiUrl}/stripe/connect-existing-account`, {
         method: 'POST',
         headers: {
@@ -49,11 +57,18 @@ class StripeService {
         body: JSON.stringify({ accountId, userId }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`Failed to connect existing account: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`Failed to connect existing account: ${response.statusText} - ${errorText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('Connection successful:', result);
+      return result;
     } catch (error) {
       console.error('Error connecting existing Stripe account:', error);
       throw error;
@@ -63,17 +78,26 @@ class StripeService {
   // Get current user's connected Stripe account status
   async getAccountStatus(userId: string): Promise<StripeAccount | null> {
     try {
+      console.log('Getting account status for user:', userId, 'API URL:', this.apiUrl);
+      
       const response = await fetch(`${this.apiUrl}/stripe/account-status?userId=${userId}`);
+
+      console.log('Account status response:', response.status);
 
       if (!response.ok) {
         if (response.status === 404) {
           // No account found
+          console.log('No account found for user');
           return null;
         }
-        throw new Error(`Failed to get account status: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Account status error:', errorText);
+        throw new Error(`Failed to get account status: ${response.statusText} - ${errorText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('Account status result:', result);
+      return result;
     } catch (error) {
       console.error('Error getting Stripe account status:', error);
       return null;

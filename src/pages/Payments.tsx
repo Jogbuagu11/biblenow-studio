@@ -56,6 +56,8 @@ const Payments: React.FC = () => {
     try {
       setConnectLoading(true);
       
+      console.log('Starting connection process for user:', user.uid);
+      
       // Connect the existing Stripe account
       const connectedAccount = await stripeService.connectExistingAccount(accountId, user.uid);
       setStripeAccount(connectedAccount);
@@ -69,9 +71,27 @@ const Payments: React.FC = () => {
       setAccountId('');
     } catch (error) {
       console.error("Error connecting Stripe account:", error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to connect Stripe account. Please check your account ID and try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "API endpoint not found. Please contact support.";
+        } else if (error.message.includes('500')) {
+          errorMessage = "Server error. Please try again later.";
+        } else if (error.message.includes('Invalid Stripe account ID')) {
+          errorMessage = "Invalid Stripe account ID. Please check the ID and try again.";
+        } else if (error.message.includes('already connected')) {
+          errorMessage = "This Stripe account is already connected to another user.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to connect Stripe account. Please check your account ID and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

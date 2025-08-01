@@ -34,6 +34,22 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
       return res.status(400).json({ error: 'Account ID and User ID are required' });
     }
 
+    console.log('Received request to connect account:', { accountId, userId });
+
+    // First, check if the user exists in the database
+    const { data: userProfile, error: userError } = await supabase
+      .from('verified_profiles')
+      .select('id, email')
+      .eq('id', userId)
+      .single();
+
+    console.log('User profile lookup result:', { userProfile, userError });
+
+    if (userError || !userProfile) {
+      console.error('User not found in database:', userError);
+      return res.status(404).json({ error: 'User not found in database' });
+    }
+
     // Verify the account exists and is accessible
     const account = await stripe.accounts.retrieve(accountId);
     
@@ -44,9 +60,9 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     // Check if account is already connected to another user
     const { data: existingConnection } = await supabase
       .from('verified_profiles')
-      .select('user_id')
+      .select('id')
       .eq('stripe_account_id', accountId)
-      .neq('user_id', userId)
+      .neq('id', userId)
       .single();
 
     if (existingConnection) {
@@ -54,15 +70,27 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     }
 
     // Store the account ID in the database
-    const { error } = await supabase
+    console.log('Attempting to update database with:', { accountId, userId });
+    
+    const { data, error } = await supabase
       .from('verified_profiles')
       .update({ stripe_account_id: accountId })
-      .eq('user_id', userId);
+      .eq('id', userId)
+      .select();
+
+    console.log('Database update result:', { data, error });
 
     if (error) {
       console.error('Error updating database:', error);
-      return res.status(500).json({ error: 'Failed to connect account to database' });
+      return res.status(500).json({ error: 'Failed to connect account to database: ' + error.message });
     }
+
+    if (!data || data.length === 0) {
+      console.error('No rows were updated');
+      return res.status(404).json({ error: 'User not found in database' });
+    }
+
+    console.log('Successfully updated user profile:', data[0]);
 
     // Return account details
     res.json({
@@ -98,7 +126,7 @@ app.get('/api/stripe/account-status', async (req, res) => {
     const { data: profile, error } = await supabase
       .from('verified_profiles')
       .select('stripe_account_id')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .single();
 
     if (error || !profile?.stripe_account_id) {
@@ -138,7 +166,7 @@ app.post('/api/stripe/verify-account-ownership', async (req, res) => {
     const { data: profile, error } = await supabase
       .from('verified_profiles')
       .select('stripe_account_id')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .eq('stripe_account_id', accountId)
       .single();
 
@@ -249,7 +277,7 @@ app.post('/api/stripe/disconnect-account', async (req, res) => {
     const { error } = await supabase
       .from('verified_profiles')
       .update({ stripe_account_id: null })
-      .eq('user_id', userId);
+      .eq('id', userId);
 
     if (error) {
       console.error('Error disconnecting account:', error);
