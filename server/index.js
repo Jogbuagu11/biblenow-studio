@@ -46,6 +46,28 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Helper function to update account status in database
+const updateAccountStatus = async (accountId, statusData) => {
+  try {
+    const { data, error } = await supabase
+      .from('verified_profiles')
+      .update({
+        stripe_account_status: JSON.stringify(statusData),
+        updated_at: new Date().toISOString()
+      })
+      .eq('stripe_account_id', accountId)
+      .select();
+
+    if (error) {
+      console.error('Error updating account status:', error);
+    } else {
+      console.log('Account status updated successfully:', data);
+    }
+  } catch (error) {
+    console.error('Error in updateAccountStatus:', error);
+  }
+};
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -323,13 +345,107 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'account.updated':
         const account = event.data.object;
         console.log('Account updated:', account.id);
-        // Update account status in database if needed
+        console.log('Account status:', {
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+          detailsSubmitted: account.details_submitted,
+          businessType: account.business_type,
+          country: account.country
+        });
+        
+        // Update account status in database
+        await updateAccountStatus(account.id, {
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+          detailsSubmitted: account.details_submitted,
+          businessProfile: account.business_profile
+        });
+        break;
+
+      case 'account.application.authorized':
+        const authorizedAccount = event.data.object;
+        console.log('Account authorized:', authorizedAccount.id);
+        // Account successfully connected and authorized
+        break;
+
+      case 'account.application.deauthorized':
+        const deauthorizedAccount = event.data.object;
+        console.log('Account deauthorized:', deauthorizedAccount.id);
+        // Handle account deauthorization - remove from database
+        const { error } = await supabase
+          .from('verified_profiles')
+          .update({ stripe_account_id: null })
+          .eq('stripe_account_id', deauthorizedAccount.id);
+        
+        if (error) {
+          console.error('Error removing deauthorized account:', error);
+        } else {
+          console.log('Successfully removed deauthorized account from database');
+        }
+        break;
+
+      case 'account.external_account.created':
+        const newBankAccount = event.data.object;
+        console.log('Bank account added:', newBankAccount.id);
+        console.log('Account:', newBankAccount.account);
+        break;
+
+      case 'account.external_account.updated':
+        const updatedBankAccount = event.data.object;
+        console.log('Bank account updated:', updatedBankAccount.id);
+        break;
+
+      case 'account.external_account.deleted':
+        const deletedBankAccount = event.data.object;
+        console.log('Bank account deleted:', deletedBankAccount.id);
         break;
 
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object;
         console.log('Payment succeeded:', paymentIntent.id);
+        console.log('Payment amount:', paymentIntent.amount);
+        console.log('Connected account:', paymentIntent.transfer_data?.destination);
+        console.log('Application fee:', paymentIntent.application_fee_amount);
         // Handle successful payment
+        break;
+
+      case 'payment_intent.payment_failed':
+        const failedPaymentIntent = event.data.object;
+        console.log('Payment failed:', failedPaymentIntent.id);
+        console.log('Failure reason:', failedPaymentIntent.last_payment_error?.message);
+        break;
+
+      case 'charge.succeeded':
+        const charge = event.data.object;
+        console.log('Charge succeeded:', charge.id);
+        console.log('Amount:', charge.amount);
+        console.log('Connected account:', charge.account);
+        break;
+
+      case 'charge.failed':
+        const failedCharge = event.data.object;
+        console.log('Charge failed:', failedCharge.id);
+        console.log('Failure reason:', failedCharge.failure_message);
+        break;
+
+      case 'transfer.created':
+        const transfer = event.data.object;
+        console.log('Transfer created:', transfer.id);
+        console.log('Amount:', transfer.amount);
+        console.log('Destination account:', transfer.destination);
+        break;
+
+      case 'transfer.failed':
+        const failedTransfer = event.data.object;
+        console.log('Transfer failed:', failedTransfer.id);
+        console.log('Failure reason:', failedTransfer.failure_message);
+        break;
+
+      case 'person.updated':
+        const person = event.data.object;
+        console.log('Person updated:', person.id);
+        console.log('Account:', person.account);
+        console.log('Verification status:', person.verification?.status);
         break;
 
       default:
