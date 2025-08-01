@@ -11,6 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Initialize Supabase client
+console.log('Initializing Supabase client with:', {
+  SUPABASE_URL: process.env.SUPABASE_URL ? 'Set' : 'Not set',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Not set',
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? 'Set' : 'Not set'
+});
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -43,6 +49,39 @@ app.options('*', (req, res) => {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Test database connection
+app.get('/api/test-db', async (req, res) => {
+  try {
+    console.log('Testing database connection...');
+    
+    const { data, error } = await supabase
+      .from('verified_profiles')
+      .select('id, email')
+      .limit(1);
+    
+    if (error) {
+      console.error('Database connection error:', error);
+      return res.status(500).json({ 
+        error: 'Database connection failed', 
+        details: error.message 
+      });
+    }
+    
+    console.log('Database connection successful, found', data?.length || 0, 'records');
+    res.json({ 
+      status: 'ok', 
+      message: 'Database connection successful',
+      recordCount: data?.length || 0
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({ 
+      error: 'Database test failed', 
+      details: error.message 
+    });
+  }
 });
 
 // Connect existing Stripe account
@@ -133,10 +172,23 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     });
   } catch (error) {
     console.error('Error connecting existing account:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.type,
+      code: error.code
+    });
+    
     if (error.type === 'StripeInvalidRequestError') {
       return res.status(400).json({ error: 'Invalid Stripe account ID' });
     }
-    res.status(500).json({ error: 'Failed to connect account' });
+    
+    // Return more specific error information
+    res.status(500).json({ 
+      error: 'Failed to connect account',
+      details: error.message,
+      type: error.type || 'Unknown'
+    });
   }
 });
 
