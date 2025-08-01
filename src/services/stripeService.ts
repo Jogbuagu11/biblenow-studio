@@ -36,7 +36,13 @@ class StripeService {
       ? 'https://biblenow-studio-backend.onrender.com/api'
       : 'http://localhost:3001/api';
     
-    this.apiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
+    // Ensure the API URL always ends with /api
+    let finalApiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
+    if (!finalApiUrl.endsWith('/api')) {
+      finalApiUrl = finalApiUrl.endsWith('/') ? finalApiUrl + 'api' : finalApiUrl + '/api';
+    }
+    
+    this.apiUrl = finalApiUrl;
     
     console.log('StripeService initialized with:', {
       isProduction,

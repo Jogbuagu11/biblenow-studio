@@ -21,6 +21,8 @@ app.use(cors({
   origin: [
     'https://studio-biblenow-dppvsqwtt-jogbuagu11s-projects.vercel.app',
     'https://biblenow-studio.vercel.app',
+    'https://studio.biblenow.io',
+    'https://biblenow.io',
     'http://localhost:3000'
   ],
   credentials: true,
