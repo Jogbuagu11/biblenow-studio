@@ -17,8 +17,26 @@ const supabase = createClient(
 );
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://studio-biblenow-dppvsqwtt-jogbuagu11s-projects.vercel.app',
+    'https://biblenow-studio.vercel.app',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+
+// Handle preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -27,6 +45,13 @@ app.get('/api/health', (req, res) => {
 
 // Connect existing Stripe account
 app.post('/api/stripe/connect-existing-account', async (req, res) => {
+  console.log('Received connect-existing-account request:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body
+  });
+  
   try {
     const { accountId, userId } = req.body;
 

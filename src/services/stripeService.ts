@@ -37,6 +37,13 @@ class StripeService {
       : 'http://localhost:3001/api';
     
     this.apiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
+    
+    console.log('StripeService initialized with:', {
+      isProduction,
+      REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+      defaultApiUrl,
+      finalApiUrl: this.apiUrl
+    });
   }
 
   // Get Stripe instance
