@@ -2,6 +2,8 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // Debug: Log the environment variable
 console.log('Stripe Publishable Key:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ? 'Set' : 'Not set');
+console.log('Stripe Key Type:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ? 
+  (process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_') ? 'test' : 'live') : 'none');
 
 // Initialize Stripe with publishable key (with fallback for development)
 const stripePromise = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY 

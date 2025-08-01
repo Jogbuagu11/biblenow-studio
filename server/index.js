@@ -1,7 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with debugging
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+console.log('Initializing Stripe with key type:', stripeKey ? 
+  (stripeKey.startsWith('sk_test_') ? 'test' : 'live') : 'none');
+
+if (!stripeKey) {
+  console.error('ERROR: STRIPE_SECRET_KEY environment variable is not set!');
+  process.exit(1);
+}
+
+const stripe = require('stripe')(stripeKey);
 const { createClient } = require('@supabase/supabase-js');
 
 // Load environment variables
@@ -25,23 +35,31 @@ const supabase = createClient(
 // Middleware
 app.use(cors({
   origin: [
-    'https://studio-biblenow-dppvsqwtt-jogbuagu11s-projects.vercel.app',
-    'https://biblenow-studio.vercel.app',
     'https://studio.biblenow.io',
     'https://biblenow.io',
     'http://localhost:3000'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature']
 }));
 app.use(express.json());
 
 // Handle preflight requests
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const allowedOrigins = [
+    'https://studio.biblenow.io',
+    'https://biblenow.io',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, stripe-signature');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(200);
 });
@@ -115,6 +133,15 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     body: req.body
   });
   
+  // Log Stripe key status (without exposing the key)
+  console.log('Stripe key status:', {
+    hasKey: !!process.env.STRIPE_SECRET_KEY,
+    keyType: process.env.STRIPE_SECRET_KEY ? 
+      (process.env.STRIPE_SECRET_KEY.startsWith('sk_test_') ? 'test' : 'live') : 'none',
+    keyLength: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.length : 0,
+    keyPrefix: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.substring(0, 7) + '...' : 'none'
+  });
+  
   try {
     const { accountId, userId } = req.body;
 
@@ -139,10 +166,36 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     }
 
     // Verify the account exists and is accessible
-    const account = await stripe.accounts.retrieve(accountId);
+    console.log('Attempting to retrieve account:', accountId);
     
-    if (!account) {
-      return res.status(404).json({ error: 'Stripe account not found' });
+    try {
+      const account = await stripe.accounts.retrieve(accountId);
+      
+      if (!account) {
+        return res.status(404).json({ error: 'Stripe account not found' });
+      }
+      
+      console.log('Account retrieved successfully:', {
+        id: account.id,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted
+      });
+    } catch (stripeError) {
+      console.error('Stripe account retrieval error:', {
+        type: stripeError.type,
+        message: stripeError.message,
+        code: stripeError.code
+      });
+      
+      if (stripeError.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          error: 'Invalid Stripe account ID',
+          details: stripeError.message 
+        });
+      }
+      
+      throw stripeError;
     }
 
     // Check if account is already connected to another user
@@ -202,7 +255,17 @@ app.post('/api/stripe/connect-existing-account', async (req, res) => {
     });
     
     if (error.type === 'StripeInvalidRequestError') {
-      return res.status(400).json({ error: 'Invalid Stripe account ID' });
+      return res.status(400).json({ 
+        error: 'Invalid Stripe account ID or account not found in live mode',
+        details: error.message 
+      });
+    }
+    
+    if (error.type === 'StripeAuthenticationError') {
+      return res.status(401).json({ 
+        error: 'Stripe authentication failed - check your live API key',
+        details: error.message 
+      });
     }
     
     // Return more specific error information
@@ -235,19 +298,32 @@ app.get('/api/stripe/account-status', async (req, res) => {
     }
 
     // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(profile.stripe_account_id);
+    try {
+      const account = await stripe.accounts.retrieve(profile.stripe_account_id);
 
-    res.json({
-      id: account.id,
-      detailsSubmitted: account.details_submitted,
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-      businessProfile: {
-        name: account.business_profile?.name,
-        url: account.business_profile?.url,
-        supportEmail: account.business_profile?.support_email,
-      },
-    });
+      res.json({
+        id: account.id,
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        businessProfile: {
+          name: account.business_profile?.name,
+          url: account.business_profile?.url,
+          supportEmail: account.business_profile?.support_email,
+        },
+      });
+    } catch (stripeError) {
+      console.error('Error retrieving account from Stripe:', stripeError);
+      
+      if (stripeError.type === 'StripeInvalidRequestError') {
+        return res.status(404).json({ 
+          error: 'Account not found in live mode or invalid account ID',
+          details: stripeError.message 
+        });
+      }
+      
+      throw stripeError;
+    }
   } catch (error) {
     console.error('Error getting account status:', error);
     res.status(500).json({ error: 'Failed to get account status' });
