@@ -41,7 +41,7 @@ export class JWTAuthService {
    * Generate JWT token for moderator authentication
    */
   public async generateModeratorToken(
-    user: { uid: string; email: string; displayName: string; role: string },
+    user: { uid: string; email: string; displayName: string },
     roomName: string
   ): Promise<string | null> {
     if (!this.jwtSecret) {
@@ -154,7 +154,7 @@ export class JWTAuthService {
       id: string;
       email: string;
       displayName: string;
-      role: 'admin' | 'moderator' | 'user';
+      role: 'user';
     };
     error?: string;
   }> {
@@ -201,7 +201,7 @@ export class JWTAuthService {
           id: data.id,
           email: data.email,
           displayName: displayName,
-          role: data.role || 'user'
+          role: 'user' // All verified profiles are users
         }
       };
     } catch (error) {

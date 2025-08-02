@@ -30,8 +30,6 @@ export interface VerifiedProfile {
   
   // Authentication fields (to be added)
   jaas_password?: string;
-  role?: 'user' | 'moderator' | 'admin';
-  status?: 'active' | 'inactive' | 'suspended';
   last_login?: string;
   avatar_url?: string;
   bio?: string;
@@ -79,6 +77,14 @@ export interface Livestream {
   redirect_url?: string;
 }
 
+export interface UserFollow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -101,6 +107,11 @@ export interface Database {
         Row: Livestream;
         Insert: Omit<Livestream, 'id' | 'updated_at'>;
         Update: Partial<Omit<Livestream, 'id' | 'updated_at'>>;
+      };
+      user_follows: {
+        Row: UserFollow;
+        Insert: Omit<UserFollow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<UserFollow, 'id' | 'created_at' | 'updated_at'>>;
       };
     };
     Views: {

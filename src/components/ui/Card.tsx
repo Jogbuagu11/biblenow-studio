@@ -32,7 +32,7 @@ interface CardFooterProps {
 
 export const Card: React.FC<CardProps> = ({ className = "", children }) => {
   return (
-    <div className={`bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg border border-gray-200 dark:border-yellow-500 shadow-md transition-colors duration-200 ${className}`}>
+    <div className={`bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg border border-gray-200 dark:border-chocolate-200 shadow-md transition-colors duration-200 ${className}`}>
       {children}
     </div>
   );

@@ -817,6 +817,283 @@ class DatabaseService {
       return { warningSent: false, reachedSent: false };
     }
   }
+
+  // Get followers for a verified user
+  async getFollowers(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching followers for user:', userId);
+      
+      // First get the follower IDs
+      const { data: followsData, error: followsError } = await supabase
+        .from('user_follows')
+        .select('follower_id, following_id, created_at')
+        .eq('following_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (followsError) {
+        console.error('Error fetching follows data:', followsError);
+        throw new Error(followsError.message);
+      }
+
+      if (!followsData || followsData.length === 0) {
+        return [];
+      }
+
+      // Get the follower profile details
+      const followerIds = followsData.map(follow => follow.follower_id);
+      console.log('Follower IDs to lookup:', followerIds);
+      
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, profile_photo_url')
+        .in('id', followerIds);
+
+      if (profilesError) {
+        console.error('Error fetching follower profiles:', profilesError);
+        throw new Error(profilesError.message);
+      }
+      
+      console.log('Profile data found:', profilesData);
+
+      // Combine the data
+      const followers = followsData.map(follow => {
+        const profile = profilesData?.find(p => p.id === follow.follower_id);
+        return {
+          ...follow,
+          followers: profile
+        };
+      });
+
+      console.log('Followers data:', followers);
+      return followers;
+    } catch (error) {
+      console.error('Error in getFollowers:', error);
+      return [];
+    }
+  }
+
+  // Get users that a verified user is following
+  async getFollowing(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching following for user:', userId);
+      
+      // First get the followed IDs
+      const { data: followsData, error: followsError } = await supabase
+        .from('user_follows')
+        .select('follower_id, following_id, created_at')
+        .eq('follower_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (followsError) {
+        console.error('Error fetching follows data:', followsError);
+        throw new Error(followsError.message);
+      }
+
+      if (!followsData || followsData.length === 0) {
+        return [];
+      }
+
+      // Get the followed profile details
+      const followedIds = followsData.map(follow => follow.following_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, profile_photo_url')
+        .in('id', followedIds);
+
+      if (profilesError) {
+        console.error('Error fetching followed profiles:', profilesError);
+        throw new Error(profilesError.message);
+      }
+
+      // Combine the data
+      const following = followsData.map(follow => {
+        const profile = profilesData?.find(p => p.id === follow.following_id);
+        return {
+          ...follow,
+          following: profile
+        };
+      });
+
+      console.log('Following data:', following);
+      return following;
+    } catch (error) {
+      console.error('Error in getFollowing:', error);
+      return [];
+    }
+  }
+
+  // Get verified followers for a user (from verified_profiles table)
+  async getVerifiedFollowers(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching verified followers for user:', userId);
+      
+      // First get the follower IDs from user_follows
+      const { data: followsData, error: followsError } = await supabase
+        .from('user_follows')
+        .select('follower_id, following_id, created_at')
+        .eq('following_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (followsError) {
+        console.error('Error fetching follows data:', followsError);
+        throw new Error(followsError.message);
+      }
+
+      if (!followsData || followsData.length === 0) {
+        return [];
+      }
+
+      // Get the follower profile details from verified_profiles
+      const followerIds = followsData.map(follow => follow.follower_id);
+      const { data: verifiedProfilesData, error: verifiedProfilesError } = await supabase
+        .from('verified_profiles')
+        .select('id, first_name, last_name, email, profile_photo_url, ministry_name')
+        .in('id', followerIds);
+
+      if (verifiedProfilesError) {
+        console.error('Error fetching verified follower profiles:', verifiedProfilesError);
+        throw new Error(verifiedProfilesError.message);
+      }
+
+      // Combine the data
+      const verifiedFollowers = followsData.map(follow => {
+        const profile = verifiedProfilesData?.find(p => p.id === follow.follower_id);
+        return {
+          ...follow,
+          verified_followers: profile
+        };
+      });
+
+      console.log('Verified followers data:', verifiedFollowers);
+      return verifiedFollowers;
+    } catch (error) {
+      console.error('Error in getVerifiedFollowers:', error);
+      return [];
+    }
+  }
+
+  // Shield a user (add to shielded users list and remove follow relationship)
+  async shieldUser(userId: string, shieldedUserId: string): Promise<void> {
+    try {
+      console.log(`Shielding user ${shieldedUserId} for user ${userId}`);
+      
+      // Call the edge function to handle the transaction
+      const { data, error } = await supabase.functions.invoke('shield-user', {
+        body: { shieldedUserId, userId }
+      });
+
+      if (error) {
+        console.error('Error shielding user:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('User shielded successfully:', data);
+    } catch (error) {
+      console.error('Error in shieldUser:', error);
+      throw error;
+    }
+  }
+
+  // Unshield a user (remove from shielded users list)
+  async unshieldUser(userId: string, shieldedUserId: string): Promise<void> {
+    try {
+      console.log(`Unshielding user ${shieldedUserId} for user ${userId}`);
+      
+      // Call the edge function to handle unshielding
+      const { data, error } = await supabase.functions.invoke('unshield-user', {
+        body: { shieldedUserId, userId }
+      });
+
+      if (error) {
+        console.error('Error unshielding user:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('User unshielded successfully:', data);
+    } catch (error) {
+      console.error('Error in unshieldUser:', error);
+      throw error;
+    }
+  }
+
+  // Get shielded users for a user
+  async getShieldedUsers(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching shielded users for user:', userId);
+      
+      // Get shielded user IDs
+      const { data: shieldsData, error: shieldsError } = await supabase
+        .from('user_shields')
+        .select('shielded_user_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (shieldsError) {
+        console.error('Error fetching shields data:', shieldsError);
+        throw new Error(shieldsError.message);
+      }
+
+      console.log('Raw shields data:', shieldsData);
+
+      if (!shieldsData || shieldsData.length === 0) {
+        console.log('No shielded users found');
+        return [];
+      }
+
+      // Get the shielded user profile details
+      const shieldedIds = shieldsData.map(shield => shield.shielded_user_id);
+      console.log('Shielded user IDs:', shieldedIds);
+      
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, profile_photo_url')
+        .in('id', shieldedIds);
+
+      if (profilesError) {
+        console.error('Error fetching shielded profiles:', profilesError);
+        throw new Error(profilesError.message);
+      }
+
+      console.log('Profile data for shielded users:', profilesData);
+
+      // Combine the data
+      const shieldedUsers = shieldsData.map(shield => {
+        const profile = profilesData?.find(p => p.id === shield.shielded_user_id);
+        return {
+          ...shield,
+          shielded_user: profile
+        };
+      });
+
+      console.log('Final shielded users data:', shieldedUsers);
+      return shieldedUsers;
+    } catch (error) {
+      console.error('Error in getShieldedUsers:', error);
+      return [];
+    }
+  }
+
+  // Check if a user is shielded by another user
+  async isUserShielded(userId: string, shieldedUserId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('user_shields')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('shielded_user_id', shieldedUserId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking if user is shielded:', error);
+        throw new Error(error.message);
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error('Error in isUserShielded:', error);
+      return false;
+    }
+  }
 }
 
 export const databaseService = new DatabaseService();

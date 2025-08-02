@@ -18,20 +18,20 @@ export const getDisplayName = (profile: VerifiedProfile): string => {
 /**
  * Get user role from profile
  */
-export const getUserRole = (profile: VerifiedProfile): 'user' | 'moderator' | 'admin' => {
-  return profile.role || 'user';
+export const getUserRole = (profile: VerifiedProfile): 'user' => {
+  return 'user'; // All verified profiles are users
 };
 
 /**
  * Check if user is active
  */
 export const isUserActive = (profile: VerifiedProfile): boolean => {
-  return profile.status === 'active';
+  return true; // All verified profiles are considered active
 };
 
 /**
  * Check if user can be moderator
  */
 export const canBeModerator = (profile: VerifiedProfile): boolean => {
-  return profile.role === 'moderator' || profile.role === 'admin';
+  return false; // No moderator roles - all verified profiles are regular users
 }; 

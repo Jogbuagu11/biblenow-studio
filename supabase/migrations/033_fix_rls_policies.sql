@@ -1,0 +1,22 @@
+-- Drop all existing policies
+drop policy if exists "Allow user to delete their blocks" on public.user_shields;
+drop policy if exists "Allow user to insert block" on public.user_shields;
+drop policy if exists "Allow user to view their blocks" on public.user_shields;
+drop policy if exists "Users can view their own shields" on public.user_shields;
+drop policy if exists "Users can create shields" on public.user_shields;
+drop policy if exists "Users can delete their own shields" on public.user_shields;
+
+-- Create more permissive policies for debugging
+create policy "Allow all operations for authenticated users" on public.user_shields
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- Alternative: Create specific policies with better logic
+-- create policy "Users can view their own shields" on public.user_shields
+--   for select using (auth.uid() = user_id or auth.uid() is not null);
+
+-- create policy "Users can create shields" on public.user_shields
+--   for insert with check (auth.uid() is not null);
+
+-- create policy "Users can delete their own shields" on public.user_shields
+--   for delete using (auth.uid() = user_id or auth.uid() is not null); 
