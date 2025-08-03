@@ -75,7 +75,7 @@ class ShekelService {
       console.log('getUserBalance called for user:', userId);
       
       // First check verified_profiles for verified users
-      const { data: verifiedData, error: verifiedError } = await supabaseAdmin
+      const { data: verifiedData } = await supabaseAdmin
         .from('verified_profiles')
         .select('shekel_balance, ministry_name')
         .eq('id', userId)
@@ -117,7 +117,7 @@ class ShekelService {
   async getUserProfile(userId: string): Promise<{ name: string; email: string } | null> {
     try {
       // First check verified_profiles
-      const { data: verifiedData, error: verifiedError } = await supabaseAdmin
+      const { data: verifiedData } = await supabaseAdmin
         .from('verified_profiles')
         .select('id, first_name, last_name, email, ministry_name')
         .eq('id', userId)
@@ -132,7 +132,7 @@ class ShekelService {
       }
 
       // Check profiles table for regular users
-      const { data: profileData, error: profileError } = await supabaseAdmin
+      const { data: profileData } = await supabaseAdmin
         .from('profiles')
         .select('id, first_name, last_name, email')
         .eq('id', userId)
@@ -158,13 +158,13 @@ class ShekelService {
 
     try {
       // Get verified profiles first
-      const { data: verifiedData, error: verifiedError } = await supabaseAdmin
+      const { data: verifiedData } = await supabaseAdmin
         .from('verified_profiles')
         .select('id, first_name, last_name, email, ministry_name')
         .in('id', userIds);
 
       // Get regular profiles
-      const { data: profileData, error: profileError } = await supabaseAdmin
+      const { data: profileData } = await supabaseAdmin
         .from('profiles')
         .select('id, first_name, last_name, email')
         .in('id', userIds);

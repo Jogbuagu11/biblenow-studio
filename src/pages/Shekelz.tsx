@@ -10,23 +10,6 @@ import { useToast } from '../hooks/use-toast';
 import { useAuthStore } from '../stores/authStore';
 import shekelService, { ShekelSummary, CombinedTransaction } from '../services/shekelService';
 
-// Interface for shekel_gifts table
-interface ShekelGift {
-  id: string;
-  sender_id: string;
-  recipient_id: string;
-  amount: number;
-  message: string | null;
-  is_anonymous: boolean;
-  gift_type: 'donation' | 'tip' | 'gift';
-  context: string | null;
-  context_id: string | null;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  created_at: string;
-  sender_name?: string;
-  recipient_name?: string;
-}
-
 const Shekelz: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -99,7 +82,7 @@ const Shekelz: React.FC = () => {
     if (user?.uid) {
       fetchShekelData();
     }
-  }, [user?.uid]); // Remove toast from dependencies
+  }, [user?.uid, toast]); // Include toast in dependencies
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {
