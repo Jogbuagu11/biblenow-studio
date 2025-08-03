@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
@@ -18,6 +18,9 @@ const Shekelz: React.FC = () => {
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isFetchingRef = useRef(false);
+  
+  // Memoize the toast function to prevent infinite re-renders
+  const memoizedToast = useCallback(toast, []);
 
   useEffect(() => {
     const fetchShekelData = async () => {
@@ -67,7 +70,7 @@ const Shekelz: React.FC = () => {
           is_verified_user: false
         });
         setRecentTransactions([]);
-        toast({
+        memoizedToast({
           title: "Error",
           description: "Failed to load Shekelz data",
           variant: "destructive",
@@ -82,7 +85,7 @@ const Shekelz: React.FC = () => {
     if (user?.uid) {
       fetchShekelData();
     }
-  }, [user?.uid]); // Remove toast from dependencies to prevent infinite loop
+  }, [user?.uid, memoizedToast]); // Include memoized toast to satisfy ESLint
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {
