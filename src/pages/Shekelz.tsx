@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
@@ -7,8 +7,10 @@ import Badge from '../components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Button from '../components/ui/Button';
 import { useToast } from '../hooks/use-toast';
+import { useAuthStore } from '../stores/authStore';
+import shekelService, { ShekelSummary, CombinedTransaction } from '../services/shekelService';
 
-// Interface for shekel_gifts table (for future implementation)
+// Interface for shekel_gifts table
 interface ShekelGift {
   id: string;
   sender_id: string;
@@ -25,152 +27,50 @@ interface ShekelGift {
   recipient_name?: string;
 }
 
-interface ShekelSummary {
-  total_received: number;
-  total_sent: number;
-  total_purchased: number;
-  balance: number;
-}
-
-interface CombinedTransaction {
-  id: string;
-  type: 'gift_sent' | 'gift_received' | 'purchase' | 'balance_change';
-  amount: number;
-  description: string;
-  created_at: string;
-  reference_id?: string;
-  sender_name?: string;
-  receiver_name?: string;
-  pack_name?: string;
-  gift_type?: string;
-  message?: string;
-  is_anonymous?: boolean;
-}
-
 const Shekelz: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const [shekelSummary, setShekelSummary] = useState<ShekelSummary | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     const fetchShekelData = async () => {
+      if (!user?.uid) {
+        console.log('No user ID available');
+        setIsLoading(false);
+        return;
+      }
+
+      // Prevent multiple simultaneous requests
+      if (isFetchingRef.current) {
+        console.log('Already fetching data, skipping...');
+        return;
+      }
+
+      console.log('Fetching Shekelz data for user:', user.uid);
+      isFetchingRef.current = true;
+
       try {
         setIsLoading(true);
         
-        // For now, use mock data since the API endpoints don't exist yet
-        // In the future, this would fetch from actual Supabase tables
-        
-        // Mock user profile with shekel balance
-        const mockProfile = {
-          id: 'current-user',
-          shekel_balance: 150 // Mock balance
-        };
-        
-        // Mock shekel gifts data
-        const mockGifts: ShekelGift[] = [
-          {
-            id: '1',
-            sender_id: 'user-1',
-            recipient_id: 'current-user',
-            amount: 50,
-            message: 'Great stream!',
-            is_anonymous: false,
-            gift_type: 'tip',
-            context: 'livestream',
-            context_id: 'stream-1',
-            status: 'completed',
-            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-            sender_name: 'John Doe'
-          },
-          {
-            id: '2',
-            sender_id: 'current-user',
-            recipient_id: 'user-2',
-            amount: 25,
-            message: 'Supporting your ministry',
-            is_anonymous: false,
-            gift_type: 'donation',
-            context: 'livestream',
-            context_id: 'stream-2',
-            status: 'completed',
-            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-            recipient_name: 'Jane Smith'
-          },
-          {
-            id: '3',
-            sender_id: 'user-3',
-            recipient_id: 'current-user',
-            amount: 100,
-            message: null,
-            is_anonymous: true,
-            gift_type: 'gift',
-            context: 'livestream',
-            context_id: 'stream-3',
-            status: 'completed',
-            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-            sender_name: 'Anonymous'
-          }
-        ];
-        
-        // Calculate summary from mock data
-        const receivedGifts = mockGifts.filter(gift => 
-          gift.recipient_id === 'current-user' && gift.status === 'completed'
-        );
-        const sentGifts = mockGifts.filter(gift => 
-          gift.sender_id === 'current-user' && gift.status === 'completed'
-        );
-        
-        const summary: ShekelSummary = {
-          total_received: receivedGifts.reduce((sum, gift) => sum + gift.amount, 0),
-          total_sent: sentGifts.reduce((sum, gift) => sum + gift.amount, 0),
-          total_purchased: 0, // This would come from a separate purchases table
-          balance: mockProfile.shekel_balance
-        };
+        // Fetch real data from shekel_gifts table
+        console.log('Fetching summary and gifts...');
+        const [summary, allGifts] = await Promise.all([
+          shekelService.getShekelSummary(user.uid),
+          shekelService.getAllGifts(user.uid)
+        ]);
 
+        console.log('Summary received:', summary);
+        console.log('All gifts received:', allGifts?.length || 0);
+        
         setShekelSummary(summary);
         
         // Convert gifts to transactions
-        const transactions: CombinedTransaction[] = [];
-        
-        // Add received gifts
-        receivedGifts.forEach((gift) => {
-          transactions.push({
-            id: gift.id,
-            type: 'gift_received',
-            amount: gift.amount,
-            description: gift.is_anonymous ? 
-              `Anonymous ${gift.gift_type}` : 
-              `${gift.gift_type} from ${gift.sender_name || 'Unknown'}`,
-            created_at: gift.created_at,
-            reference_id: gift.context_id || undefined,
-            sender_name: gift.is_anonymous ? 'Anonymous' : gift.sender_name,
-            gift_type: gift.gift_type,
-            message: gift.message || undefined,
-            is_anonymous: gift.is_anonymous
-          });
-        });
-        
-        // Add sent gifts
-        sentGifts.forEach((gift) => {
-          transactions.push({
-            id: gift.id,
-            type: 'gift_sent',
-            amount: -gift.amount, // Negative for sent
-            description: `${gift.gift_type} to ${gift.recipient_name || 'Unknown'}`,
-            created_at: gift.created_at,
-            reference_id: gift.context_id || undefined,
-            receiver_name: gift.recipient_name,
-            gift_type: gift.gift_type,
-            message: gift.message || undefined,
-            is_anonymous: gift.is_anonymous
-          });
-        });
-        
-        // Sort by date (newest first)
-        transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        
+        const transactions = shekelService.convertGiftsToTransactions(allGifts, user.uid);
+        console.log('Transactions converted:', transactions?.length || 0);
         setRecentTransactions(transactions);
         
       } catch (error) {
@@ -180,7 +80,8 @@ const Shekelz: React.FC = () => {
           total_received: 0,
           total_sent: 0,
           total_purchased: 0,
-          balance: 0
+          balance: 0,
+          is_verified_user: false
         });
         setRecentTransactions([]);
         toast({
@@ -190,11 +91,15 @@ const Shekelz: React.FC = () => {
         });
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     };
 
-    fetchShekelData();
-  }, [toast]);
+    // Only fetch if we have a user ID
+    if (user?.uid) {
+      fetchShekelData();
+    }
+  }, [user?.uid]); // Remove toast from dependencies
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {
@@ -246,7 +151,7 @@ const Shekelz: React.FC = () => {
     <Layout>
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Shekelz Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Shekelz Dashboard</h1>
           <Button 
             onClick={() => navigate('/dashboard')} 
             variant="outline"
