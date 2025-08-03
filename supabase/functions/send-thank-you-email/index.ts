@@ -19,7 +19,7 @@ function generateThankYouEmail(donorName: string, donationAmount: number, donati
   <div style="background-color: #ffffff; padding: 20px; max-width: 520px; margin: 0 auto; border-radius: 8px;">
     <!-- BibleNOW Logo -->
     <div style="text-align: center; padding-bottom: 10px;">
-      <img src="https://jhlawjmyorpmafokxtuh.supabase.co/storage/v1/object/sign/assets/Bible%20NW500.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9iMzUwZGQ1ZS03NjA1LTQ0ZGQtOTA4NC00NjEzZWJlN2JmOTkiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvQmlibGUgTlc1MDAucG5nIiwiaWF0IjoxNzQ5MzIwMTg1LCJleHAiOjE3ODA4NTYxODV9.Hh4W3crg_6shE4TW1OJxpoLnd75WAeflrT5n6aLMaQY" width="80" alt="BibleNOW Logo" style="margin: 0 auto;">
+      <img src="https://jhlawjmyorpmafokxtuh.supabase.co/storage/v1/object/public/assets//bbn.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9iMzUwZGQ1ZS03NjA1LTQ0ZGQtOTA4NC00NjEzZWJlN2JmOTkiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvQmlibGUgTlc1MDAucG5nIiwiaWF0IjoxNzQ5MzIwMTg1LCJleHAiOjE3ODA4NTYxODV9.Hh4W3crg_6shE4TW1OJxpoLnd75WAeflrT5n6aLMaQY" width="80" alt="BibleNOW Logo" style="margin: 0 auto;">
     </div>
 
     <!-- Greeting -->
@@ -132,7 +132,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'BibleNOW <noreply@biblenow.io>',
+        from: 'BibleNOW <no-reply@biblenow.io>',
         to: donor_email,
         subject: 'Thank you for your donation to BibleNOW',
         html: htmlContent,
