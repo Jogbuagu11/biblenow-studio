@@ -17,6 +17,7 @@ const Shekelz: React.FC = () => {
   const [shekelSummary, setShekelSummary] = useState<ShekelSummary | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sendingThanks, setSendingThanks] = useState<Set<string>>(new Set());
   const isFetchingRef = useRef(false);
   const toastRef = useRef(toast);
   
@@ -104,6 +105,75 @@ const Shekelz: React.FC = () => {
       hour: "numeric",
       minute: "2-digit",
     }).format(date);
+  };
+
+  // Handle sending thank you email
+  const handleSendThankYou = async (transaction: CombinedTransaction) => {
+    if (!transaction.sender_email || transaction.is_anonymous) {
+      toastRef.current({
+        title: "Cannot send thank you",
+        description: transaction.is_anonymous ? "Cannot send thank you to anonymous donors" : "Donor email not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (transaction.thanked_at) {
+      toastRef.current({
+        title: "Already thanked",
+        description: "Thank you email already sent for this donation",
+        variant: "default",
+      });
+      return;
+    }
+
+    setSendingThanks(prev => new Set(prev).add(transaction.id));
+
+    try {
+      const result = await shekelService.sendThankYouEmail(
+        transaction.id,
+        transaction.sender_email,
+        transaction.sender_name || 'Unknown',
+        Math.abs(transaction.amount),
+        formatDate(transaction.created_at),
+        transaction.id
+      );
+
+      if (result.success) {
+        toastRef.current({
+          title: "Thank you sent!",
+          description: "Thank you email sent successfully",
+          variant: "default",
+        });
+        
+        // Update the transaction to show it's been thanked
+        setRecentTransactions(prev => 
+          prev.map(t => 
+            t.id === transaction.id 
+              ? { ...t, thanked_at: new Date().toISOString() }
+              : t
+          )
+        );
+      } else {
+        toastRef.current({
+          title: "Error",
+          description: result.error || "Failed to send thank you email",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toastRef.current({
+        title: "Error",
+        description: "Failed to send thank you email",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingThanks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(transaction.id);
+        return newSet;
+      });
+    }
   };
 
   // Get transaction type badge
@@ -263,8 +333,22 @@ const Shekelz: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className={`font-semibold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.amount > 0 ? '+' : ''}{formatShekels(Math.abs(transaction.amount))}
+                        <div className="flex items-center space-x-4">
+                          <div className={`font-semibold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {transaction.amount > 0 ? '+' : ''}{formatShekels(Math.abs(transaction.amount))}
+                          </div>
+                          {transaction.type === 'gift_received' && transaction.amount > 0 && (
+                            <Button
+                              onClick={() => handleSendThankYou(transaction)}
+                              disabled={sendingThanks.has(transaction.id) || !!transaction.thanked_at || transaction.is_anonymous}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                            >
+                              {sendingThanks.has(transaction.id) ? 'Sending...' : 
+                               transaction.thanked_at ? 'Thanked ✓' : 'Say Thanks'}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -302,6 +386,7 @@ const Shekelz: React.FC = () => {
                         <TableHead>Description</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -325,6 +410,20 @@ const Shekelz: React.FC = () => {
                             {transaction.amount > 0 ? '+' : ''}{formatShekels(Math.abs(transaction.amount))}
                           </TableCell>
                           <TableCell>{formatDate(transaction.created_at)}</TableCell>
+                          <TableCell>
+                            {transaction.type === 'gift_received' && transaction.amount > 0 && (
+                              <Button
+                                onClick={() => handleSendThankYou(transaction)}
+                                disabled={sendingThanks.has(transaction.id) || !!transaction.thanked_at || transaction.is_anonymous}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                {sendingThanks.has(transaction.id) ? 'Sending...' : 
+                                 transaction.thanked_at ? 'Thanked ✓' : 'Say Thanks'}
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

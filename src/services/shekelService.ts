@@ -23,6 +23,9 @@ export interface ShekelGift {
   metadata: string | null;
   sender_name?: string;
   recipient_name?: string;
+  thanked_at?: string;
+  sender_email?: string;
+  recipient_email?: string;
 }
 
 export interface ShekelSummary {
@@ -46,6 +49,8 @@ export interface CombinedTransaction {
   gift_type?: string;
   message?: string;
   is_anonymous?: boolean;
+  thanked_at?: string;
+  sender_email?: string;
 }
 
 class ShekelService {
@@ -231,7 +236,8 @@ class ShekelService {
 
         return {
           ...gift,
-          sender_name
+          sender_name,
+          sender_email: senderProfile?.email
         };
       }) || [];
 
@@ -276,7 +282,8 @@ class ShekelService {
 
         return {
           ...gift,
-          recipient_name
+          recipient_name,
+          recipient_email: recipientProfile?.email
         };
       }) || [];
 
@@ -372,7 +379,9 @@ class ShekelService {
           sender_name: gift.is_anonymous ? 'Anonymous' : gift.sender_name,
           gift_type: gift.gift_type,
           message: gift.message || undefined,
-          is_anonymous: gift.is_anonymous
+          is_anonymous: gift.is_anonymous,
+          thanked_at: gift.thanked_at,
+          sender_email: gift.sender_email
         });
       } else if (gift.sender_id === userId) {
         // Sent gift
@@ -386,7 +395,8 @@ class ShekelService {
           receiver_name: gift.recipient_name,
           gift_type: gift.gift_type,
           message: gift.message || undefined,
-          is_anonymous: gift.is_anonymous
+          is_anonymous: gift.is_anonymous,
+          thanked_at: gift.thanked_at
         });
       }
     });
@@ -395,6 +405,40 @@ class ShekelService {
     return transactions.sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+
+  // Send thank you email for a donation
+  async sendThankYouEmail(giftId: string, donorEmail: string, donorName: string, donationAmount: number, donationDate: string, transactionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-thank-you-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY || ''}`,
+        },
+        body: JSON.stringify({
+          gift_id: giftId,
+          donor_email: donorEmail,
+          donor_name: donorName,
+          donation_amount: donationAmount,
+          donation_date: donationDate,
+          transaction_id: transactionId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error sending thank you email:', result);
+        return { success: false, error: result.error || 'Failed to send thank you email' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in sendThankYouEmail:', error);
+      return { success: false, error: 'Failed to send thank you email' };
+    }
   }
 }
 
