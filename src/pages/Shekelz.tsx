@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
@@ -18,9 +18,12 @@ const Shekelz: React.FC = () => {
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isFetchingRef = useRef(false);
+  const toastRef = useRef(toast);
   
-  // Memoize the toast function to prevent infinite re-renders
-  const memoizedToast = useCallback(toast, []);
+  // Update ref when toast changes
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   useEffect(() => {
     const fetchShekelData = async () => {
@@ -70,7 +73,7 @@ const Shekelz: React.FC = () => {
           is_verified_user: false
         });
         setRecentTransactions([]);
-        memoizedToast({
+        toastRef.current({
           title: "Error",
           description: "Failed to load Shekelz data",
           variant: "destructive",
@@ -85,7 +88,7 @@ const Shekelz: React.FC = () => {
     if (user?.uid) {
       fetchShekelData();
     }
-  }, [user?.uid, memoizedToast]); // Include memoized toast to satisfy ESLint
+  }, [user?.uid]); // Only depend on user.uid to prevent infinite loop
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {
