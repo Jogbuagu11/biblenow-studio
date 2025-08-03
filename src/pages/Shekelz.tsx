@@ -82,7 +82,7 @@ const Shekelz: React.FC = () => {
     if (user?.uid) {
       fetchShekelData();
     }
-  }, [user?.uid, toast]); // Include toast in dependencies
+  }, [user?.uid]); // Remove toast from dependencies to prevent infinite loop
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {
