@@ -1044,21 +1044,22 @@ class DatabaseService {
       const shieldedIds = shieldsData.map(shield => shield.shielded_user_id);
       console.log('Shielded user IDs:', shieldedIds);
       
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, profile_photo_url')
+      // Get profiles from verified_profiles (since followers are verified users)
+      const { data: verifiedProfilesData, error: verifiedProfilesError } = await supabase
+        .from('verified_profiles')
+        .select('id, first_name, last_name, email, profile_photo_url, ministry_name')
         .in('id', shieldedIds);
 
-      if (profilesError) {
-        console.error('Error fetching shielded profiles:', profilesError);
-        throw new Error(profilesError.message);
+      if (verifiedProfilesError) {
+        console.error('Error fetching verified shielded profiles:', verifiedProfilesError);
+        throw new Error(verifiedProfilesError.message);
       }
 
-      console.log('Profile data for shielded users:', profilesData);
+      console.log('Verified profile data for shielded users:', verifiedProfilesData);
 
       // Combine the data
       const shieldedUsers = shieldsData.map(shield => {
-        const profile = profilesData?.find(p => p.id === shield.shielded_user_id);
+        const profile = verifiedProfilesData?.find(p => p.id === shield.shielded_user_id);
         return {
           ...shield,
           shielded_user: profile
@@ -1092,6 +1093,260 @@ class DatabaseService {
     } catch (error) {
       console.error('Error in isUserShielded:', error);
       return false;
+    }
+  }
+
+  // Get invite history for a user
+  async getInviteHistory(userId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('user_invites')
+        .select(`
+          id,
+          inviter_id,
+          invitee_email,
+          sent_at,
+          accepted,
+          accepted_at,
+          message,
+          status,
+          resent_at
+        `)
+        .eq('inviter_id', userId)
+        .order('sent_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching invite history:', error);
+        throw new Error(error.message);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error in getInviteHistory:', error);
+      return [];
+    }
+  }
+
+  // Send an invite
+  async sendInvite(userId: string, inviteeEmail: string, message: string = 'You have been invited to join BibleNOW!'): Promise<any> {
+    try {
+      console.log('Sending invite from user:', userId, 'to:', inviteeEmail);
+      
+      const { data, error } = await supabase
+        .from('user_invites')
+        .insert([{
+          inviter_id: userId,
+          invitee_email: inviteeEmail,
+          message: message,
+          status: 'pending'
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error sending invite:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Invite sent successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in sendInvite:', error);
+      throw error;
+    }
+  }
+
+  // Resend an invite
+  async resendInvite(inviteId: string): Promise<any> {
+    try {
+      console.log('Resending invite:', inviteId);
+      
+      const { data, error } = await supabase
+        .from('user_invites')
+        .update({
+          resent_at: new Date().toISOString(),
+          status: 'pending'
+        })
+        .eq('id', inviteId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error resending invite:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Invite resent successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in resendInvite:', error);
+      throw error;
+    }
+  }
+
+  // Cancel an invite
+  async cancelInvite(inviteId: string): Promise<any> {
+    try {
+      console.log('Cancelling invite:', inviteId);
+      
+      const { data, error } = await supabase
+        .from('user_invites')
+        .update({
+          status: 'cancelled'
+        })
+        .eq('id', inviteId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error cancelling invite:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Invite cancelled successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in cancelInvite:', error);
+      throw error;
+    }
+  }
+
+  // Get total view count for all livestreams by a user
+  async getTotalViewCount(userId: string): Promise<number> {
+    try {
+      console.log('Fetching total view count for user:', userId);
+      
+      const { data, error } = await supabase
+        .from('livestreams')
+        .select('viewer_count')
+        .eq('streamer_id', userId);
+
+      if (error) {
+        console.error('Error fetching total view count:', error);
+        throw new Error(error.message);
+      }
+
+      const totalViews = data?.reduce((sum, stream) => sum + (stream.viewer_count || 0), 0) || 0;
+      console.log('Total view count for user:', userId, '=', totalViews);
+      
+      return totalViews;
+    } catch (error) {
+      console.error('Error in getTotalViewCount:', error);
+      return 0;
+    }
+  }
+
+  // Get total follower count for a user
+  async getTotalFollowerCount(userId: string): Promise<number> {
+    try {
+      console.log('Fetching total follower count for user:', userId);
+      
+      const { data, error } = await supabase
+        .from('user_follows')
+        .select('follower_id')
+        .eq('following_id', userId);
+
+      if (error) {
+        console.error('Error fetching total follower count:', error);
+        throw new Error(error.message);
+      }
+
+      const totalFollowers = data?.length || 0;
+      console.log('Total follower count for user:', userId, '=', totalFollowers);
+      
+      return totalFollowers;
+    } catch (error) {
+      console.error('Error in getTotalFollowerCount:', error);
+      return 0;
+    }
+  }
+
+  // Get top performing streams for a user
+  async getTopPerformingStreams(userId: string, limit: number = 5): Promise<any[]> {
+    try {
+      console.log('Fetching top performing streams for user:', userId);
+      
+      const { data, error } = await supabase
+        .from('livestreams')
+        .select('id, title, viewer_count, started_at, ended_at, description')
+        .eq('streamer_id', userId)
+        .order('viewer_count', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching top performing streams:', error);
+        throw new Error(error.message);
+      }
+
+      // Filter out streams with 0 viewers and format the data
+      const topStreams = data
+        ?.filter(stream => stream.viewer_count > 0)
+        .map((stream, index) => ({
+          ...stream,
+          rank: index + 1,
+          // Calculate duration if stream has ended
+          duration: stream.ended_at && stream.started_at 
+            ? Math.round((new Date(stream.ended_at).getTime() - new Date(stream.started_at).getTime()) / 60000) // minutes
+            : null
+        })) || [];
+
+      console.log('Top performing streams for user:', userId, '=', topStreams);
+      
+      return topStreams;
+    } catch (error) {
+      console.error('Error in getTopPerformingStreams:', error);
+      return [];
+    }
+  }
+
+  // Get average watch time for a user's streams
+  async getAverageWatchTime(userId: string): Promise<{ averageMinutes: number; averageHours: number; formattedTime: string }> {
+    try {
+      console.log('Fetching average watch time for user:', userId);
+      
+      const { data, error } = await supabase
+        .from('livestreams')
+        .select('started_at, ended_at')
+        .eq('streamer_id', userId)
+        .not('started_at', 'is', null)
+        .not('ended_at', 'is', null);
+
+      if (error) {
+        console.error('Error fetching streams for average watch time:', error);
+        throw new Error(error.message);
+      }
+
+      // Calculate durations for completed streams
+      const completedStreams = data?.filter(stream => 
+        stream.started_at && stream.ended_at
+      ) || [];
+
+      if (completedStreams.length === 0) {
+        console.log('No completed streams found for average watch time calculation');
+        return { averageMinutes: 0, averageHours: 0, formattedTime: '0m 0s' };
+      }
+
+      const totalMinutes = completedStreams.reduce((total, stream) => {
+        const startTime = new Date(stream.started_at).getTime();
+        const endTime = new Date(stream.ended_at).getTime();
+        const durationMinutes = Math.round((endTime - startTime) / 60000);
+        return total + durationMinutes;
+      }, 0);
+
+      const averageMinutes = Math.round(totalMinutes / completedStreams.length);
+      const averageHours = Math.floor(averageMinutes / 60);
+      const remainingMinutes = averageMinutes % 60;
+
+      const formattedTime = averageHours > 0 
+        ? `${averageHours}h ${remainingMinutes}m`
+        : `${remainingMinutes}m`;
+
+      console.log('Average watch time for user:', userId, '=', { averageMinutes, averageHours, formattedTime });
+      
+      return { averageMinutes, averageHours, formattedTime };
+    } catch (error) {
+      console.error('Error in getAverageWatchTime:', error);
+      return { averageMinutes: 0, averageHours: 0, formattedTime: '0m 0s' };
     }
   }
 }

@@ -28,6 +28,18 @@
     -->
     <title>BibleNOW Studio</title>
     <script src="https://8x8.vc/external_api.js"></script>
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'GA_MEASUREMENT_ID', {
+        page_title: 'BibleNOW Studio',
+        page_location: window.location.href
+      });
+    </script>
     <script>
       // Unregister any existing service workers to prevent CORS issues
       if ('serviceWorker' in navigator) {

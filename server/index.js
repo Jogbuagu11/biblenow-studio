@@ -440,8 +440,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
       case 'account.application.authorized':
         const authorizedAccount = event.data.object;
-        console.log('Account authorized:', authorizedAccount.id);
-        // Account successfully connected and authorized
+        console.log('Express account authorized:', authorizedAccount.id);
+        console.log('Account type:', authorizedAccount.type);
+        console.log('Account status:', {
+          chargesEnabled: authorizedAccount.charges_enabled,
+          payoutsEnabled: authorizedAccount.payouts_enabled,
+          detailsSubmitted: authorizedAccount.details_submitted
+        });
+        
+        // Update account status when Express account is fully authorized
+        await updateAccountStatus(authorizedAccount.id, {
+          chargesEnabled: authorizedAccount.charges_enabled,
+          payoutsEnabled: authorizedAccount.payouts_enabled,
+          detailsSubmitted: authorizedAccount.details_submitted,
+          businessProfile: authorizedAccount.business_profile
+        });
         break;
 
       case 'account.application.deauthorized':
@@ -532,6 +545,149 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   } catch (error) {
     console.error('Error handling webhook:', error);
     res.status(500).json({ error: 'Webhook handling failed' });
+  }
+});
+
+// Create Express account and onboarding link
+app.post('/api/stripe/create-express-account', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Get user profile to get email
+    const { data: userProfile, error: profileError } = await supabase
+      .from('verified_profiles')
+      .select('email, first_name, last_name')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !userProfile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    // Create Express account
+    const account = await stripe.accounts.create({
+      type: 'express',
+      country: 'US',
+      email: userProfile.email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: 'individual',
+      business_profile: {
+        url: 'https://studio.biblenow.io',
+        mcc: '5734', // Computer Software Stores
+      },
+    });
+
+    console.log('Express account created:', account.id);
+
+    // Create onboarding link
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.FRONTEND_URL || 'https://studio.biblenow.io'}/payments?error=refresh`,
+      return_url: `${process.env.FRONTEND_URL || 'https://studio.biblenow.io'}/payments?success=true`,
+      type: 'account_onboarding',
+    });
+
+    console.log('Account link created:', accountLink.url);
+
+    // Update user profile with Stripe account ID
+    const { error: updateError } = await supabase
+      .from('verified_profiles')
+      .update({ stripe_account_id: account.id })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating user profile:', updateError);
+      // Don't fail the request, just log the error
+    }
+
+    res.json({
+      success: true,
+      onboardingUrl: accountLink.url,
+      accountId: account.id
+    });
+  } catch (error) {
+    console.error('Error creating Express account:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to create Express account' 
+    });
+  }
+});
+
+// Process cash out request
+app.post('/api/stripe/process-cash-out', async (req, res) => {
+  try {
+    const { userId, amount, requestId } = req.body;
+
+    if (!userId || !amount || !requestId) {
+      return res.status(400).json({ error: 'User ID, amount, and request ID are required' });
+    }
+
+    // Get user's Stripe account ID
+    const { data: userProfile, error: profileError } = await supabase
+      .from('verified_profiles')
+      .select('stripe_account_id, shekel_balance')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !userProfile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    if (!userProfile.stripe_account_id) {
+      return res.status(400).json({ error: 'User does not have a connected Stripe account' });
+    }
+
+    // Create a transfer to the user's connected account
+    const transfer = await stripe.transfers.create({
+      amount: amount, // Amount in cents
+      currency: 'usd',
+      destination: userProfile.stripe_account_id,
+      description: `Cash out request ${requestId}`,
+      metadata: {
+        request_id: requestId,
+        user_id: userId,
+        source: 'shekel_cash_out'
+      }
+    });
+
+    console.log('Transfer created:', transfer.id);
+    console.log('Transfer amount:', transfer.amount);
+    console.log('Destination account:', transfer.destination);
+
+    res.json({
+      success: true,
+      transferId: transfer.id,
+      amount: transfer.amount
+    });
+  } catch (error) {
+    console.error('Error processing cash out:', error);
+    
+    // Update the request status to failed
+    if (req.body.requestId) {
+      try {
+        await supabase
+          .from('cash_out_requests')
+          .update({
+            status: 'failed',
+            error_message: error.message || 'Stripe transfer failed'
+          })
+          .eq('id', req.body.requestId);
+      } catch (updateError) {
+        console.error('Error updating request status:', updateError);
+      }
+    }
+
+    res.status(500).json({ 
+      error: error.message || 'Failed to process cash out' 
+    });
   }
 });
 

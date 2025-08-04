@@ -14,6 +14,8 @@ const Dashboard: React.FC = () => {
   const [daysRemaining, setDaysRemaining] = useState(7);
   const [weeklyLimit, setWeeklyLimit] = useState(0); // Start with 0 minutes
   const [subscriptionPlan, setSubscriptionPlan] = useState(''); // Don't default to any plan
+  const [totalViews, setTotalViews] = useState(0);
+  const [totalFollowers, setTotalFollowers] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -67,12 +69,22 @@ const Dashboard: React.FC = () => {
         
         setWeeklyUsage(usage);
         setDaysRemaining(remaining);
+
+        // Fetch total view count
+        const views = await databaseService.getTotalViewCount(user.uid);
+        setTotalViews(views);
+
+        // Fetch total follower count
+        const followers = await databaseService.getTotalFollowerCount(user.uid);
+        setTotalFollowers(followers);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
         // Set default values on error, but don't assume olive plan
         setWeeklyUsage({ totalHours: 0, totalMinutes: 0 });
         setDaysRemaining(7);
         setWeeklyLimit(0); // No plan = 0 minutes
+        setTotalViews(0);
+        setTotalFollowers(0);
         // Don't set subscription plan to olive on error
       }
     };
@@ -90,7 +102,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard 
           title="Total Views" 
-          value="0" 
+          value={totalViews.toString()} 
           change="No change from last month"
           changeType="neutral"
         />
@@ -102,7 +114,7 @@ const Dashboard: React.FC = () => {
         />
         <MetricCard 
           title="Followers" 
-          value="0" 
+          value={totalFollowers.toString()} 
           change="No change from last week"
           changeType="neutral"
         />

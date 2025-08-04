@@ -43,6 +43,55 @@ const Payments: React.FC = () => {
     checkStripeStatus();
   }, [user?.uid]);
 
+  const handleCreateExpressAccount = async () => {
+    if (!user?.uid) {
+      toast({
+        title: "Error",
+        description: "Please log in to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setConnectLoading(true);
+      
+      console.log('Starting Express account creation for user:', user.uid);
+      
+      // Create new Express account and get onboarding link
+      const result = await stripeService.createExpressAccount(user.uid);
+      
+      if (result.success && result.onboardingUrl) {
+        // Redirect to Stripe onboarding
+        window.location.href = result.onboardingUrl;
+      } else {
+        throw new Error(result.error || 'Failed to create account');
+      }
+    } catch (error) {
+      console.error("Error creating Express account:", error);
+      
+      let errorMessage = "Failed to create Stripe account. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "API endpoint not found. Please contact support.";
+        } else if (error.message.includes('500')) {
+          errorMessage = "Server error. Please try again later.";
+        }
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
   const handleConnectExistingAccount = async () => {
     if (!user?.uid || !accountId.trim()) {
       toast({
@@ -173,44 +222,96 @@ const Payments: React.FC = () => {
                       </Alert>
 
                       {!showConnectForm ? (
-                        <div className="text-center">
-                          <Button 
-                            onClick={() => setShowConnectForm(true)}
-                            className="bg-chocolate-600 hover:bg-chocolate-700 text-white transition-colors duration-200"
-                          >
-                            Connect Existing Stripe Account
-                          </Button>
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <Button 
+                              onClick={() => setShowConnectForm(true)}
+                              className="bg-chocolate-600 hover:bg-chocolate-700 text-white transition-colors duration-200"
+                            >
+                              Set Up Stripe Account
+                            </Button>
+                          </div>
+                          
+                          <div className="text-center">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Already have a Stripe account? 
+                              <button 
+                                onClick={() => setShowConnectForm(true)}
+                                className="text-chocolate-600 hover:text-chocolate-700 ml-1 underline"
+                              >
+                                Connect existing account
+                              </button>
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4 p-4 border border-gray-200 dark:border-chocolate-600 rounded-lg">
-                          <div>
-                            <Label htmlFor="accountId" className="text-sm font-medium text-gray-900 dark:text-white">
-                              Stripe Account ID
-                            </Label>
-                            <Input
-                              id="accountId"
-                              type="text"
-                              placeholder="acct_1234567890"
-                              value={accountId}
-                              onChange={(e) => setAccountId(e.target.value)}
-                              className="mt-1"
-                            />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              Find your account ID in your Stripe Dashboard under Account Settings
-                            </p>
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                                Choose Setup Option
+                              </Label>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <Button 
+                                onClick={handleCreateExpressAccount}
+                                disabled={connectLoading}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white transition-colors duration-200"
+                              >
+                                {connectLoading && (
+                                  <div className="mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                )}
+                                🚀 Quick Setup (Recommended)
+                              </Button>
+                              
+                              <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                Complete setup in 5-10 minutes
+                              </div>
+                            </div>
+                            
+                            <div className="relative">
+                              <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-gray-300" />
+                              </div>
+                              <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white dark:bg-chocolate-800 px-2 text-gray-500">Or</span>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <Label htmlFor="accountId" className="text-sm font-medium text-gray-900 dark:text-white">
+                                  Connect Existing Stripe Account
+                                </Label>
+                                <Input
+                                  id="accountId"
+                                  type="text"
+                                  placeholder="acct_1234567890"
+                                  value={accountId}
+                                  onChange={(e) => setAccountId(e.target.value)}
+                                  className="mt-1"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  Find your account ID in your Stripe Dashboard under Account Settings
+                                </p>
+                              </div>
+                              
+                              <Button 
+                                onClick={handleConnectExistingAccount}
+                                disabled={connectLoading || !accountId.trim()}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                {connectLoading && (
+                                  <div className="mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                )}
+                                Connect Existing Account
+                              </Button>
+                            </div>
                           </div>
                           
                           <div className="flex gap-2">
-                            <Button 
-                              onClick={handleConnectExistingAccount}
-                              disabled={connectLoading || !accountId.trim()}
-                              className="bg-chocolate-600 hover:bg-chocolate-700 text-white transition-colors duration-200"
-                            >
-                              {connectLoading && (
-                                <div className="mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              )}
-                              Connect Account
-                            </Button>
                             <Button 
                               variant="outline"
                               onClick={() => {

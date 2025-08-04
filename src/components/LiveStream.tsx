@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 import { databaseService } from '../services/databaseService';
 import { jaasConfig } from '../config/firebase';
 import jwtAuthService from '../services/jwtAuthService';
+import { analyticsService } from '../services/analyticsService';
 
 declare global {
   interface Window {
@@ -163,6 +164,10 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         },
         videoConferenceJoined: () => {
           console.log('Joined video conference');
+          // Track stream start
+          if (user) {
+            analyticsService.trackStreamStart(roomName, `Stream in ${roomName}`, user.uid);
+          }
         },
         videoConferenceLeft: async () => {
           console.log('Left video conference');
@@ -170,9 +175,20 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         },
         participantLeft: (participant: any) => {
           console.log('Participant left:', participant);
+          // Track viewer leave and session end
+          if (user && participant && !participant.isModerator) {
+            // Calculate stream duration (you might want to track this more precisely)
+            const streamDuration = 60; // minutes - placeholder
+            analyticsService.trackViewerSessionEnd(roomName, participant.id, user.uid, streamDuration);
+          }
         },
         participantJoined: (participant: any) => {
           console.log('Participant joined:', participant);
+          // Track viewer join and session start
+          if (user && participant && !participant.isModerator) {
+            analyticsService.trackViewerJoin(roomName, participant.id, user.uid);
+            analyticsService.trackViewerSessionStart(roomName, participant.id, user.uid);
+          }
         },
         hangup: async () => {
           console.log('Meeting hung up');

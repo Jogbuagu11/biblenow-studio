@@ -25,6 +25,8 @@ const Viewers: React.FC = () => {
   const [shieldedSearchTerm, setShieldedSearchTerm] = useState('');
   const [shieldConfirmOpen, setShieldConfirmOpen] = useState(false);
   const [userToShield, setUserToShield] = useState<any>(null);
+  const [inviteHistory, setInviteHistory] = useState<any[]>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
 
   // Fetch followers and following data
   useEffect(() => {
@@ -48,6 +50,7 @@ const Viewers: React.FC = () => {
         console.log('Raw followers data:', followersData);
         console.log('Raw following data:', followingData);
         console.log('Raw verified followers data:', verifiedFollowersData);
+        console.log('Raw shielded users data:', shieldedUsersData);
         
         // Debug: Log each follower's profile data
         followersData.forEach((follower, index) => {
@@ -76,11 +79,42 @@ const Viewers: React.FC = () => {
     fetchFollowersData();
   }, [user?.uid]);
 
-  const handleSendInvite = () => {
-    // Logic would go here
-    setInviteModalOpen(false);
-    setEmail('');
-    setMessage('');
+  // Fetch invite history when modal opens
+  useEffect(() => {
+    const fetchInviteHistory = async () => {
+      if (!user?.uid || !inviteModalOpen) return;
+      
+      try {
+        setIsLoadingInvites(true);
+        const history = await databaseService.getInviteHistory(user.uid);
+        setInviteHistory(history);
+      } catch (error) {
+        console.error('Error fetching invite history:', error);
+      } finally {
+        setIsLoadingInvites(false);
+      }
+    };
+
+    fetchInviteHistory();
+  }, [user?.uid, inviteModalOpen]);
+
+  const handleSendInvite = async () => {
+    if (!user?.uid || !email.trim()) return;
+    
+    try {
+      await databaseService.sendInvite(user.uid, email.trim(), message.trim() || 'You have been invited to join BibleNOW!');
+      
+      // Refresh invite history
+      const history = await databaseService.getInviteHistory(user.uid);
+      setInviteHistory(history);
+      
+      setInviteModalOpen(false);
+      setEmail('');
+      setMessage('');
+    } catch (error) {
+      console.error('Error sending invite:', error);
+      // You might want to show a toast notification here
+    }
   };
 
   const handleShieldUser = async (shieldedUserId: string, isFromFollowingSection: boolean = false) => {
@@ -221,6 +255,10 @@ const Viewers: React.FC = () => {
     return fullName.toLowerCase().includes(shieldedSearchTerm.toLowerCase()) ||
            shielded.shielded_user?.email?.toLowerCase().includes(shieldedSearchTerm.toLowerCase());
   });
+
+  // Debug: Log shielded users data
+  console.log('Shielded users:', shieldedUsers);
+  console.log('Filtered shielded users:', filteredShieldedUsers);
 
   return (
     <Layout>
@@ -694,25 +732,105 @@ const Viewers: React.FC = () => {
             <div className="space-y-6">
               {/* Statistics Cards */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-50 dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-700">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">0</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Invites</div>
+                <div className="bg-white dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-600 shadow-sm">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{inviteHistory.length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Total Invites</div>
                 </div>
-                <div className="bg-gray-50 dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-700">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">0</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Joined</div>
+                <div className="bg-white dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-600 shadow-sm">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{inviteHistory.filter(invite => invite.status === 'accepted').length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Accepted</div>
                 </div>
-                <div className="bg-gray-50 dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-700">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">0%</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Join Rate</div>
+                <div className="bg-white dark:bg-chocolate-800 rounded-lg p-4 text-center border border-gray-200 dark:border-chocolate-600 shadow-sm">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {inviteHistory.length > 0 
+                      ? Math.round((inviteHistory.filter(invite => invite.status === 'accepted').length / inviteHistory.length) * 100)
+                      : 0}%
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Acceptance Rate</div>
                 </div>
               </div>
 
-              {/* Loading State */}
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-8 h-8 border-4 border-gray-200 dark:border-gray-600 border-t-yellow-600 rounded-full animate-spin mb-4"></div>
-                <p className="text-gray-500 dark:text-gray-400">Loading invites...</p>
-              </div>
+              {/* Invite History List */}
+              {isLoadingInvites ? (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-8 h-8 border-4 border-gray-200 dark:border-gray-600 border-t-yellow-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-500 dark:text-gray-400">Loading invites...</p>
+                </div>
+                            ) : inviteHistory.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {inviteHistory.map((invite) => (
+                    <div key={invite.id} className="flex items-center justify-between p-4 bg-white dark:bg-chocolate-800 rounded-lg border border-gray-200 dark:border-chocolate-600 shadow-sm">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-gray-900 dark:text-white">{invite.invitee_email}</span>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            invite.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                            invite.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            invite.status === 'delivered' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                            invite.status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                          }`}>
+                            {invite.status.charAt(0).toUpperCase() + invite.status.slice(1)}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          {invite.message}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Sent: {new Date(invite.sent_at).toLocaleDateString()}
+                          {invite.accepted_at && ` • Accepted: ${new Date(invite.accepted_at).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 ml-4">
+                        {invite.status === 'pending' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                if (!user?.uid) return;
+                                try {
+                                  await databaseService.resendInvite(invite.id);
+                                  // Refresh invite history
+                                  const history = await databaseService.getInviteHistory(user.uid);
+                                  setInviteHistory(history);
+                                } catch (error) {
+                                  console.error('Error resending invite:', error);
+                                }
+                              }}
+                              className="border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            >
+                              Resend
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                if (!user?.uid) return;
+                                try {
+                                  await databaseService.cancelInvite(invite.id);
+                                  // Refresh invite history
+                                  const history = await databaseService.getInviteHistory(user.uid);
+                                  setInviteHistory(history);
+                                } catch (error) {
+                                  console.error('Error cancelling invite:', error);
+                                }
+                              }}
+                              className="border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  No invites sent yet. Start inviting viewers to see your invite history here.
+                </div>
+              )}
             </div>
 
             <DialogFooter>

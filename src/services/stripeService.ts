@@ -59,6 +59,39 @@ class StripeService {
     return await stripePromise;
   }
 
+  // Create Express account and get onboarding link
+  async createExpressAccount(userId: string): Promise<{ success: boolean; onboardingUrl?: string; error?: string }> {
+    try {
+      console.log('Creating Express account for user:', userId);
+      
+      const response = await fetch(`${this.apiUrl}/stripe/create-express-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      console.log('Express account creation response:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Express account creation error:', errorText);
+        throw new Error(`Failed to create Express account: ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Express account creation successful:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating Express account:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create Express account'
+      };
+    }
+  }
+
   // Connect existing Stripe account (for streamers who already have accounts)
   async connectExistingAccount(accountId: string, userId: string): Promise<StripeAccount> {
     try {

@@ -9,6 +9,8 @@ import Button from '../components/ui/Button';
 import { useToast } from '../hooks/use-toast';
 import { useAuthStore } from '../stores/authStore';
 import shekelService, { ShekelSummary, CombinedTransaction } from '../services/shekelService';
+import cashOutService, { CashOutRequest } from '../services/cashOutService';
+import CashOutWidget from '../components/CashOutWidget';
 
 const Shekelz: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const Shekelz: React.FC = () => {
   const { user } = useAuthStore();
   const [shekelSummary, setShekelSummary] = useState<ShekelSummary | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
+  const [cashOutHistory, setCashOutHistory] = useState<CashOutRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sendingThanks, setSendingThanks] = useState<Set<string>>(new Set());
   const isFetchingRef = useRef(false);
@@ -48,13 +51,15 @@ const Shekelz: React.FC = () => {
         
         // Fetch real data from shekel_gifts table
         console.log('Fetching summary and gifts...');
-        const [summary, allGifts] = await Promise.all([
+        const [summary, allGifts, cashOutRequests] = await Promise.all([
           shekelService.getShekelSummary(user.uid),
-          shekelService.getAllGifts(user.uid)
+          shekelService.getAllGifts(user.uid),
+          cashOutService.getCashOutHistory(user.uid)
         ]);
 
         console.log('Summary received:', summary);
         console.log('All gifts received:', allGifts?.length || 0);
+        console.log('Cash out requests received:', cashOutRequests?.length || 0);
         
         setShekelSummary(summary);
         
@@ -62,6 +67,7 @@ const Shekelz: React.FC = () => {
         const transactions = shekelService.convertGiftsToTransactions(allGifts, user.uid);
         console.log('Transactions converted:', transactions?.length || 0);
         setRecentTransactions(transactions);
+        setCashOutHistory(cashOutRequests);
         
       } catch (error) {
         console.error("Error fetching Shekelz data:", error);
@@ -74,6 +80,7 @@ const Shekelz: React.FC = () => {
           is_verified_user: false
         });
         setRecentTransactions([]);
+        setCashOutHistory([]);
         toastRef.current({
           title: "Error",
           description: "Failed to load Shekelz data",
@@ -206,6 +213,22 @@ const Shekelz: React.FC = () => {
     }
   };
 
+  // Get cash out status badge
+  const getCashOutStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="border-yellow-200 text-yellow-800">Pending</Badge>;
+      case 'processing':
+        return <Badge variant="outline" className="border-blue-200 text-blue-800">Processing</Badge>;
+      case 'completed':
+        return <Badge variant="outline" className="border-green-200 text-green-800">Completed</Badge>;
+      case 'failed':
+        return <Badge variant="outline" className="border-red-200 text-red-800">Failed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -224,9 +247,10 @@ const Shekelz: React.FC = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 dark:bg-darkBrown-700">
+          <TabsList className="grid w-full max-w-md grid-cols-3 bg-gray-100 dark:bg-darkBrown-700">
             <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Overview</TabsTrigger>
             <TabsTrigger value="history" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Transaction History</TabsTrigger>
+            <TabsTrigger value="cashout" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Cash Out History</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="space-y-4">
@@ -296,6 +320,30 @@ const Shekelz: React.FC = () => {
                     <p className="text-xs text-gray-600">Lifetime purchases</p>
                   </CardContent>
                 </Card>
+              </div>
+            )}
+            
+            {/* Cash Out Widget for verified users */}
+            {!isLoading && shekelSummary?.is_verified_user && (
+              <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                <CashOutWidget onCashOutSuccess={() => {
+                  // Refresh shekel data after successful cash out
+                  const fetchShekelData = async () => {
+                    if (!user?.uid) return;
+                    try {
+                      const [summary, allGifts] = await Promise.all([
+                        shekelService.getShekelSummary(user.uid),
+                        shekelService.getAllGifts(user.uid)
+                      ]);
+                      setShekelSummary(summary);
+                      const transactions = shekelService.convertGiftsToTransactions(allGifts, user.uid);
+                      setRecentTransactions(transactions);
+                    } catch (error) {
+                      console.error("Error refreshing Shekelz data:", error);
+                    }
+                  };
+                  fetchShekelData();
+                }} />
               </div>
             )}
             
@@ -432,6 +480,69 @@ const Shekelz: React.FC = () => {
                 {!isLoading && recentTransactions.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No transaction history available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cashout" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cash Out History</CardTitle>
+                <CardDescription>History of your Shekelz cash out requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-12 bg-gray-100 rounded animate-pulse"></div>
+                    ))}
+                  </div>
+                ) : cashOutHistory.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Cash Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cashOutHistory.map((request) => (
+                        <TableRow key={request.id}>
+                          <TableCell>
+                            {getCashOutStatusBadge(request.status)}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatShekels(request.amount)}
+                          </TableCell>
+                          <TableCell className="font-semibold text-green-600">
+                            ${(request.cash_amount / 100).toFixed(2)}
+                          </TableCell>
+                          <TableCell>{formatDate(request.created_at)}</TableCell>
+                          <TableCell>
+                            {request.processed_at && (
+                              <div className="text-xs text-gray-500">
+                                Processed: {formatDate(request.processed_at)}
+                              </div>
+                            )}
+                            {request.error_message && (
+                              <div className="text-xs text-red-500">
+                                Error: {request.error_message}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Cash out history will appear here once you make your first cash out request.</p>
+                    <p className="text-sm mt-2">Only verified users can cash out their Shekelz.</p>
                   </div>
                 )}
               </CardContent>
