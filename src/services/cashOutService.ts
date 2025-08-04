@@ -240,4 +240,5 @@ class CashOutService {
   }
 }
 
-export default new CashOutService(); 
+const cashOutService = new CashOutService();
+export default cashOutService; 

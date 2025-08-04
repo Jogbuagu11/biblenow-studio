@@ -1,11 +1,9 @@
-import { useAuthStore } from '../stores/authStore';
 import { analytics } from '../config/firebase';
 import { logEvent } from 'firebase/analytics';
 import { ga4ApiService } from './ga4ApiService';
 
 // GA4 Configuration
 const FIREBASE_MEASUREMENT_ID = process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || 'G-MC0BNXJLBT'; // Firebase Analytics
-const GA4_MEASUREMENT_ID = process.env.REACT_APP_GA_MEASUREMENT_ID || 'your-vercel-ga4-id'; // Pure GA4
 
 // TypeScript declarations for gtag
 declare global {
