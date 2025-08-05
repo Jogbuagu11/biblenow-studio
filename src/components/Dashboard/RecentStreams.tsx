@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import StreamDetailsModal from '../StreamDetailsModal';
 import Pagination from '../ui/Pagination';
 import { StreamInfo } from '../../stores/livestreamStore';
+import { getPlatformConfig } from '../../utils/platformUtils';
 
 const RecentStreams: React.FC = () => {
   const { recentStreams, fetchRecentStreams, isLoading } = useLivestreamStore();
@@ -93,7 +94,11 @@ const RecentStreams: React.FC = () => {
                     {format(new Date(stream.ended_at || stream.updated_at), "MMM d, yyyy")}
                   </p>
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    <span>{stream.platform}</span>
+                    {stream.platform && stream.platform !== 'external' && (
+                      <span className={`${getPlatformConfig(stream.platform).bgColor} ${getPlatformConfig(stream.platform).textColor} text-xs px-2 py-1 rounded-full font-medium`}>
+                        {getPlatformConfig(stream.platform).displayName}
+                      </span>
+                    )}
                     <span>{stream.stream_type}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">

@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import StreamDetailsModal from '../StreamDetailsModal';
 import Pagination from '../ui/Pagination';
 import { StreamInfo } from '../../stores/livestreamStore';
+import { getPlatformConfig } from '../../utils/platformUtils';
 
 const UpcomingStreams: React.FC = () => {
   const { scheduledStreams, fetchScheduledStreams, isLoading } = useLivestreamStore();
@@ -84,7 +85,11 @@ const UpcomingStreams: React.FC = () => {
                     {format(new Date(stream.scheduled_at || 0), "MMM d, yyyy 'at' h:mm a")}
                   </p>
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    <span>{stream.platform}</span>
+                    {stream.platform && stream.platform !== 'external' && (
+                      <span className={`${getPlatformConfig(stream.platform).bgColor} ${getPlatformConfig(stream.platform).textColor} text-xs px-2 py-1 rounded-full font-medium`}>
+                        {getPlatformConfig(stream.platform).displayName}
+                      </span>
+                    )}
                     <span>{stream.stream_type}</span>
                   </div>
                   <div className="flex gap-1">

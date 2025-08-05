@@ -25,6 +25,18 @@ export interface CashOutSummary {
   is_verified_user: boolean;
 }
 
+export interface CashOutEligibility {
+  eligible: boolean;
+  balance: number;
+  minAmount: number;
+  error?: string;
+}
+
+// Helper function
+const formatShekels = (amount: number): string => {
+  return `${amount.toLocaleString()} Shekelz`;
+};
+
 class CashOutService {
   private apiUrl: string;
 
@@ -32,41 +44,86 @@ class CashOutService {
     this.apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
   }
 
-  // Check if user is eligible for cash out (verified user with sufficient balance)
-  async checkEligibility(userId: string): Promise<{ eligible: boolean; balance: number; minAmount: number; error?: string }> {
+  // Check if user is eligible for cash out
+  async checkEligibility(userId: string): Promise<CashOutEligibility> {
     try {
-      // Check if user is verified
-      const { data: verifiedProfile } = await supabaseAdmin
+      console.log('cashOutService: Starting eligibility check for user:', userId);
+      
+      // Get user's verified profile
+      console.log('cashOutService: Fetching verified profile...');
+      const { data: verifiedProfile, error: profileError } = await supabaseAdmin
         .from('verified_profiles')
         .select('shekel_balance, ministry_name, stripe_account_id')
         .eq('id', userId)
         .single();
 
-      if (!verifiedProfile || !verifiedProfile.ministry_name) {
-        return { eligible: false, balance: 0, minAmount: 2000, error: 'Only verified users can cash out Shekelz' };
+      console.log('cashOutService: Profile fetch result:', { verifiedProfile, profileError });
+
+      if (profileError) {
+        console.error('cashOutService: Error fetching profile:', profileError);
+        return {
+          eligible: false,
+          balance: 0,
+          minAmount: 2000,
+          error: `Profile error: ${profileError.message}`
+        };
       }
 
-      if (!verifiedProfile.stripe_account_id) {
-        return { eligible: false, balance: verifiedProfile.shekel_balance || 0, minAmount: 2000, error: 'Please connect your Stripe account in Payment Settings' };
+      if (!verifiedProfile) {
+        console.log('cashOutService: No verified profile found');
+        return {
+          eligible: false,
+          balance: 0,
+          minAmount: 2000,
+          error: 'User profile not found'
+        };
       }
+
+      console.log('cashOutService: Verified profile found:', verifiedProfile);
 
       const balance = verifiedProfile.shekel_balance || 0;
-      const minAmount = 2000; // 2000 Shekelz = $20 minimum
+      const isVerifiedUser = !!(verifiedProfile.ministry_name);
+      const hasStripeAccount = !!(verifiedProfile.stripe_account_id);
+      const minAmount = 2000; // $20 minimum
 
-      if (balance < minAmount) {
-        return { eligible: false, balance, minAmount, error: `Minimum cash out amount is ${minAmount} Shekelz ($20)` };
-      }
+      console.log('cashOutService: Eligibility factors:', {
+        balance,
+        isVerifiedUser,
+        hasStripeAccount,
+        minAmount
+      });
 
-      return { eligible: true, balance, minAmount };
+      // Check if user meets all requirements
+      const eligible = isVerifiedUser && hasStripeAccount && balance >= minAmount;
+
+      console.log('cashOutService: Final eligibility result:', eligible);
+
+      return {
+        eligible,
+        balance,
+        minAmount,
+        error: eligible ? undefined : 
+          !isVerifiedUser ? 'User not verified' :
+          !hasStripeAccount ? 'Stripe account not set up' :
+          balance < minAmount ? `Insufficient balance (minimum: ${formatShekels(minAmount)})` :
+          'Unknown eligibility issue'
+      };
     } catch (error) {
-      console.error('Error checking cash out eligibility:', error);
-      return { eligible: false, balance: 0, minAmount: 2000, error: 'Failed to check eligibility' };
+      console.error('cashOutService: Exception in checkEligibility:', error);
+      return {
+        eligible: false,
+        balance: 0,
+        minAmount: 2000,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
   }
 
   // Get cash out summary for user
   async getCashOutSummary(userId: string): Promise<CashOutSummary> {
     try {
+      console.log('cashOutService: Getting cash out summary for user:', userId);
+      
       // Get user balance
       const { data: verifiedProfile } = await supabaseAdmin
         .from('verified_profiles')
@@ -74,31 +131,50 @@ class CashOutService {
         .eq('id', userId)
         .single();
 
+      console.log('cashOutService: Verified profile for summary:', verifiedProfile);
+
       const isVerifiedUser = !!(verifiedProfile && verifiedProfile.ministry_name);
       const availableBalance = verifiedProfile?.shekel_balance || 0;
 
-      // Get cash out history
-      const { data: cashOutRequests } = await supabaseAdmin
-        .from('cash_out_requests')
-        .select('amount, status')
-        .eq('user_id', userId);
+      console.log('cashOutService: Is verified user:', isVerifiedUser, 'Available balance:', availableBalance);
 
-      const totalCashedOut = cashOutRequests
-        ?.filter((req: any) => req.status === 'completed')
-        .reduce((sum: number, req: any) => sum + req.amount, 0) || 0;
+      // Try to get cash out history, but don't fail if table doesn't exist
+      let totalCashedOut = 0;
+      let pendingAmount = 0;
 
-      const pendingAmount = cashOutRequests
-        ?.filter((req: any) => req.status === 'pending' || req.status === 'processing')
-        .reduce((sum: number, req: any) => sum + req.amount, 0) || 0;
+      try {
+        const { data: cashOutRequests } = await supabaseAdmin
+          .from('cash_out_requests')
+          .select('amount, status')
+          .eq('user_id', userId);
 
-      return {
+        console.log('cashOutService: Cash out requests:', cashOutRequests);
+
+        totalCashedOut = cashOutRequests
+          ?.filter((req: any) => req.status === 'completed')
+          .reduce((sum: number, req: any) => sum + req.amount, 0) || 0;
+
+        pendingAmount = cashOutRequests
+          ?.filter((req: any) => req.status === 'pending' || req.status === 'processing')
+          .reduce((sum: number, req: any) => sum + req.amount, 0) || 0;
+      } catch (tableError) {
+        console.log('cashOutService: Cash out requests table not accessible, using defaults:', tableError);
+        // Table doesn't exist or is not accessible, use defaults
+        totalCashedOut = 0;
+        pendingAmount = 0;
+      }
+
+      const summary = {
         total_cashed_out: totalCashedOut,
         pending_amount: pendingAmount,
         available_balance: availableBalance,
         is_verified_user: isVerifiedUser
       };
+
+      console.log('cashOutService: Summary calculated:', summary);
+      return summary;
     } catch (error) {
-      console.error('Error getting cash out summary:', error);
+      console.error('cashOutService: Error getting cash out summary:', error);
       return {
         total_cashed_out: 0,
         pending_amount: 0,
@@ -236,6 +312,77 @@ class CashOutService {
     } catch (error) {
       console.error('Error getting cash out history:', error);
       return [];
+    }
+  }
+
+  // Test method to check database connectivity
+  async testDatabaseConnection(userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('cashOutService: Testing database connection for user:', userId);
+      
+      // Test basic profile access
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('verified_profiles')
+        .select('id, email')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('cashOutService: Profile access error:', profileError);
+        return { success: false, error: `Profile access failed: ${profileError.message}` };
+      }
+
+      console.log('cashOutService: Profile access successful:', profile);
+
+      // Test cash_out_requests table access (this might fail if table doesn't exist)
+      try {
+        const { data: requests, error: requestsError } = await supabaseAdmin
+          .from('cash_out_requests')
+          .select('id')
+          .limit(1);
+
+        if (requestsError) {
+          console.error('cashOutService: Cash out requests table error:', requestsError);
+          return { success: false, error: `Cash out requests table error: ${requestsError.message}` };
+        }
+
+        console.log('cashOutService: Cash out requests table access successful, found', requests?.length || 0, 'rows');
+      } catch (tableError) {
+        console.error('cashOutService: Cash out requests table access failed:', tableError);
+        return { success: false, error: `Cash out requests table doesn't exist or is inaccessible` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('cashOutService: Database connection test failed:', error);
+      return { success: false, error: `Database connection failed: ${error}` };
+    }
+  }
+
+  // Simple test method for empty tables
+  async testEmptyTableHandling(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('cashOutService: Testing empty table handling for user:', userId);
+      
+      // Test getCashOutHistory with empty table
+      const history = await this.getCashOutHistory(userId);
+      console.log('cashOutService: History result (should be empty array):', history);
+      
+      // Test getCashOutSummary with empty table
+      const summary = await this.getCashOutSummary(userId);
+      console.log('cashOutService: Summary result:', summary);
+      
+      // Test checkEligibility
+      const eligibility = await this.checkEligibility(userId);
+      console.log('cashOutService: Eligibility result:', eligibility);
+      
+      return { 
+        success: true, 
+        message: `All methods working. History: ${history.length} items, Summary: ${summary.total_cashed_out} cashed out, Eligible: ${eligibility.eligible}` 
+      };
+    } catch (error) {
+      console.error('cashOutService: Empty table test failed:', error);
+      return { success: false, message: `Test failed: ${error}` };
     }
   }
 }

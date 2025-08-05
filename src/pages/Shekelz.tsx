@@ -247,10 +247,9 @@ const Shekelz: React.FC = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full max-w-md grid-cols-3 bg-gray-100 dark:bg-darkBrown-700">
+          <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 dark:bg-darkBrown-700">
             <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Overview</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Transaction History</TabsTrigger>
-            <TabsTrigger value="cashout" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Cash Out History</TabsTrigger>
+            <TabsTrigger value="redeem" className="data-[state=active]:bg-white dark:data-[state=active]:bg-darkBrown-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Redeem Shekelz</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="space-y-4">
@@ -323,95 +322,6 @@ const Shekelz: React.FC = () => {
               </div>
             )}
             
-            {/* Cash Out Widget for verified users */}
-            {!isLoading && shekelSummary?.is_verified_user && (
-              <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
-                <CashOutWidget onCashOutSuccess={() => {
-                  // Refresh shekel data after successful cash out
-                  const fetchShekelData = async () => {
-                    if (!user?.uid) return;
-                    try {
-                      const [summary, allGifts] = await Promise.all([
-                        shekelService.getShekelSummary(user.uid),
-                        shekelService.getAllGifts(user.uid)
-                      ]);
-                      setShekelSummary(summary);
-                      const transactions = shekelService.convertGiftsToTransactions(allGifts, user.uid);
-                      setRecentTransactions(transactions);
-                    } catch (error) {
-                      console.error("Error refreshing Shekelz data:", error);
-                    }
-                  };
-                  fetchShekelData();
-                }} />
-              </div>
-            )}
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Shekelz Activity</CardTitle>
-                <CardDescription>Your latest Shekelz transactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading && (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center space-x-4 p-4 bg-gray-100 rounded-lg animate-pulse">
-                        <div className="w-16 h-4 bg-gray-200 rounded"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!isLoading && recentTransactions.length > 0 && (
-                  <div className="space-y-2">
-                    {recentTransactions.slice(0, 5).map((transaction, index) => (
-                      <div key={`${transaction.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          {getTransactionBadge(transaction.type)}
-                          {transaction.gift_type && getGiftTypeBadge(transaction.gift_type)}
-                          <div>
-                            <p className="font-medium">{transaction.description}</p>
-                            <p className="text-sm text-gray-500">{formatDate(transaction.created_at)}</p>
-                            {transaction.message && (
-                              <p className="text-xs text-gray-400 italic">"{transaction.message}"</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className={`font-semibold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {transaction.amount > 0 ? '+' : ''}{formatShekels(Math.abs(transaction.amount))}
-                          </div>
-                          {transaction.type === 'gift_received' && transaction.amount > 0 && (
-                            <Button
-                              onClick={() => handleSendThankYou(transaction)}
-                              disabled={sendingThanks.has(transaction.id) || !!transaction.thanked_at || transaction.is_anonymous}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                            >
-                              {sendingThanks.has(transaction.id) ? 'Sending...' : 
-                               transaction.thanked_at ? 'Thanked ✓' : 'Say Thanks'}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!isLoading && recentTransactions.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No transactions found
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Transaction History</CardTitle>
@@ -486,12 +396,74 @@ const Shekelz: React.FC = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="cashout" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cash Out History</CardTitle>
-                <CardDescription>History of your Shekelz cash out requests</CardDescription>
-              </CardHeader>
+
+
+          <TabsContent value="redeem" className="space-y-4">
+            {/* Cash Out Widget for verified users */}
+            {!isLoading && shekelSummary?.is_verified_user && (
+              <div className="max-w-2xl mx-auto">
+                <CashOutWidget onCashOutSuccess={() => {
+                // Refresh shekel data after successful cash out
+                const fetchShekelData = async () => {
+                  if (!user?.uid) return;
+                  try {
+                    const [summary, allGifts, cashOutRequests] = await Promise.all([
+                      shekelService.getShekelSummary(user.uid),
+                      shekelService.getAllGifts(user.uid),
+                      cashOutService.getCashOutHistory(user.uid)
+                    ]);
+                    setShekelSummary(summary);
+                    const transactions = shekelService.convertGiftsToTransactions(allGifts, user.uid);
+                    setRecentTransactions(transactions);
+                    setCashOutHistory(cashOutRequests);
+                  } catch (error) {
+                    console.error("Error refreshing Shekelz data:", error);
+                  }
+                };
+                fetchShekelData();
+              }} />
+              </div>
+            )}
+
+            {/* Message for non-verified users */}
+            {!isLoading && !shekelSummary?.is_verified_user && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                    Redeem Shekelz
+                  </CardTitle>
+                  <CardDescription>
+                    Convert your Shekelz to cash via Stripe
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Required</h3>
+                    <p className="text-gray-600 mb-4">
+                      You need to be a verified user to redeem your Shekelz for cash.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Contact support to get verified and start redeeming your Shekelz.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="max-w-2xl mx-auto">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cash Out History</CardTitle>
+                  <CardDescription>History of your Shekelz cash out requests</CardDescription>
+                </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <div className="space-y-2">
@@ -547,6 +519,7 @@ const Shekelz: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

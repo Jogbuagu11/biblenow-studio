@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { databaseService } from '../services/databaseService';
-import EndStreamHandler from '../components/EndStreamHandler';
 
 const EndStream: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -147,15 +146,7 @@ const EndStream: React.FC = () => {
             </div>
           )}
 
-          {/* Manual Stream Controls */}
-          <div className="mb-6 p-6 bg-gradient-to-r from-darkBrown-800/50 to-chocolate-800/50 rounded-2xl backdrop-blur-sm border border-yellow-400/20 animate-fade-in-delay-3">
-            <h3 className="text-yellow-200 font-semibold mb-4">Stream Management</h3>
-            <EndStreamHandler 
-              onStreamEnded={() => setStreamEnded(true)}
-              onError={(error) => setError(typeof error === 'string' ? error : error.message)}
-              autoEnd={false}
-            />
-          </div>
+
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-delay-3">
