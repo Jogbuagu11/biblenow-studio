@@ -92,8 +92,6 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
         return;
       }
 
-    const domain = jaasConfig.domain;
-    
     // Get user avatar for both authenticated and anonymous users
     let userAvatar = undefined;
     if (user) {
@@ -155,7 +153,7 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
       }
     };
 
-    jitsiApiRef.current = new window.JitsiMeetExternalAPI(domain, options);
+    jitsiApiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
 
     // Add event listeners for meeting end
     jitsiApiRef.current.addEventListeners({

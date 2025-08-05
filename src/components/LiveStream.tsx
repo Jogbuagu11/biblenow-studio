@@ -78,8 +78,6 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         return;
       }
 
-      const domain = jaasConfig.domain;
-      
       // Generate JWT token for moderator authentication
       // All verified users are moderators
       let jwtToken = null;
@@ -154,7 +152,7 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         }
       };
 
-      apiRef.current = new window.JitsiMeetExternalAPI(domain, options);
+      apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
 
       // Add event listeners for meeting end with robust error handling
       apiRef.current.addEventListeners({
