@@ -1,22 +1,9 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp, where } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import app, { auth } from '../config/firebase';
 
-// Firebase configuration (using the same config as firebase.ts)
-const firebaseConfig = {
-  apiKey: "AIzaSyAjFArG3xSq2JGb8bNnqVBI3K-Gyf-dz8c",
-  authDomain: "io-biblenow-authapp.firebaseapp.com",
-  projectId: "io-biblenow-authapp",
-  storageBucket: "io-biblenow-authapp.firebasestorage.app",
-  messagingSenderId: "978185521714",
-  appId: "1:978185521714:web:840d67807782ec9a928a2b",
-  measurementId: "G-MC0BNXJLBT"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firestore using the existing Firebase app instance
 const db = getFirestore(app);
-const auth = getAuth(app);
 
 export interface ChatMessage {
   id?: string;
@@ -62,6 +49,7 @@ class FirebaseChatService {
     const messagesRef = collection(db, 'chat_messages');
     const q = query(
       messagesRef,
+      where('roomId', '==', roomId),
       orderBy('timestamp', 'asc'),
       limit(100)
     );
@@ -70,22 +58,22 @@ class FirebaseChatService {
       const messages: ChatMessage[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.roomId === roomId) {
-          messages.push({
-            id: doc.id,
-            text: data.text,
-            userId: data.userId,
-            userName: data.userName,
-            userAvatar: data.userAvatar,
-            timestamp: data.timestamp,
-            roomId: data.roomId,
-            isModerator: data.isModerator || false
-          });
-        }
+        messages.push({
+          id: doc.id,
+          text: data.text,
+          userId: data.userId,
+          userName: data.userName,
+          userAvatar: data.userAvatar,
+          timestamp: data.timestamp,
+          roomId: data.roomId,
+          isModerator: data.isModerator || false
+        });
       });
       callback(messages);
     }, (error) => {
       console.error('Error listening to messages:', error);
+      // If there's an error, return empty messages array to prevent UI issues
+      callback([]);
     });
   }
 
