@@ -134,7 +134,12 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
         // Allow anonymous users
         anonymousUserRole: 'guest',
         // Disable authentication requirements
-        authenticationRequired: false
+        authenticationRequired: false,
+        // Configure hangup button to end meeting for moderators
+        hangupButton: {
+          enabled: true,
+          endMeeting: true
+        }
       },
       interfaceConfigOverwrite: {
         TOOLBAR_BUTTONS: [
@@ -149,7 +154,9 @@ const LiveStreamFullScreen: React.FC<LiveStreamFullScreenProps> = ({
         SHOW_WATERMARK_FOR_GUESTS: false,
         SHOW_POWERED_BY: false,
         SHOW_BRAND_WATERMARK: false,
-        SHOW_PROMOTIONAL_CLOSE_PAGE: false
+        SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+        // Custom button text for hangup
+        HANGUP_BUTTON_TEXT: user ? 'End Meeting' : 'Leave Meeting'
       }
     };
 

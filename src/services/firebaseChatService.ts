@@ -46,10 +46,9 @@ class FirebaseChatService {
       this.unsubscribe();
     }
 
-    const messagesRef = collection(db, 'chat_messages');
+    const messagesRef = collection(db, 'rooms', roomId, 'messages');
     const q = query(
       messagesRef,
-      where('roomId', '==', roomId),
       orderBy('timestamp', 'asc'),
       limit(100)
     );
@@ -62,10 +61,10 @@ class FirebaseChatService {
           id: doc.id,
           text: data.text,
           userId: data.userId,
-          userName: data.userName,
+          userName: data.username || data.userName, // Handle both old and new field names
           userAvatar: data.userAvatar,
           timestamp: data.timestamp,
-          roomId: data.roomId,
+          roomId: roomId, // Use the roomId from the function parameter
           isModerator: data.isModerator || false
         });
       });
@@ -91,14 +90,13 @@ class FirebaseChatService {
       const messageData = {
         text: text.trim(),
         userId: this.currentUser.uid,
-        userName: this.currentUser.displayName || 'Anonymous',
+        username: this.currentUser.displayName || 'Anonymous',
         userAvatar: this.currentUser.photoURL,
         timestamp: serverTimestamp(),
-        roomId: roomId,
         isModerator: isModerator
       };
 
-      await addDoc(collection(db, 'chat_messages'), messageData);
+      await addDoc(collection(db, 'rooms', roomId, 'messages'), messageData);
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
