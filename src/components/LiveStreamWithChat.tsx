@@ -99,8 +99,32 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const initializeJitsi = async () => {
+      // Dispose of any existing Jitsi instance first
+      if (apiRef.current) {
+        console.log('Disposing of existing Jitsi instance');
+        try {
+          apiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Jitsi instance:', error);
+        }
+        apiRef.current = null;
+      }
+
+      // Clear the container to remove any existing elements
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+
       if (!window.JitsiMeetExternalAPI) {
-        console.error("Jitsi script not loaded.");
+        console.error("Jitsi script not loaded. Waiting for script to load...");
+        // Wait a bit and try again
+        setTimeout(() => {
+          if (window.JitsiMeetExternalAPI) {
+            initializeJitsi();
+          } else {
+            console.error("Jitsi script still not loaded after timeout");
+          }
+        }, 2000);
         return;
       }
 
@@ -186,7 +210,17 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
         }
       };
 
-      apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
+      console.log('Initializing Jitsi with domain:', jaasConfig.domain);
+      console.log('Room name:', roomName);
+      console.log('JAAS App ID:', jaasConfig.appId);
+      
+      try {
+        apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
+        console.log('JitsiMeetExternalAPI initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize JitsiMeetExternalAPI:', error);
+        return;
+      }
 
       // Add event listeners for meeting end with robust error handling
       apiRef.current.addEventListeners({
@@ -233,8 +267,20 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
 
     return () => {
       if (apiRef.current) {
-        apiRef.current.dispose();
+        console.log('Cleaning up Jitsi instance on unmount');
+        try {
+          apiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Jitsi instance on unmount:', error);
+        }
+        apiRef.current = null;
       }
+      
+      // Clear container
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+      
       // Remove event listeners
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

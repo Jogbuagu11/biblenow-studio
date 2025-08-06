@@ -57,16 +57,16 @@ class FirebaseChatService {
       const messages: ChatMessage[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        messages.push({
-          id: doc.id,
-          text: data.text,
-          userId: data.userId,
+          messages.push({
+            id: doc.id,
+            text: data.text,
+            userId: data.userId,
           userName: data.username || data.userName, // Handle both old and new field names
-          userAvatar: data.userAvatar,
-          timestamp: data.timestamp,
+            userAvatar: data.userAvatar,
+            timestamp: data.timestamp,
           roomId: roomId, // Use the roomId from the function parameter
-          isModerator: data.isModerator || false
-        });
+            isModerator: data.isModerator || false
+          });
       });
       callback(messages);
     }, (error) => {

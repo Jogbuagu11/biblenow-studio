@@ -68,8 +68,32 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
 
   useEffect(() => {
     const initializeJitsi = async () => {
+      // Dispose of any existing Jitsi instance first
+      if (apiRef.current) {
+        console.log('Disposing of existing Jitsi instance');
+        try {
+          apiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Jitsi instance:', error);
+        }
+        apiRef.current = null;
+      }
+
+      // Clear the container to remove any existing elements
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+
       if (!window.JitsiMeetExternalAPI) {
-        console.error("Jitsi script not loaded.");
+        console.error("Jitsi script not loaded. Waiting for script to load...");
+        // Wait a bit and try again
+        setTimeout(() => {
+          if (window.JitsiMeetExternalAPI) {
+            initializeJitsi();
+          } else {
+            console.error("Jitsi script still not loaded after timeout");
+          }
+        }, 2000);
         return;
       }
 
@@ -95,7 +119,14 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         try {
           const profileResult = await jwtAuthService.getUserProfile(user.uid);
           if (profileResult.success && profileResult.profile?.avatar_url) {
-            userAvatar = profileResult.profile.avatar_url;
+            // Validate avatar URL to prevent 404 errors
+            const avatarUrl = profileResult.profile.avatar_url;
+            if (avatarUrl && !avatarUrl.includes('gravatar.com') && avatarUrl.startsWith('http')) {
+              userAvatar = avatarUrl;
+            } else {
+              // Use a fallback avatar or skip avatar to prevent Gravatar 404s
+              console.log('Skipping Gravatar avatar to prevent 404 errors');
+            }
           }
         } catch (error) {
           console.error('Error fetching user avatar:', error);
@@ -152,7 +183,17 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
         }
       };
 
-      apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
+      console.log('Initializing Jitsi with domain:', jaasConfig.domain);
+      console.log('Room name:', roomName);
+      console.log('JAAS App ID:', jaasConfig.appId);
+      
+      try {
+        apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
+        console.log('JitsiMeetExternalAPI initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize JitsiMeetExternalAPI:', error);
+        return;
+      }
 
       // Add event listeners for meeting end with robust error handling
       apiRef.current.addEventListeners({
@@ -214,7 +255,18 @@ const LiveStream: React.FC<Props> = ({ roomName }) => {
 
     return () => {
       if (apiRef.current) {
-        apiRef.current.dispose();
+        console.log('Cleaning up Jitsi instance on unmount');
+        try {
+          apiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Jitsi instance on unmount:', error);
+        }
+        apiRef.current = null;
+      }
+      
+      // Clear container
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
   }, [roomName, user, handleStreamEnd]);
