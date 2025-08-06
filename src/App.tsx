@@ -12,8 +12,9 @@ import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import LiveStreamWithChat from "./components/LiveStreamWithChat";
+import LiveStream from "./components/LiveStream";
 import EndStream from "./pages/EndStream";
+import DownloadApp from "./pages/DownloadApp";
 import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useLivestreamStore, useSupabaseAuthStore } from "./stores";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/endstream" element={<EndStream />} />
+          <Route path="/download-app" element={<DownloadApp />} />
 
 
           {/* Protected Routes */}
@@ -100,7 +102,7 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <LiveStreamWithChat 
+          <LiveStream 
             roomName={roomName} 
             isStreamer={true}
           />
