@@ -266,13 +266,11 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
     // Call the async function
     initializeJitsi();
 
+    // Capture ref values at effect time to avoid stale closure issues
+    const api = apiRef.current;
+    const container = containerRef.current;
+    
     return () => {
-      // Capture ref values at effect time to avoid stale closure issues
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      const api = apiRef.current;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      const container = containerRef.current;
-      
       if (api) {
         console.log('Cleaning up Jitsi instance on unmount');
         try {
