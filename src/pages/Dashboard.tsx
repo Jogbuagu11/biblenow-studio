@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [user?.uid, subscriptionPlan]);
+  }, [user, subscriptionPlan]);
 
   return (
     <Layout>
