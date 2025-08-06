@@ -7,7 +7,7 @@ export const jwtConfig = {
   expiresIn: 3600, // 1 hour
   
   // Algorithm to use for signing
-  algorithm: 'HS256' as const,
+  algorithm: 'HS256',
   
   // JAAS App ID (audience and issuer)
   audience: process.env.REACT_APP_JAAS_APP_ID || 'your-jaas-app-id',
