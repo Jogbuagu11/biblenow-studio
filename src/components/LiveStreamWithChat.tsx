@@ -267,18 +267,21 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
     initializeJitsi();
 
     return () => {
-      if (apiRef.current) {
+      // Capture ref values at effect time to avoid stale closure issues
+      const api = apiRef.current;
+      const container = containerRef.current;
+      
+      if (api) {
         console.log('Cleaning up Jitsi instance on unmount');
         try {
-          apiRef.current.dispose();
+          api.dispose();
         } catch (error) {
           console.error('Error disposing Jitsi instance on unmount:', error);
         }
         apiRef.current = null;
       }
       
-      // Clear container - capture ref value at effect time
-      const container = containerRef.current;
+      // Clear container
       if (container) {
         container.innerHTML = '';
       }
