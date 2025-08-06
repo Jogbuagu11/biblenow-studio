@@ -111,8 +111,9 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
       }
 
       // Clear the container to remove any existing elements
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      const container = containerRef.current;
+      if (container) {
+        container.innerHTML = '';
       }
 
       if (!window.JitsiMeetExternalAPI) {
@@ -128,7 +129,7 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
         return;
       }
 
-      if (!containerRef.current) {
+      if (!container) {
         console.error("Container ref not available.");
         return;
       }
@@ -160,7 +161,7 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
       // Room name already includes the full JAAS App ID prefix from GoLiveModal
       const options: any = {
         roomName: roomName,
-        parentNode: containerRef.current,
+        parentNode: container,
         width: "100%",
         height: "100%",
         // JAAS configuration - your branding should be configured in JAAS dashboard
