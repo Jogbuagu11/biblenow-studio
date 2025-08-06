@@ -276,9 +276,10 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
         apiRef.current = null;
       }
       
-      // Clear container
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      // Clear container - capture ref value at effect time
+      const container = containerRef.current;
+      if (container) {
+        container.innerHTML = '';
       }
       
       // Remove event listeners
