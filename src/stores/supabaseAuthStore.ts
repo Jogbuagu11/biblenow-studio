@@ -1,39 +1,36 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import jwtAuthService from '../services/jwtAuthService';
+import { validateUserIdFormat } from '../utils/clearCache';
 
-// Authentication now handled by Supabase verified_profiles table
-
-export interface User {
-  uid: string;
+export interface SupabaseUser {
+  uid: string; // Supabase UUID
   email: string;
   displayName: string;
   photoURL?: string;
   role: 'admin' | 'moderator' | 'user';
 }
 
-interface AuthState {
+interface SupabaseAuthState {
   // State
-  user: User | null;
+  user: SupabaseUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
   
   // Actions
-  setUser: (user: User | null) => void;
+  setUser: (user: SupabaseUser | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateProfile: (updates: Partial<User>) => Promise<void>;
+  updateProfile: (updates: Partial<SupabaseUser>) => Promise<void>;
   clearError: () => void;
   initialize: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useSupabaseAuthStore = create<SupabaseAuthState>()(
   persist(
     (set, get) => ({
       // Initial state
@@ -44,11 +41,24 @@ export const useAuthStore = create<AuthState>()(
       isInitialized: false,
 
       // Actions
-      setUser: (user) => set({ 
-        user, 
-        isAuthenticated: !!user,
-        error: null 
-      }),
+      setUser: (user) => {
+        // Only allow Supabase UUIDs
+        if (user && !validateUserIdFormat(user.uid)) {
+          console.error('Invalid user ID format. Only Supabase UUIDs are allowed:', user.uid);
+          set({ 
+            user: null, 
+            isAuthenticated: false,
+            error: 'Invalid authentication format. Only Supabase authentication is supported.' 
+          });
+          return;
+        }
+        
+        set({ 
+          user, 
+          isAuthenticated: !!user,
+          error: null 
+        });
+      },
 
       setLoading: (isLoading) => set({ isLoading }),
 
@@ -71,10 +81,14 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(authResult.error || 'Authentication failed');
           }
           
+          // Validate that the returned user ID is a proper Supabase UUID
+          if (!validateUserIdFormat(authResult.user.id)) {
+            throw new Error('Invalid user ID format received from authentication');
+          }
+          
           // Create user object from Supabase data
-          // All verified users are moderators
-          const user: User = {
-            uid: authResult.user.id,
+          const user: SupabaseUser = {
+            uid: authResult.user.id, // This should be a Supabase UUID
             email: authResult.user.email,
             displayName: authResult.user.displayName,
             role: 'moderator' // All verified users are moderators
@@ -96,7 +110,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         set({ isLoading: true });
         try {
-          // Simple frontend logout
+          // Clear all authentication data
           set({ 
             user: null, 
             isAuthenticated: false, 
@@ -106,34 +120,6 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Logout failed', 
-            isLoading: false 
-          });
-        }
-      },
-
-      signUp: async (email, password, displayName) => {
-        set({ isLoading: true, error: null });
-        try {
-          // Signup is disabled - users must be pre-verified
-          throw new Error('New user registration is not allowed. Please contact support to be added to verified profiles.');
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Signup failed', 
-            isLoading: false 
-          });
-        }
-      },
-
-      resetPassword: async (email) => {
-        set({ isLoading: true, error: null });
-        try {
-          // TODO: Implement Firebase Auth password reset
-          // await sendPasswordResetEmail(auth, email);
-          
-          set({ isLoading: false });
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Password reset failed', 
             isLoading: false 
           });
         }
@@ -166,15 +152,45 @@ export const useAuthStore = create<AuthState>()(
       },
 
       initialize: () => {
+        // Clear any old authentication data on initialization
+        const clearOldAuth = () => {
+          try {
+            // Clear any cached authentication data
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.includes('auth') || key.includes('user') || key.includes('firebase'))) {
+                keysToRemove.push(key);
+              }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            
+            console.log('Cleared old authentication data. Only Supabase authentication is allowed.');
+          } catch (error) {
+            console.error('Error clearing old auth data:', error);
+          }
+        };
+        
+        clearOldAuth();
         set({ isInitialized: true });
       },
     }),
     {
-      name: 'auth-storage',
+      name: 'supabase-auth-storage',
       partialize: (state) => ({ 
         user: state.user,
         isAuthenticated: state.isAuthenticated 
       }),
+      onRehydrateStorage: () => (state) => {
+        // Validate restored state to ensure only Supabase UUIDs are allowed
+        if (state?.user && !validateUserIdFormat(state.user.uid)) {
+          console.error('Detected invalid auth data in storage. Clearing and requiring Supabase re-authentication.');
+          // Clear the invalid data
+          state.user = null;
+          state.isAuthenticated = false;
+          state.error = 'Invalid authentication format. Please log in again with Supabase.';
+        }
+      },
     }
   )
 ); 

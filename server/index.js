@@ -6,12 +6,13 @@ const stripeKey = process.env.STRIPE_SECRET_KEY;
 console.log('Initializing Stripe with key type:', stripeKey ? 
   (stripeKey.startsWith('sk_test_') ? 'test' : 'live') : 'none');
 
-if (!stripeKey) {
-  console.error('ERROR: STRIPE_SECRET_KEY environment variable is not set!');
-  process.exit(1);
+let stripe = null;
+if (stripeKey && stripeKey !== 'sk_test_your_stripe_secret_key_here') {
+  stripe = require('stripe')(stripeKey);
+  console.log('✅ Stripe initialized successfully');
+} else {
+  console.log('⚠️  Stripe not initialized - using placeholder keys for development');
 }
-
-const stripe = require('stripe')(stripeKey);
 const { createClient } = require('@supabase/supabase-js');
 
 // Load environment variables
@@ -27,10 +28,18 @@ console.log('Initializing Supabase client with:', {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? 'Set' : 'Not set'
 });
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && 
+    process.env.SUPABASE_URL !== 'https://your-project.supabase.co' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY !== 'your_supabase_service_role_key_here') {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+  console.log('✅ Supabase initialized successfully');
+} else {
+  console.log('⚠️  Supabase not initialized - using placeholder keys for development');
+}
 
 // Middleware
 app.use(cors({
@@ -95,6 +104,14 @@ app.get('/api/health', (req, res) => {
 app.get('/api/test-db', async (req, res) => {
   try {
     console.log('Testing database connection...');
+    
+    if (!supabase) {
+      return res.json({ 
+        status: 'warning', 
+        message: 'Supabase not configured - using development mode',
+        timestamp: new Date().toISOString() 
+      });
+    }
     
     const { data, error } = await supabase
       .from('verified_profiles')

@@ -14,9 +14,10 @@ import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import { RadioGroup, RadioGroupItem } from './ui/RadioGroup';
 import { useLivestreamStore } from '../stores';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { thumbnailService } from '../services/thumbnailService';
+import { validateUserIdFormat } from '../utils/clearCache';
 
 interface GoLiveModalProps {
   open: boolean;
@@ -36,7 +37,7 @@ const streamPlatforms = [
 
 const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   const { createStream, isLoading, setError, clearError } = useLivestreamStore();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useSupabaseAuthStore();
   const [streamingLimit, setStreamingLimit] = useState<{
     hasReachedLimit: boolean;
     currentMinutes: number;
@@ -65,18 +66,41 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   // Check streaming limits when modal opens
   useEffect(() => {
     const checkStreamingLimits = async () => {
-      if (!user?.uid || !open) return;
+      if (!isAuthenticated || !user?.uid || !open) return;
+      
+      // Check if user ID is a valid UUID format for Supabase
+      if (!validateUserIdFormat(user.uid)) {
+        console.error('Invalid user ID format for Supabase:', user.uid);
+        console.error('User ID must be a valid UUID format. Please log out and log back in.');
+        // Set a default limit to prevent blocking the UI
+        setStreamingLimit({
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 0,
+          remainingMinutes: 0,
+          usagePercentage: 0
+        });
+        return;
+      }
       
       try {
         const limitData = await databaseService.checkWeeklyStreamingLimit(user.uid);
         setStreamingLimit(limitData);
       } catch (error) {
         console.error('Error checking streaming limits:', error);
+        // Set default values on error to prevent UI blocking
+        setStreamingLimit({
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 0,
+          remainingMinutes: 0,
+          usagePercentage: 0
+        });
       }
     };
 
     checkStreamingLimits();
-  }, [user?.uid, open]);
+  }, [isAuthenticated, user?.uid, open]);
 
   // Determine platform types
   const isExternalPlatform = formData.platform === 'external';

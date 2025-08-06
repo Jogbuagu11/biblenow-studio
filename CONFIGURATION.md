@@ -4,7 +4,7 @@
 
 Create a `.env` file in the root directory with the following variables:
 
-### Firebase Configuration (for authentication only)
+### Firebase Configuration (for authentication and analytics only)
 ```
 REACT_APP_FIREBASE_API_KEY=your-firebase-api-key
 REACT_APP_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
@@ -12,6 +12,7 @@ REACT_APP_FIREBASE_PROJECT_ID=your-project-id
 REACT_APP_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 REACT_APP_FIREBASE_APP_ID=your-app-id
+REACT_APP_FIREBASE_MEASUREMENT_ID=your-measurement-id
 ```
 
 ### PostgreSQL Database Configuration
@@ -25,11 +26,10 @@ REACT_APP_DB_SSL=false
 REACT_APP_API_URL=http://localhost:3001/api
 ```
 
-### Chat Configuration
+### Supabase Configuration (for chat and database)
 ```
-REACT_APP_CHAT_COLLECTION=chat_messages
-REACT_APP_MAX_MESSAGES=100
-REACT_APP_MESSAGE_LIMIT=50
+REACT_APP_SUPABASE_URL=your-supabase-url
+REACT_APP_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 ### JAAS Configuration
@@ -46,17 +46,17 @@ REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 
 ## Setup Instructions
 
-1. **Firebase Setup (for authentication only):**
+1. **Firebase Setup (for authentication and analytics):**
    - Create a Firebase project at https://console.firebase.google.com
-   - Enable Authentication (Firestore not needed)
+   - Enable Authentication and Analytics
    - Get your configuration from Project Settings > General > Your apps
    - Replace the placeholder values in your `.env` file
 
-2. **PostgreSQL Database Setup:**
-   - Install PostgreSQL on your system
-   - Create a database named `biblenow_studio`
-   - Run the provided SQL schema to create the `livestreams` table
-   - Update the database configuration in your `.env` file
+2. **Supabase Setup (for database and chat):**
+   - Create a Supabase project at https://supabase.com
+   - Get your project URL and anon key from Settings > API
+   - Run the chat migration: `psql -d your_database -f scripts/apply_chat_migration.sql`
+   - Update the Supabase configuration in your `.env` file
 
 3. **JAAS Setup:**
    - Sign up for JAAS at https://jaas.8x8.vc

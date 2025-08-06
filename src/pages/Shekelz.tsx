@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
@@ -7,7 +7,7 @@ import Badge from '../components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Button from '../components/ui/Button';
 import { useToast } from '../hooks/use-toast';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import shekelService, { ShekelSummary, CombinedTransaction } from '../services/shekelService';
 import cashOutService, { CashOutRequest } from '../services/cashOutService';
 import CashOutWidget from '../components/CashOutWidget';
@@ -15,7 +15,7 @@ import CashOutWidget from '../components/CashOutWidget';
 const Shekelz: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [shekelSummary, setShekelSummary] = useState<ShekelSummary | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<CombinedTransaction[]>([]);
   const [cashOutHistory, setCashOutHistory] = useState<CashOutRequest[]>([]);
@@ -96,7 +96,7 @@ const Shekelz: React.FC = () => {
     if (user?.uid) {
       fetchShekelData();
     }
-  }, [user?.uid]); // Only depend on user.uid to prevent infinite loop
+  }, [user?.uid]); // Only depend on user.id to prevent infinite loop
 
   // Format shekel amounts
   const formatShekels = (amount: number): string => {

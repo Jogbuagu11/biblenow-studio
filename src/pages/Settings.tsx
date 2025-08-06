@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { useThemeStore } from '../stores';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [streamingLimitEmails, setStreamingLimitEmails] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 

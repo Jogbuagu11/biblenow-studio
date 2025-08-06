@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useSupabaseAuthStore } from '../../stores/supabaseAuthStore';
 
 interface HeaderProps {
   title?: string;
@@ -13,7 +13,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title = "BibleNOW Studio", user, disableDarkMode = false }) => {
   const navigate = useNavigate();
-  const { user: authUser, logout } = useAuthStore();
+  const { user: authUser, logout } = useSupabaseAuthStore();
 
   const handleLogout = async () => {
     await logout();

@@ -1,4 +1,4 @@
-import { dbConfig } from '../config/firebase';
+import { dbConfig } from '../config/database';
 
 class ViewerService {
   private apiUrl: string;

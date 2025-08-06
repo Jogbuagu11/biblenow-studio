@@ -1,25 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
+import Badge from '../components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Calendar from '../components/ui/Calendar';
+import { format } from 'date-fns';
+import { CalendarIcon, Clock, Users, Eye, Play, Pause, Trash2, Edit, Plus } from 'lucide-react';
+import { ThumbnailUploadResult } from '../services/thumbnailService';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
+import { databaseService } from '../services/databaseService';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
+import Separator from '../components/ui/Separator';
+import { useLivestreamStore } from '../stores';
 import Input from '../components/ui/Input';
 import Label from '../components/ui/Label';
 import Textarea from '../components/ui/Textarea';
 import Checkbox from '../components/ui/Checkbox';
-import Button from '../components/ui/Button';
 import ThumbnailUpload from '../components/ThumbnailUpload';
-import { format } from 'date-fns';
-import { useLivestreamStore } from '../stores';
-import { useEffect } from 'react';
-import { ThumbnailUploadResult } from '../services/thumbnailService';
-import { useAuthStore } from '../stores/authStore';
-import { databaseService } from '../services/databaseService';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
-import Separator from '../components/ui/Separator';
 
 const Schedule: React.FC = () => {
   const { createScheduledStream, updateStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [date, setDate] = useState<Date>();
   const [editingStreamId, setEditingStreamId] = useState<string | null>(null);
   const [streamingLimit, setStreamingLimit] = useState<{

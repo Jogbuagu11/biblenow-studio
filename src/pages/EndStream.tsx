@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 
 const EndStream: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [streamEnded, setStreamEnded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
 
   useEffect(() => {
     // End any active streams when landing on endstream page

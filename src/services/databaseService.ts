@@ -1,7 +1,7 @@
-import { dbConfig } from '../config/firebase';
+import { dbConfig } from '../config/database';
 import { StreamInfo } from '../stores/livestreamStore';
 import { supabase } from '../config/supabase';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { emailService } from './emailService';
 
 class DatabaseService {
@@ -71,7 +71,7 @@ class DatabaseService {
   // Create a scheduled stream (not live yet)
   async createScheduledStream(livestreamData: any) {
     // Get user from auth store instead of Supabase auth
-    const user = useAuthStore.getState().user;
+    const user = useSupabaseAuthStore.getState().user;
     
     if (!user) {
       throw new Error('User not authenticated');
@@ -105,7 +105,7 @@ class DatabaseService {
     console.log('createLivestream called with data:', JSON.stringify(livestreamData, null, 2));
     
     // Get user from auth store instead of Supabase auth
-    const user = useAuthStore.getState().user;
+    const user = useSupabaseAuthStore.getState().user;
     
     if (!user) {
       throw new Error('User not authenticated');
@@ -1233,6 +1233,74 @@ class DatabaseService {
     } catch (error) {
       console.error('Error in getTotalViewCount:', error);
       return 0;
+    }
+  }
+
+  // Follow a user
+  async followUser(followerId: string, followingId: string): Promise<void> {
+    try {
+      console.log('Following user:', { followerId, followingId });
+      
+      // Check if already following
+      const { data: existingFollow, error: checkError } = await supabase
+        .from('user_follows')
+        .select('id')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing follow:', checkError);
+        throw new Error(checkError.message);
+      }
+
+      if (existingFollow) {
+        console.log('Already following this user');
+        return;
+      }
+
+      // Create the follow relationship
+      const { error: insertError } = await supabase
+        .from('user_follows')
+        .insert({
+          follower_id: followerId,
+          following_id: followingId,
+          created_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error creating follow relationship:', insertError);
+        throw new Error(insertError.message);
+      }
+
+      console.log('Successfully followed user');
+    } catch (error) {
+      console.error('Error in followUser:', error);
+      throw error;
+    }
+  }
+
+  // Unfollow a user
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    try {
+      console.log('Unfollowing user:', { followerId, followingId });
+      
+      // Delete the follow relationship
+      const { error: deleteError } = await supabase
+        .from('user_follows')
+        .delete()
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId);
+
+      if (deleteError) {
+        console.error('Error deleting follow relationship:', deleteError);
+        throw new Error(deleteError.message);
+      }
+
+      console.log('Successfully unfollowed user');
+    } catch (error) {
+      console.error('Error in unfollowUser:', error);
+      throw error;
     }
   }
 

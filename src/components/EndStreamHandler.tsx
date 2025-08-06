@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 
 interface EndStreamHandlerProps {
@@ -15,7 +15,7 @@ const EndStreamHandler: React.FC<EndStreamHandlerProps> = ({
   onError,
   autoEnd = true
 }) => {
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [isEnding, setIsEnding] = useState(false);
   const [streamStatus, setStreamStatus] = useState<any>(null);
 

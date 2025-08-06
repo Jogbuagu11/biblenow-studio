@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
-import Input from '../components/ui/Input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Separator from '../components/ui/Separator';
 import Button from '../components/ui/Button';
-import Textarea from '../components/ui/Textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/Dialog';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { databaseService } from '../services/databaseService';
-import { useAuthStore } from '../stores';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { supabase } from '../config/supabase';
+import Input from '../components/ui/Input';
+import Textarea from '../components/ui/Textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/Dialog';
 
 const Viewers: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');

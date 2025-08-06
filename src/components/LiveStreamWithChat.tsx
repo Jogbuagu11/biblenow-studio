@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
-import { jaasConfig } from '../config/firebase';
+import { jaasConfig } from '../config/jaas';
 import jwtAuthService from '../services/jwtAuthService';
 import LiveStreamChat from './LiveStreamChat';
 import { MessageCircle, X, Maximize2, Minimize2 } from 'lucide-react';
@@ -20,7 +20,7 @@ interface Props {
 const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [isEnding, setIsEnding] = useState(false);
   const [showChat, setShowChat] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -267,7 +267,9 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
     initializeJitsi();
 
     // Capture ref values at effect time to avoid stale closure issues
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const api = apiRef.current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const container = containerRef.current;
     
     return () => {
@@ -359,7 +361,7 @@ const LiveStreamWithChat: React.FC<Props> = ({ roomName, isStreamer = false }) =
       {showChat && (
         <div className="w-80 border-l border-gray-700">
           <LiveStreamChat 
-            roomId={roomName} 
+            roomId={encodeURIComponent(roomName)} 
             isModerator={isStreamer || !!user}
           />
         </div>

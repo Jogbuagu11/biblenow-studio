@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Users } from 'lucide-react';
-import { firebaseChatService, ChatMessage } from '../services/firebaseChatService';
-import { useAuthStore } from '../stores/authStore';
+import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 
 interface LiveStreamChatProps {
   roomId: string;
@@ -19,7 +19,7 @@ const LiveStreamChat: React.FC<LiveStreamChatProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -36,10 +36,10 @@ const LiveStreamChat: React.FC<LiveStreamChatProps> = ({
       setMessages(newMessages);
     };
 
-    firebaseChatService.subscribeToMessages(roomId, handleMessages);
+    supabaseChatService.subscribeToMessages(roomId, handleMessages);
 
     return () => {
-      firebaseChatService.unsubscribeFromMessages();
+      supabaseChatService.unsubscribeFromMessages();
     };
   }, [roomId]);
 
@@ -53,7 +53,7 @@ const LiveStreamChat: React.FC<LiveStreamChatProps> = ({
     setError(null);
 
     try {
-      await firebaseChatService.sendMessage(roomId, newMessage, isModerator);
+      await supabaseChatService.sendMessage(roomId, newMessage, isModerator);
       setNewMessage('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');

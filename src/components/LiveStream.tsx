@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
-import { jaasConfig } from '../config/firebase';
+import { jaasConfig } from '../config/jaas';
 import jwtAuthService from '../services/jwtAuthService';
 import { analyticsService } from '../services/analyticsService';
 
@@ -18,7 +18,7 @@ interface Props {
 const LiveStream: React.FC<Props> = ({ roomName }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [isEnding, setIsEnding] = useState(false);
 
   // Robust stream end handler

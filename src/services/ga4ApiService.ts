@@ -1,4 +1,4 @@
-import { ga4Config } from '../config/firebase';
+import { ga4Config } from '../config/ga4';
 
 interface GA4QueryParams {
   startDate: string;
