@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import ChartCard from '../components/Dashboard/ChartCard';
 import MetricCard from '../components/Dashboard/MetricCard';
-import RecentStreams from '../components/Dashboard/RecentStreams';
-import UpcomingStreams from '../components/Dashboard/UpcomingStreams';
+
 import UsageCard from '../components/Dashboard/UsageCard';
 import WeeklyUsageBar from '../components/Dashboard/WeeklyUsageBar';
 import DashboardHeader from '../components/Dashboard/DashboardHeader';

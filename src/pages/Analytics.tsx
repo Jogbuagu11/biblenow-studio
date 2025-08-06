@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import ChartCard from '../components/Dashboard/ChartCard';
 import MetricCard from '../components/Dashboard/MetricCard';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
+
 import { analyticsService } from '../services/analyticsService';
 import { ga4ApiService } from '../services/ga4ApiService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
@@ -17,7 +16,7 @@ const Analytics: React.FC = () => {
   const [averageWatchTime, setAverageWatchTime] = useState('');
   const [engagementRate, setEngagementRate] = useState(0);
   const [uniqueViewers, setUniqueViewers] = useState(0);
-  const [dateRange, setDateRange] = useState({
+  const [dateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
     end: new Date()
   });

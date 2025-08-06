@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import Separator from '../components/ui/Separator';
 import Button from '../components/ui/Button';
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { databaseService } from '../services/databaseService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';

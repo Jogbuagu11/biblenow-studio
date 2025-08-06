@@ -12,7 +12,6 @@ import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import LiveStreamWithChat from "./components/LiveStreamWithChat";
 import LiveStreamInterface from "./components/LiveStreamInterface";
 import EndStream from "./pages/EndStream";
 import ThemeProvider from "./components/ThemeProvider";

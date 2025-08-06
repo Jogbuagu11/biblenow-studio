@@ -53,8 +53,6 @@ class SupabaseChatService {
           filter: `room_id=eq.${roomId}`
         },
         (payload) => {
-          const newMessage = payload.new as any;
-          
           // Fetch updated messages to maintain order
           this.fetchMessages(roomId).then((messages) => {
             callback(messages);
@@ -131,7 +129,6 @@ class SupabaseChatService {
 
     try {
       // Get user profile from database (try verified_profiles first, then profiles)
-      let userProfile = null;
       let userName = user.displayName || user.email || 'BibleNOW User';
       let userAvatar = user.photoURL;
 
@@ -143,7 +140,6 @@ class SupabaseChatService {
         .single();
 
       if (verifiedProfile && !verifiedError) {
-        userProfile = verifiedProfile;
         const firstName = verifiedProfile.first_name || '';
         const lastName = verifiedProfile.last_name || '';
         userName = [firstName, lastName].filter(Boolean).join(' ') || userName;
@@ -157,7 +153,6 @@ class SupabaseChatService {
           .single();
 
         if (profile && !profileError) {
-          userProfile = profile;
           const firstName = profile.first_name || '';
           const lastName = profile.last_name || '';
           userName = [firstName, lastName].filter(Boolean).join(' ') || userName;

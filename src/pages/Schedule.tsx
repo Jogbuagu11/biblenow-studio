@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
-import Badge from '../components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Calendar from '../components/ui/Calendar';
 import { format } from 'date-fns';
-import { CalendarIcon, Clock, Users, Eye, Play, Pause, Trash2, Edit, Plus } from 'lucide-react';
 import { ThumbnailUploadResult } from '../services/thumbnailService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';

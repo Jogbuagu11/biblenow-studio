@@ -63,7 +63,6 @@ const LiveStreamInterface: React.FC<LiveStreamInterfaceProps> = ({
         // Parse URL parameters to get stream info
         const urlParams = new URLSearchParams(window.location.search);
         const titleParam = urlParams.get('title');
-        const platformParam = urlParams.get('platform');
         
         if (titleParam) {
           setStreamData(prev => ({

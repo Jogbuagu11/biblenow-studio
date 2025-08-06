@@ -3,7 +3,7 @@ import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
-import Badge from '../components/ui/Badge';
+
 import Separator from '../components/ui/Separator';
 import Input from '../components/ui/Input';
 import Label from '../components/ui/Label';
