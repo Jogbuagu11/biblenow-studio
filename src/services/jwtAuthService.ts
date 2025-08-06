@@ -110,12 +110,20 @@ export class JWTAuthService {
       }
 
       const decoded = jwt.verify(token, this.jwtSecret, { 
-        algorithms: [jwtConfig.algorithm],
+        algorithms: [jwtConfig.algorithm as jwt.Algorithm],
         audience: jwtConfig.audience,
         issuer: jwtConfig.issuer
-      }) as JWTPayload;
+      }) as any;
 
-      return decoded;
+      // Validate that the decoded token has the required structure
+      if (decoded && typeof decoded === 'object' && 
+          'aud' in decoded && 'iss' in decoded && 'sub' in decoded && 
+          'room' in decoded && 'context' in decoded && 'exp' in decoded && 'nbf' in decoded) {
+        return decoded as JWTPayload;
+      }
+
+      console.error('Invalid JWT token structure');
+      return null;
     } catch (error) {
       console.error('Error verifying JWT token:', error);
       return null;
