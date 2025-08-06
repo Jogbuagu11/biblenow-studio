@@ -12,7 +12,7 @@ import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import LiveStreamInterface from "./components/LiveStreamInterface";
+import LiveStreamWithChat from "./components/LiveStreamWithChat";
 import EndStream from "./pages/EndStream";
 import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -100,9 +100,9 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <LiveStreamInterface 
-            roomId={roomName} 
-            isModerator={true}
+          <LiveStreamWithChat 
+            roomName={roomName} 
+            isStreamer={true}
           />
         </div>
       ) : (
