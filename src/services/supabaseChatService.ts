@@ -1,7 +1,6 @@
 import { supabase } from '../config/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
-import { SupabaseAuthBridge } from './supabaseAuthBridge';
 
 export interface ChatMessage {
   id?: string;
@@ -175,12 +174,8 @@ class SupabaseChatService {
         throw new Error('User not properly authenticated with Supabase');
       }
 
-      // Try to ensure user is also authenticated with Supabase for RLS policies
-      const isSupabaseAuthenticated = await SupabaseAuthBridge.ensureSupabaseAuth();
-      if (!isSupabaseAuthenticated) {
-        console.warn('User not authenticated with Supabase for RLS policies, but continuing with custom auth');
-        // Don't throw error, just log a warning
-      }
+      // For now, skip Supabase auth check since users are in verified_profiles but not in Supabase auth
+      console.log('Using custom authentication for chat - RLS policies may need adjustment');
 
       const messageData = {
         room_id: roomId,
