@@ -17,7 +17,7 @@ export class SupabaseAuthBridge {
       }
 
       // Then, authenticate with Supabase auth using the same credentials
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password
       });
@@ -84,7 +84,7 @@ export class SupabaseAuthBridge {
 
       // Try to authenticate with Supabase using the user's email
       // Note: This assumes the password is 'biblenow123' for all users
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email: authStore.user.email,
         password: 'biblenow123' // Default password for verified users
       });
