@@ -49,7 +49,7 @@ class SupabaseChatService {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'chat_messages',
+          table: 'livestream_chat',
           filter: `room_id=eq.${roomId}`
         },
         (payload) => {
@@ -81,7 +81,7 @@ class SupabaseChatService {
   async fetchMessages(roomId: string, limit: number = 100): Promise<ChatMessage[]> {
     try {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('livestream_chat')
         .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true })
@@ -160,6 +160,14 @@ class SupabaseChatService {
         }
       }
 
+      // Ensure user is authenticated with Supabase
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !supabaseUser) {
+        console.error('Supabase authentication error:', authError);
+        throw new Error('User not properly authenticated with Supabase');
+      }
+
       const messageData = {
         room_id: roomId,
         user_id: user.uid,
@@ -169,14 +177,18 @@ class SupabaseChatService {
         is_moderator: isModerator
       };
 
+      console.log('Sending message with data:', messageData);
+
       const { error } = await supabase
-        .from('chat_messages')
+        .from('livestream_chat')
         .insert([messageData]);
 
       if (error) {
         console.error('Error sending message:', error);
         throw error;
       }
+
+      console.log('Message sent successfully');
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;

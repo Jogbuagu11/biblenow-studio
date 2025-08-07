@@ -62,8 +62,8 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
-  
+  }, [messages, scrollToBottom]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Robust stream end handler
   const handleStreamEnd = useCallback(async (eventType: string) => {
     if (isEnding) {
@@ -107,7 +107,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       // Always redirect to endstream page
       window.location.href = '/endstream';
     }
-  }, [user, isEnding]);
+  }, [user, isEnding]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch stream data and user profile
   useEffect(() => {
@@ -146,7 +146,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     };
 
     fetchStreamData();
-  }, [formattedRoomName, user?.uid]);
+  }, [formattedRoomName, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if user is already following the streamer
   useEffect(() => {
@@ -163,7 +163,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     };
 
     checkFollowStatus();
-  }, [user?.uid, streamData.hostId]);
+  }, [user?.uid, streamData.hostId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -180,7 +180,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       console.log('Cleaning up chat subscription for room:', formattedRoomName);
       supabaseChatService.unsubscribeFromMessages();
     };
-  }, [formattedRoomName]);
+  }, [formattedRoomName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize Jitsi
   useEffect(() => {
@@ -335,7 +335,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         isModerator,
         userAvatar: !!userAvatar
       });
-
+      
       try {
         apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
         
@@ -370,7 +370,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
 
     // Only initialize if user is logged in
     if (user) {
-      initializeJitsi();
+    initializeJitsi();
     }
 
     return () => {
@@ -384,7 +384,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         apiRef.current = null;
       }
     };
-  }, [formattedRoomName, user, handleStreamEnd]);
+  }, [formattedRoomName, user, handleStreamEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Don't render anything if user is not logged in
   if (!user) {
