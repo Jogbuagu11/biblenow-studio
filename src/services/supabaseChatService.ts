@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
+import { SupabaseAuthBridge } from './supabaseAuthBridge';
 
 export interface ChatMessage {
   id?: string;
@@ -114,6 +115,13 @@ class SupabaseChatService {
     const authStore = useSupabaseAuthStore.getState();
     const user = authStore.user;
     
+    console.log('Auth store state:', {
+      user: user,
+      isAuthenticated: authStore.isAuthenticated,
+      isLoading: authStore.isLoading,
+      error: authStore.error
+    });
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -160,11 +168,17 @@ class SupabaseChatService {
         }
       }
 
-      // Ensure user is authenticated with Supabase
-      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !supabaseUser) {
-        console.error('Supabase authentication error:', authError);
+      // Check if user is authenticated through our custom auth store
+      const authStore = useSupabaseAuthStore.getState();
+      if (!authStore.isAuthenticated || !authStore.user) {
+        console.error('User not authenticated through custom auth store');
+        throw new Error('User not properly authenticated with Supabase');
+      }
+
+      // Ensure user is also authenticated with Supabase for RLS policies
+      const isSupabaseAuthenticated = await SupabaseAuthBridge.ensureSupabaseAuth();
+      if (!isSupabaseAuthenticated) {
+        console.error('User not authenticated with Supabase for RLS policies');
         throw new Error('User not properly authenticated with Supabase');
       }
 
