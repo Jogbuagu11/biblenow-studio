@@ -91,6 +91,7 @@ export class SupabaseAuthBridge {
 
       if (authError) {
         console.error('Failed to authenticate with Supabase:', authError);
+        // Don't throw error, just return false
         return false;
       }
 

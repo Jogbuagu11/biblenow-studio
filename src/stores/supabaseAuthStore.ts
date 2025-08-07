@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import jwtAuthService from '../services/jwtAuthService';
 import { validateUserIdFormat } from '../utils/clearCache';
-import { SupabaseAuthBridge } from '../services/supabaseAuthBridge';
 
 export interface SupabaseUser {
   uid: string; // Supabase UUID
@@ -75,13 +74,6 @@ export const useSupabaseAuthStore = create<SupabaseAuthState>()(
             throw new Error('Email and password are required');
           }
           
-          // Use the auth bridge to authenticate with both systems
-          const isAuthenticated = await SupabaseAuthBridge.authenticateWithSupabase(email, password);
-          
-          if (!isAuthenticated) {
-            throw new Error('Authentication failed with both systems');
-          }
-          
           // Authenticate against Supabase verified_profiles table
           const authResult = await jwtAuthService.authenticateUser(email, password);
           
@@ -118,9 +110,6 @@ export const useSupabaseAuthStore = create<SupabaseAuthState>()(
       logout: async () => {
         set({ isLoading: true });
         try {
-          // Sign out from both authentication systems
-          await SupabaseAuthBridge.signOut();
-          
           // Clear all authentication data
           set({ 
             user: null, 
