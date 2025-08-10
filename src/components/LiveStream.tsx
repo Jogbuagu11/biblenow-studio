@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Send, MessageCircle, X, Maximize2, Minimize2, CheckCircle } from 'lucide-react';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
-import { jaasConfig } from '../config/jaas';
+import { jitsiConfig } from '../config/jitsi';
 import jwtAuthService from '../services/jwtAuthService';
 import { analyticsService } from '../services/analyticsService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
@@ -320,7 +320,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       });
       
       try {
-        apiRef.current = new window.JitsiMeetExternalAPI(jaasConfig.domain, options);
+        apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
         
         apiRef.current.on('readyToClose', () => {
           console.log('Jitsi readyToClose event');

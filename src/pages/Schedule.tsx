@@ -177,17 +177,16 @@ const Schedule: React.FC = () => {
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       // Create room name
-      const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
+      // Self-hosted Jitsi: no appId prefix
       const cleanRoomName = formState.title
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '') || 'scheduled_stream';
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'scheduled_stream';
       
       const streamData = {
         title: formState.title,
         description: formState.description,
-        room_name: `${jaasAppId}/${cleanRoomName}`,
+        room_name: cleanRoomName,
         platform: formState.platform,
         stream_type: formState.streamType,
         scheduled_at: dateTime.toISOString(),
@@ -230,7 +229,7 @@ const Schedule: React.FC = () => {
             ...streamData,
             title: `${formState.title} - Episode ${i + 1}`,
             scheduled_at: episodeDateTime.toISOString(),
-            room_name: `${jaasAppId}/${cleanRoomName}_ep${i + 1}`,
+            room_name: `${cleanRoomName}_ep${i + 1}`,
           };
           
           streams.push(episodeStreamData);
