@@ -6,6 +6,7 @@ import { jaasConfig } from '../config/jaas';
 import jwtAuthService from '../services/jwtAuthService';
 import { analyticsService } from '../services/analyticsService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
+import { toRoomSlug } from '../utils/roomUtils';
 
 declare global {
   interface Window {
@@ -20,9 +21,9 @@ interface Props {
 
 const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   // Ensure room name is properly formatted for Jitsi with JaaS app ID prefix
-  const formattedRoomName = roomName ? 
-    `${jaasConfig.appId}/${roomName.replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase()}` : 
-    `${jaasConfig.appId}/biblenow-room`;
+  const formattedRoomName = roomName
+    ? toRoomSlug(roomName)
+    : toRoomSlug('BibleNOW Room');
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
   const { user } = useSupabaseAuthStore();
@@ -222,7 +223,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       // Ensure container is empty and ready
       containerRef.current.innerHTML = '';
 
-      // Generate JWT token based on Supabase verified profiles
+      // Generate JWT token via server for self-hosted Jitsi
       let jwtToken = null;
       let isModerator = false;
       
@@ -233,7 +234,27 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           isModerator = userProfile && userProfile.verified === true;
           
           if (isModerator) {
-            jwtToken = await jwtAuthService.generateModeratorToken(user, formattedRoomName);
+            // Add: call server to get token
+            try {
+              const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+              const resp = await fetch(`${apiBase}/jitsi/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  roomTitle: formattedRoomName,
+                  isModerator,
+                  displayName: user?.displayName,
+                  email: user?.email,
+                  avatar: userProfile.avatar_url // Use user's verified avatar
+                })
+              });
+              const json = await resp.json();
+              if (json?.token) {
+                jwtToken = json.token;
+              }
+            } catch (e) {
+              console.error('Failed to fetch Jitsi token from server:', e);
+            }
             console.log('Generated moderator JWT token for verified user');
           } else {
             console.log('User is logged in but not verified, joining as participant');
@@ -262,16 +283,12 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
-        // JAAS configuration - your branding should be configured in JAAS dashboard
-        appId: jaasConfig.appId,
         userInfo: {
           displayName: user?.displayName || "BibleNOW Studio User",
           email: user?.email || "user@biblenowstudio.com",
-          avatar: userAvatar // Add avatar for both authenticated and anonymous users
+          avatar: userAvatar
         },
-        // Add JWT token if available
         ...(jwtToken && { jwt: jwtToken }),
-        // Room settings with proper authentication
         configOverwrite: {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
@@ -281,50 +298,16 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           guestDialOutEnabled: false,
           guestDialOutUrl: "",
           enableClosePage: false,
-          // Authentication based on Supabase verified profiles
-          anonymousUserRole: isModerator ? 'moderator' : 'guest',
-          // Require authentication for verified users (moderators)
-          authenticationRequired: isModerator,
-          // JaaS Branding Configuration
-          brandingRoomAlias: 'BibleNOW Studio',
-          brandingRoomBackground: 'https://biblenowstudio.com/images/background.jpg',
-          brandingRoomName: 'BibleNOW Studio',
-          brandingRoomSubtitle: 'Live Ministry Stream',
-          // Enable custom branding
-          disableBranding: false,
-          // Additional branding settings
-          brandingRoomLogo: 'https://biblenowstudio.com/images/logo.png',
-          brandingRoomWelcomeMessage: 'Welcome to BibleNOW Studio',
-          brandingRoomWelcomePageSubtitle: 'Join the live ministry stream'
         },
         interfaceConfigOverwrite: {
-          TOOLBAR_BUTTONS: [
-            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-            'fodeviceselection', 'hangup', 'chat', 'recording',
-            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-            'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts',
-            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone-else'
-          ],
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          DISABLE_CHAT: true,
-          HIDE_CHAT_BUTTON: true,
-          // JaaS Branding Properties
-          APP_NAME: 'BibleNOW Studio',
-          NATIVE_APP_NAME: 'BibleNOW Studio',
-          PROVIDER_NAME: 'BibleNOW Studio',
-          PRIMARY_COLOR: '#D97706', // Amber color
-          BRAND_COLOR: '#D97706',
-          // Additional interface branding
           TOOLBAR_ALWAYS_VISIBLE: true,
           SHOW_PREJOIN_PAGE: false,
-          SHOW_WELCOME_PAGE: true,
-          WELCOME_PAGE_LOGO_URL: 'https://biblenowstudio.com/images/logo.png',
-          WELCOME_PAGE_TITLE: 'BibleNOW Studio',
-          WELCOME_PAGE_SUBTITLE: 'Live Ministry Stream'
+          SHOW_WELCOME_PAGE: false
         }
       };
 
