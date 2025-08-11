@@ -400,7 +400,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     // Only initialize if user is logged in
     if (user) {
       if (hasInitializedRef.current) return;
-      initializeJitsi();
+    initializeJitsi();
     }
 
     return () => {
@@ -597,7 +597,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                   </button>
                 )}
               </div>
-
+              
               {/* Follow/Unfollow Button */}
               <button 
                 onClick={handleFollowClick}
@@ -619,7 +619,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         {/* Overlay Controls */}
         <div className="absolute top-4 right-4 flex space-x-2">
           {/* Controls moved into brown bar; keep area reserved for layout alignment */}
-        
+          
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}

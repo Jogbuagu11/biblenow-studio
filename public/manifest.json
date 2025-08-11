@@ -4,8 +4,8 @@
   "description": "BibleNOW Studio - Live streaming platform for Bible study and ministry",
   "icons": [
     {
-      "src": "https://jhlawjmyorpmafokxtuh.supabase.co/storage/v1/object/sign/assets/Bible%20NW500.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82OWRmNmQwOC1iYTlmLTQ2NDItYmQ4MS05ZDIzNGNmYTI1M2QiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvQmlibGUgTlc1MDAucG5nIiwiaWF0IjoxNzUzMzcxMTU0LCJleHAiOjE5MTEwNTExNTR9.q2ga5KQWPrJmxzD9v16YhzSLzXck0hCczBXYxiucAno",
-      "sizes": "500x500",
+      "src": "/favicon.png",
+      "sizes": "64x64 32x32 24x24 16x16 500x500",
       "type": "image/png"
     },
     {
