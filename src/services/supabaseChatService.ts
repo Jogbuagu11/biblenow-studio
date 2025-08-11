@@ -109,7 +109,7 @@ class SupabaseChatService {
   }
 
   // Send a new message
-  async sendMessage(roomId: string, text: string, isModerator: boolean = false): Promise<void> {
+  async sendMessage(roomId: string, text: string, isModerator: boolean = false, fallbackAvatar?: string): Promise<void> {
     // Get current user from auth store
     const authStore = useSupabaseAuthStore.getState();
     const user = authStore.user;
@@ -137,12 +137,12 @@ class SupabaseChatService {
     try {
       // Get user profile from database (try verified_profiles first, then profiles)
       let userName = user.displayName || user.email || 'BibleNOW User';
-      let userAvatar = user.photoURL;
+      let userAvatar = user.photoURL || fallbackAvatar;
 
       // Try to get from verified_profiles first
       const { data: verifiedProfile, error: verifiedError } = await supabase
         .from('verified_profiles')
-        .select('first_name, last_name, avatar_url')
+        .select('first_name, last_name, avatar_url, profile_photo_url, email')
         .eq('id', user.uid)
         .single();
 
@@ -150,7 +150,7 @@ class SupabaseChatService {
         const firstName = verifiedProfile.first_name || '';
         const lastName = verifiedProfile.last_name || '';
         userName = [firstName, lastName].filter(Boolean).join(' ') || userName;
-        userAvatar = verifiedProfile.avatar_url || userAvatar;
+        userAvatar = verifiedProfile.avatar_url || verifiedProfile.profile_photo_url || userAvatar || fallbackAvatar;
       } else {
         // Try to get from profiles table
         const { data: profile, error: profileError } = await supabase
@@ -163,7 +163,19 @@ class SupabaseChatService {
           const firstName = profile.first_name || '';
           const lastName = profile.last_name || '';
           userName = [firstName, lastName].filter(Boolean).join(' ') || userName;
-          userAvatar = profile.profile_photo_url || userAvatar;
+          userAvatar = profile.profile_photo_url || userAvatar || fallbackAvatar;
+        }
+      }
+
+      // Fallback: query verified_profiles by email if still no avatar
+      if (!userAvatar && user.email) {
+        const { data: byEmail, error: byEmailError } = await supabase
+          .from('verified_profiles')
+          .select('avatar_url, profile_photo_url')
+          .eq('email', user.email)
+          .maybeSingle();
+        if (!byEmailError && byEmail) {
+          userAvatar = byEmail.avatar_url || byEmail.profile_photo_url || userAvatar || fallbackAvatar;
         }
       }
 
@@ -181,7 +193,7 @@ class SupabaseChatService {
         room_id: roomId,
         user_id: user.uid,
         user_name: userName,
-        user_avatar: userAvatar,
+        user_avatar: userAvatar || fallbackAvatar,
         text: text.trim(),
         is_moderator: isModerator
       };

@@ -758,7 +758,10 @@ app.post('/api/jitsi/token', async (req, res) => {
     }
 
     // Simple slug enforcement (must match client)
-    const room = String(roomTitle)
+    const raw = String(roomTitle);
+    const lastSegment = raw.includes('/') ? raw.split('/').filter(Boolean).pop() : raw;
+    const noPrefix = lastSegment.replace(/^vpaas-magic-cookie-[a-z0-9]+-?/i, '');
+    const room = noPrefix
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');

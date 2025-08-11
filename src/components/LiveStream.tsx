@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Send, MessageCircle, X, Maximize2, Minimize2, CheckCircle } from 'lucide-react';
+import { Send, MessageCircle, X, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff } from 'lucide-react';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { jitsiConfig } from '../config/jitsi';
@@ -26,10 +26,15 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     : toRoomSlug('BibleNOW Room');
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
+  const hasInitializedRef = useRef<boolean>(false);
   const { user } = useSupabaseAuthStore();
   const [isEnding, setIsEnding] = useState(false);
   const [showChat, setShowChat] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [appliedJitsiAvatar, setAppliedJitsiAvatar] = useState(false);
   
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -132,13 +137,26 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             if (userProfile) {
               setStreamData(prev => ({
                 ...prev,
-                hostName: userProfile.full_name || userProfile.username || "BibleNOW User",
-                hostAvatar: userProfile.avatar_url || "",
+                hostName: userProfile.full_name || userProfile.username || user?.displayName || (user?.email ? user.email.split('@')[0] : "BibleNOW User"),
+                hostAvatar: userProfile.avatar_url || userProfile.profile_photo_url || "",
+                hostId: user.uid
+              }));
+            } else {
+              // Fallback: derive host info from authenticated user
+              setStreamData(prev => ({
+                ...prev,
+                hostName: user?.displayName || (user?.email ? user.email.split('@')[0] : prev.hostName),
                 hostId: user.uid
               }));
             }
           } catch (error) {
             console.error('Error fetching user profile:', error);
+            // Fallback in case of error
+            setStreamData(prev => ({
+              ...prev,
+              hostName: user?.displayName || (user?.email ? user.email.split('@')[0] : prev.hostName),
+              hostId: user.uid
+            }));
           }
         }
       } catch (error) {
@@ -265,12 +283,12 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       }
 
       // Get user avatar for both authenticated and anonymous users
-      let userAvatar = undefined;
+      let userAvatar: string | undefined = undefined;
       if (user) {
         try {
           const profileResult = await jwtAuthService.getUserProfile(user.uid);
-          if (profileResult.success && profileResult.profile?.avatar_url) {
-            userAvatar = profileResult.profile.avatar_url;
+          if (profileResult.success) {
+            userAvatar = profileResult.profile?.avatar_url || (profileResult.profile as any)?.profile_photo_url || undefined;
           }
         } catch (error) {
           console.error('Error fetching user avatar:', error);
@@ -292,12 +310,13 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         configOverwrite: {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
-          prejoinPageEnabled: false,
+          prejoinConfig: { enabled: false },
           disableModeratorIndicator: false,
           startAudioOnly: false,
           guestDialOutEnabled: false,
           guestDialOutUrl: "",
           enableClosePage: false,
+          toolbarButtons: [],
         },
         interfaceConfigOverwrite: {
           SHOW_JITSI_WATERMARK: false,
@@ -305,8 +324,6 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          TOOLBAR_ALWAYS_VISIBLE: true,
-          SHOW_PREJOIN_PAGE: false,
           SHOW_WELCOME_PAGE: false
         }
       };
@@ -321,6 +338,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       
       try {
         apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
+        hasInitializedRef.current = true;
         
         apiRef.current.on('readyToClose', () => {
           console.log('Jitsi readyToClose event');
@@ -330,6 +348,34 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         apiRef.current.on('videoConferenceJoined', () => {
           console.log('User joined video conference');
           analyticsService.trackViewerJoin(formattedRoomName, user?.uid || 'anonymous', streamData.hostId || 'unknown');
+          // Ensure display name and avatar are applied to the preview tile
+          try {
+            if (streamData.hostName) {
+              apiRef.current.executeCommand('displayName', streamData.hostName);
+            }
+            if (user?.email) {
+              apiRef.current.executeCommand('email', user.email);
+            }
+            if (typeof userAvatar === 'string' && userAvatar.length > 0) {
+              // Not officially documented everywhere but supported on many builds
+              apiRef.current.executeCommand('avatarUrl', userAvatar);
+              setAppliedJitsiAvatar(!!userAvatar);
+            }
+          } catch (e) {
+            console.warn('Optional avatarUrl command not supported on this Jitsi build');
+            setAppliedJitsiAvatar(false);
+          }
+        });
+
+        // Sync local state with Jitsi events
+        apiRef.current.on('audioMuteStatusChanged', (event: any) => {
+          setIsAudioMuted(!!event?.muted);
+        });
+        apiRef.current.on('videoMuteStatusChanged', (event: any) => {
+          setIsVideoMuted(!!event?.muted);
+        });
+        apiRef.current.on('screenSharingStatusChanged', (event: any) => {
+          setIsScreenSharing(!!event?.on);
         });
 
         apiRef.current.on('videoConferenceLeft', () => {
@@ -353,21 +399,23 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
 
     // Only initialize if user is logged in
     if (user) {
-    initializeJitsi();
+      if (hasInitializedRef.current) return;
+      initializeJitsi();
     }
 
     return () => {
       if (apiRef.current) {
-        console.log('Cleaning up Jitsi instance');
         try {
           apiRef.current.dispose();
         } catch (error) {
-          console.error('Error disposing Jitsi instance:', error);
+          console.error('Error disposing Jitsi instance on cleanup:', error);
         }
         apiRef.current = null;
       }
+      hasInitializedRef.current = false;
+      setAppliedJitsiAvatar(false);
     };
-  }, [formattedRoomName, user, handleStreamEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Don't render anything if user is not logged in
   if (!user) {
@@ -394,7 +442,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
 
     try {
       // Allow all users to chat, not just verified users
-      await supabaseChatService.sendMessage(formattedRoomName, newMessage, false);
+      await supabaseChatService.sendMessage(formattedRoomName, newMessage, false, streamData.hostAvatar || undefined);
       console.log('Message sent successfully');
       setNewMessage('');
     } catch (err) {
@@ -403,6 +451,24 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Custom toolbar control handlers
+  const handleToggleAudio = () => {
+    try { apiRef.current?.executeCommand('toggleAudio'); } catch {}
+    setIsAudioMuted(prev => !prev);
+  };
+  const handleToggleVideo = () => {
+    try { apiRef.current?.executeCommand('toggleVideo'); } catch {}
+    setIsVideoMuted(prev => !prev);
+  };
+  const handleToggleShare = () => {
+    try { apiRef.current?.executeCommand('toggleShareScreen'); } catch {}
+    setIsScreenSharing(prev => !prev);
+  };
+  const handleHangup = () => {
+    try { apiRef.current?.executeCommand('hangup'); } catch {}
+    handleStreamEnd('hangup');
   };
 
   // Format viewer count
@@ -447,13 +513,28 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Video Stream Container */}
-      <div className={`relative ${showChat ? 'flex-1' : 'flex-1'} bg-black`}>
+      <div className="relative flex-1 bg-black">
         {/* Video Stream */}
         <div ref={containerRef} className="w-full h-full" />
+
+        {/* Centered Avatar Overlay when video is muted */}
+        {isVideoMuted && streamData.hostAvatar && !appliedJitsiAvatar && (
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <img
+              src={streamData.hostAvatar}
+              alt={streamData.hostName}
+              className="rounded-full object-cover shadow-xl w-[22vw] h-[22vw] max-w-64 max-h-64 min-w-24 min-h-24"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
         
         {/* Stream Info Overlay */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <div className="bg-amber-950 bg-opacity-95 p-4 border-t border-amber-800">
+        <div className="absolute left-0 right-0 bottom-0 z-10">
+          <div className="bg-amber-950 bg-opacity-95 p-4 border-t border-amber-800 pointer-events-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {/* Host Avatar */}
@@ -468,7 +549,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
                         const parent = target.parentElement;
-                        if (parent) {
+                        if (parent && !parent.querySelector('span')) {
                           const fallback = document.createElement('span');
                           fallback.className = 'text-white font-semibold';
                           fallback.textContent = streamData.hostName.charAt(0);
@@ -495,7 +576,28 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                   </div>
                 </div>
               </div>
-              
+
+              {/* Custom Controls (Jitsi toolbar replacement) */}
+              <div className="flex items-center space-x-3">
+                <button onClick={handleToggleAudio} title={isAudioMuted ? 'Unmute' : 'Mute'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                  {isAudioMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                </button>
+                <button onClick={handleToggleVideo} title={isVideoMuted ? 'Start camera' : 'Stop camera'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                  {isVideoMuted ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                </button>
+                <button onClick={handleToggleShare} title={isScreenSharing ? 'Stop sharing' : 'Share screen'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                  <ScreenShare className="w-6 h-6" />
+                </button>
+                <button onClick={() => setShowChat(!showChat)} title={showChat ? 'Hide chat' : 'Show chat'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                  <MessageCircle className="w-6 h-6" />
+                </button>
+                {isStreamer && (
+                  <button onClick={handleHangup} title="End stream" className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all">
+                    <PhoneOff className="w-6 h-6" />
+                  </button>
+                )}
+              </div>
+
               {/* Follow/Unfollow Button */}
               <button 
                 onClick={handleFollowClick}
@@ -516,15 +618,8 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         
         {/* Overlay Controls */}
         <div className="absolute top-4 right-4 flex space-x-2">
-          {/* Chat Toggle Button */}
-          <button
-            onClick={() => setShowChat(!showChat)}
-            className="p-2 bg-black bg-opacity-50 text-white rounded-lg hover:bg-opacity-70 transition-all"
-            title={showChat ? 'Hide Chat' : 'Show Chat'}
-          >
-            <MessageCircle className="w-5 h-5" />
-          </button>
-          
+          {/* Controls moved into brown bar; keep area reserved for layout alignment */}
+        
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
@@ -535,25 +630,16 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           </button>
           
           {/* End Stream Button (for streamers) */}
-          {isStreamer && (
-            <button
-              onClick={() => handleStreamEnd('manual')}
-              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
-              title="End Stream"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          {/* End button moved to brown bar */}
         </div>
       </div>
 
       {/* Chat Panel */}
       {showChat && (
-        <div className="w-80 border-l border-gray-700">
+        <div className="w-80 border-l border-gray-700 flex flex-col h-full">
           {/* Chat Header */}
           <div className="p-4 border-b border-yellow-500 bg-gray-800">
             <h3 className="text-white font-semibold">Live Chat</h3>
-            <p className="text-gray-400 text-xs mt-1">All BibleNOW users can chat</p>
           </div>
 
           {/* Messages Container */}
@@ -583,7 +669,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
                             const parent = target.parentElement;
-                            if (parent) {
+                            if (parent && !parent.querySelector('span')) {
                               const fallback = document.createElement('span');
                               fallback.className = 'text-white text-sm font-semibold';
                               fallback.textContent = message.userName.charAt(0);
