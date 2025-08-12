@@ -19,6 +19,7 @@ import ThumbnailUpload from '../components/ThumbnailUpload';
 const Schedule: React.FC = () => {
   const { createScheduledStream, updateStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
   const { user } = useSupabaseAuthStore();
+  const [activeTab, setActiveTab] = useState<string>('calendar');
   const [date, setDate] = useState<Date>();
   const [editingStreamId, setEditingStreamId] = useState<string | null>(null);
   const [streamingLimit, setStreamingLimit] = useState<{
@@ -87,6 +88,7 @@ const Schedule: React.FC = () => {
     
     if (editStreamId) {
       setEditingStreamId(editStreamId);
+      setActiveTab('create');
       // Find the stream to edit
       const streamToEdit = scheduledStreams.find(stream => stream.id === editStreamId);
       
@@ -276,6 +278,7 @@ const Schedule: React.FC = () => {
         repeatFrequency: "weekly",
         repeatCount: "",
       });
+      setActiveTab('calendar');
       
     } catch (error) {
       console.error('Error scheduling stream:', error);
@@ -360,7 +363,7 @@ const Schedule: React.FC = () => {
         </div>
         <Separator className="my-6" />
         
-        <Tabs defaultValue="calendar" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-between items-center mb-4">
             <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
@@ -653,6 +656,7 @@ const Schedule: React.FC = () => {
                           repeatFrequency: "weekly",
                           repeatCount: "",
                         });
+                        setActiveTab('calendar');
                       }}
                       disabled={isLoading}
                     >

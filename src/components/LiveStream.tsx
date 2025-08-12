@@ -7,6 +7,8 @@ import jwtAuthService from '../services/jwtAuthService';
 import { analyticsService } from '../services/analyticsService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
 import { toRoomSlug } from '../utils/roomUtils';
+import GiftBurst from './GiftBurst';
+import { supabase } from '../config/supabase';
 
 declare global {
   interface Window {
@@ -59,6 +61,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   });
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [giftOverlay, setGiftOverlay] = useState<null | { amount: number; sender?: string }>(null);
 
   // Scroll to bottom of chat
   const scrollToBottom = useCallback(() => {
@@ -201,6 +204,38 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     };
   }, [formattedRoomName]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Subscribe to Shekelz gifts for this room and show overlay
+  useEffect(() => {
+    if (!formattedRoomName) return;
+
+    const channel = supabase
+      .channel(`gifts:${formattedRoomName}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'shekel_gifts',
+        filter: `context_id=eq.${formattedRoomName}`
+      }, async (payload: any) => {
+        const gift = payload.new as any;
+        setGiftOverlay({ amount: gift.amount, sender: gift.sender_name || undefined });
+        // Optional: drop a system chat message so viewers see it persisted
+        try {
+          await supabase.from('livestream_chat').insert([{ 
+            room_id: formattedRoomName,
+            user_id: gift.sender_id,
+            user_name: 'System',
+            text: `🎁 ${gift.sender_name || 'A viewer'} sent ${gift.amount} Shekelz!`,
+            is_moderator: true
+          }]);
+        } catch {}
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [formattedRoomName]);
+
   // Initialize Jitsi
   useEffect(() => {
     const initializeJitsi = async () => {
@@ -324,7 +359,8 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          SHOW_WELCOME_PAGE: false
+          SHOW_WELCOME_PAGE: false,
+          brandLabel: 'BibleNOW'
         }
       };
 
@@ -516,6 +552,18 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       <div className="relative flex-1 bg-black">
         {/* Video Stream */}
         <div ref={containerRef} className="w-full h-full" />
+
+        {/* Top-left Branding Overlay to cover Jitsi watermark */}
+        <div className="absolute top-3 left-3 z-50 pointer-events-none">
+          <div className="bg-black/40 rounded-md p-1">
+            <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
+          </div>
+        </div>
+
+        {/* Gift Burst Overlay */}
+        {giftOverlay && (
+          <GiftBurst amount={giftOverlay.amount} senderName={giftOverlay.sender} onDone={() => setGiftOverlay(null)} />
+        )}
 
         {/* Centered Avatar Overlay when video is muted */}
         {isVideoMuted && streamData.hostAvatar && !appliedJitsiAvatar && (
