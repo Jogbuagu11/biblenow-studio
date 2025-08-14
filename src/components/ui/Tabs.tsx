@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface TabsProps {
   defaultValue?: string;
@@ -43,10 +43,22 @@ export const Tabs: React.FC<TabsProps> = ({
   children, 
   className = "" 
 }) => {
-  const [activeTab, setActiveTab] = useState(value || defaultValue || '');
+  const isControlled = value !== undefined;
+  const [internalActiveTab, setInternalActiveTab] = useState<string>(value ?? defaultValue ?? '');
+
+  // Sync internal state when value prop changes (controlled mode)
+  useEffect(() => {
+    if (isControlled) {
+      setInternalActiveTab(value as string);
+    }
+  }, [isControlled, value]);
+
+  const activeTab = isControlled ? (value as string) : internalActiveTab;
 
   const handleValueChange = (newValue: string) => {
-    setActiveTab(newValue);
+    if (!isControlled) {
+      setInternalActiveTab(newValue);
+    }
     onValueChange?.(newValue);
   };
 
