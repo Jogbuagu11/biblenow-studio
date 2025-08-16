@@ -185,10 +185,13 @@ const Schedule: React.FC = () => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'scheduled_stream';
       
+      const platformPrefix = (formState.platform || 'livestream').toLowerCase();
+      const baseRoomName = `${platformPrefix}-${cleanRoomName}`;
+      
       const streamData = {
         title: formState.title,
         description: formState.description,
-        room_name: cleanRoomName,
+        room_name: baseRoomName,
         platform: formState.platform,
         stream_type: formState.streamType,
         scheduled_at: dateTime.toISOString(),
@@ -231,7 +234,7 @@ const Schedule: React.FC = () => {
             ...streamData,
             title: `${formState.title} - Episode ${i + 1}`,
             scheduled_at: episodeDateTime.toISOString(),
-            room_name: `${cleanRoomName}_ep${i + 1}`,
+            room_name: `${baseRoomName}-ep${i + 1}`,
           };
           
           streams.push(episodeStreamData);

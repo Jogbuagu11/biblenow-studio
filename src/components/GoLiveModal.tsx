@@ -197,10 +197,14 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '') || 'bible_study';
       
+      // Prefix with platform to produce URLs like https://stream.biblenow.io/prayer-t12
+      const platformPrefix = (formData.platform || 'livestream').toLowerCase();
+      const jitsiRoomName = `${platformPrefix}-${cleanRoomName.replace(/_/g, '-')}`;
+      
       const streamData = {
         title: formData.title,
         description: formData.description,
-        room_name: cleanRoomName,
+        room_name: jitsiRoomName,
         platform: formData.platform,
         stream_type: formData.stream_type,
         scheduled_at: formData.scheduled_at,
