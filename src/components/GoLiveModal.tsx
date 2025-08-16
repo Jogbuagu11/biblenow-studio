@@ -190,8 +190,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // JAAS Room Name Rules: Must start with full App ID followed by room name
-      const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
+      // Self-hosted Jitsi: use plain room name (no JAAS appId prefix)
       const cleanRoomName = formData.title
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '_')
@@ -201,7 +200,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       const streamData = {
         title: formData.title,
         description: formData.description,
-        room_name: `${jaasAppId}/${cleanRoomName}`,
+        room_name: cleanRoomName,
         platform: formData.platform,
         stream_type: formData.stream_type,
         scheduled_at: formData.scheduled_at,

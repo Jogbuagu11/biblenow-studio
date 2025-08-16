@@ -6,7 +6,7 @@ import { jitsiConfig } from '../config/jitsi';
 import jwtAuthService from '../services/jwtAuthService';
 import { analyticsService } from '../services/analyticsService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
-import { toRoomSlug } from '../utils/roomUtils';
+import { sanitizeRoomName } from '../utils/roomUtils';
 import GiftBurst from './GiftBurst';
 import { supabase } from '../config/supabase';
 
@@ -22,10 +22,10 @@ interface Props {
 }
 
 const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
-  // Ensure room name is properly formatted for Jitsi with JaaS app ID prefix
+  // Ensure room name is properly formatted for self-hosted Jitsi (plain room slug, no JAAS appId)
   const formattedRoomName = roomName
-    ? toRoomSlug(roomName)
-    : toRoomSlug('BibleNOW Room');
+    ? sanitizeRoomName(roomName)
+    : sanitizeRoomName('BibleNOW Room');
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
   const hasInitializedRef = useRef<boolean>(false);
