@@ -351,7 +351,11 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           guestDialOutEnabled: false,
           guestDialOutUrl: "",
           enableClosePage: false,
-          toolbarButtons: [],
+          disableNotifications: true,
+          disableReactions: true,
+          disableSelfView: true,
+          disableFilmstrip: true,
+          disableInviteFunctions: true,
         },
         interfaceConfigOverwrite: {
           SHOW_JITSI_WATERMARK: false,
@@ -360,6 +364,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
           SHOW_WELCOME_PAGE: false,
+          TOOLBAR_BUTTONS: [],
           brandLabel: 'BibleNOW'
         }
       };
