@@ -6,12 +6,13 @@ const stripeKey = process.env.STRIPE_SECRET_KEY;
 console.log('Initializing Stripe with key type:', stripeKey ? 
   (stripeKey.startsWith('sk_test_') ? 'test' : 'live') : 'none');
 
-if (!stripeKey) {
-  console.error('ERROR: STRIPE_SECRET_KEY environment variable is not set!');
-  process.exit(1);
+let stripe = null;
+if (stripeKey && stripeKey !== 'sk_test_your_stripe_secret_key_here') {
+  stripe = require('stripe')(stripeKey);
+  console.log('✅ Stripe initialized successfully');
+} else {
+  console.log('⚠️  Stripe not initialized - using placeholder keys for development');
 }
-
-const stripe = require('stripe')(stripeKey);
 const { createClient } = require('@supabase/supabase-js');
 
 // Load environment variables
@@ -27,16 +28,26 @@ console.log('Initializing Supabase client with:', {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? 'Set' : 'Not set'
 });
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && 
+    process.env.SUPABASE_URL !== 'https://your-project.supabase.co' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY !== 'your_supabase_service_role_key_here') {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+  console.log('✅ Supabase initialized successfully');
+} else {
+  console.log('⚠️  Supabase not initialized - using placeholder keys for development');
+}
 
 // Middleware
 app.use(cors({
   origin: [
     'https://studio.biblenow.io',
     'https://biblenow.io',
+    'https://stream.biblenow.io',
+    'https://live.biblenow.io',
     'http://localhost:3000'
   ],
   credentials: true,
@@ -50,6 +61,8 @@ app.options('*', (req, res) => {
   const allowedOrigins = [
     'https://studio.biblenow.io',
     'https://biblenow.io',
+    'https://stream.biblenow.io',
+    'https://live.biblenow.io',
     'http://localhost:3000'
   ];
   
@@ -95,6 +108,14 @@ app.get('/api/health', (req, res) => {
 app.get('/api/test-db', async (req, res) => {
   try {
     console.log('Testing database connection...');
+    
+    if (!supabase) {
+      return res.json({ 
+        status: 'warning', 
+        message: 'Supabase not configured - using development mode',
+        timestamp: new Date().toISOString() 
+      });
+    }
     
     const { data, error } = await supabase
       .from('verified_profiles')
@@ -715,6 +736,64 @@ app.post('/api/stripe/disconnect-account', async (req, res) => {
   } catch (error) {
     console.error('Error disconnecting account:', error);
     res.status(500).json({ error: 'Failed to disconnect account' });
+  }
+});
+
+// Jitsi JWT signing endpoint
+const jsonwebtoken = require('jsonwebtoken');
+
+app.post('/api/jitsi/token', async (req, res) => {
+  try {
+    const { roomTitle, isModerator, displayName, email, avatar } = req.body || {};
+    if (!roomTitle) {
+      return res.status(400).json({ error: 'roomTitle is required' });
+    }
+
+    const APP_ID = process.env.JITSI_JWT_APP_ID || 'biblenow';
+    const SECRET = process.env.JITSI_JWT_SECRET;
+    const SUBJECT = process.env.JITSI_SUBJECT || 'stream.biblenow.io';
+
+    if (!SECRET) {
+      return res.status(500).json({ error: 'Server JWT secret not configured' });
+    }
+
+    // Simple slug enforcement (must match client)
+    const raw = String(roomTitle);
+    const lastSegment = raw.includes('/') ? raw.split('/').filter(Boolean).pop() : raw;
+    const noPrefix = lastSegment.replace(/^vpaas-magic-cookie-[a-z0-9]+-?/i, '');
+    const room = noPrefix
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      aud: APP_ID,
+      iss: APP_ID,
+      sub: SUBJECT,
+      room,
+      nbf: now - 5,
+      exp: now + 3600,
+      context: {
+        user: {
+          name: displayName || 'BibleNOW Viewer',
+          email: email || undefined,
+          avatar: avatar || undefined,
+          moderator: !!isModerator
+        },
+        features: {
+          'screen-sharing': !!isModerator,
+          livestreaming: false,
+          recording: false
+        }
+      }
+    };
+
+    const token = jsonwebtoken.sign(payload, SECRET, { algorithm: 'HS256' });
+    return res.json({ token, room });
+  } catch (e) {
+    console.error('Error creating Jitsi token:', e);
+    return res.status(500).json({ error: 'Failed to create token' });
   }
 });
 

@@ -12,16 +12,17 @@ import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import LiveStreamWithChat from "./components/LiveStreamWithChat";
+import LiveStream from "./components/LiveStream";
 import EndStream from "./pages/EndStream";
+import DownloadApp from "./pages/DownloadApp";
 import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { useLivestreamStore, useAuthStore } from "./stores";
-import "./config/firebase"; // Initialize Firebase
+import { useLivestreamStore, useSupabaseAuthStore } from "./stores";
+
 import { checkForCorsIssues } from "./utils/clearCache";
 
 function App() {
-  const { initialize } = useAuthStore();
+  const { initialize } = useSupabaseAuthStore();
 
   React.useEffect(() => {
     initialize();
@@ -40,6 +41,8 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/endstream" element={<EndStream />} />
+          <Route path="/download-app" element={<DownloadApp />} />
+
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Dashboard /></div></ProtectedRoute>} />
@@ -99,7 +102,10 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <LiveStreamWithChat roomName={roomName} isStreamer={true} />
+          <LiveStream 
+            roomName={roomName} 
+            isStreamer={true}
+          />
         </div>
       ) : (
         <div className="min-h-screen p-8 transition-colors duration-200">

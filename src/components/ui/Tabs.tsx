@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface TabsProps {
   defaultValue?: string;
@@ -30,6 +30,12 @@ interface TabsContentProps {
   activeTab?: string;
 }
 
+const isOfType = (child: any, name: string) => {
+  if (!child) return false;
+  return child.type === (name === 'TabsList' ? TabsList : name === 'TabsTrigger' ? TabsTrigger : TabsContent)
+    || (child.type && (child.type.displayName === name || child.type.name === name));
+};
+
 export const Tabs: React.FC<TabsProps> = ({ 
   defaultValue, 
   value, 
@@ -37,10 +43,22 @@ export const Tabs: React.FC<TabsProps> = ({
   children, 
   className = "" 
 }) => {
-  const [activeTab, setActiveTab] = useState(value || defaultValue || '');
+  const isControlled = value !== undefined;
+  const [internalActiveTab, setInternalActiveTab] = useState<string>(value ?? defaultValue ?? '');
+
+  // Sync internal state when value prop changes (controlled mode)
+  useEffect(() => {
+    if (isControlled) {
+      setInternalActiveTab(value as string);
+    }
+  }, [isControlled, value]);
+
+  const activeTab = isControlled ? (value as string) : internalActiveTab;
 
   const handleValueChange = (newValue: string) => {
-    setActiveTab(newValue);
+    if (!isControlled) {
+      setInternalActiveTab(newValue);
+    }
     onValueChange?.(newValue);
   };
 
@@ -48,13 +66,13 @@ export const Tabs: React.FC<TabsProps> = ({
     <div className={className}>
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
-          if (child.type === TabsList) {
+          if (isOfType(child, 'TabsList')) {
             return React.cloneElement(child, {
               activeTab,
               onValueChange: handleValueChange,
             } as any);
           }
-          if (child.type === TabsContent) {
+          if (isOfType(child, 'TabsContent')) {
             return React.cloneElement(child, {
               activeTab,
             } as any);
@@ -65,6 +83,7 @@ export const Tabs: React.FC<TabsProps> = ({
     </div>
   );
 };
+Tabs.displayName = 'Tabs';
 
 export const TabsList: React.FC<TabsListProps> = ({ 
   children, 
@@ -73,9 +92,9 @@ export const TabsList: React.FC<TabsListProps> = ({
   onValueChange
 }) => {
   return (
-    <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}>
+    <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`} role="tablist">
       {React.Children.map(children, (child) => {
-        if (React.isValidElement(child) && child.type === TabsTrigger) {
+        if (React.isValidElement(child) && isOfType(child, 'TabsTrigger')) {
           return React.cloneElement(child, {
             activeTab,
             onValueChange,
@@ -86,6 +105,7 @@ export const TabsList: React.FC<TabsListProps> = ({
     </div>
   );
 };
+TabsList.displayName = 'TabsList';
 
 export const TabsTrigger: React.FC<TabsTriggerProps> = ({ 
   value, 
@@ -98,6 +118,9 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
   
   return (
     <button
+      type="button"
+      role="tab"
+      aria-selected={isActive}
       onClick={() => onValueChange?.(value)}
       className={`
         inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
@@ -112,6 +135,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
     </button>
   );
 };
+TabsTrigger.displayName = 'TabsTrigger';
 
 export const TabsContent: React.FC<TabsContentProps> = ({ 
   value, 
@@ -122,8 +146,9 @@ export const TabsContent: React.FC<TabsContentProps> = ({
   if (activeTab !== value) return null;
   
   return (
-    <div className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}>
+    <div className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`} role="tabpanel">
       {children}
     </div>
   );
-}; 
+};
+TabsContent.displayName = 'TabsContent'; 

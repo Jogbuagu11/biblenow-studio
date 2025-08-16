@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import Layout from '../components/Layout/Layout';
 import Button from '../components/ui/Button';
 import GoLiveModal from '../components/GoLiveModal';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 
 const GoLive: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
+  const { user, isAuthenticated } = useSupabaseAuthStore();
 
   return (
     <Layout>
@@ -16,7 +18,13 @@ const GoLive: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-300 transition-colors duration-200">Set up and manage your livestreams.</p>
           </div>
           <Button 
-            onClick={() => setModalOpen(true)}
+            onClick={() => {
+              if (!isAuthenticated || !user?.uid) {
+                alert('Please log in to go live');
+                return;
+              }
+              setModalOpen(true);
+            }}
             className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center gap-2 transition-colors duration-200"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

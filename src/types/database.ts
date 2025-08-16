@@ -85,6 +85,17 @@ export interface UserFollow {
   updated_at?: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  room_id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  text: string;
+  is_moderator: boolean;
+  created_at?: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -112,6 +123,11 @@ export interface Database {
         Row: UserFollow;
         Insert: Omit<UserFollow, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<UserFollow, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      livestream_chat: {
+        Row: ChatMessage;
+        Insert: Omit<ChatMessage, 'id' | 'created_at'>;
+        Update: Partial<Omit<ChatMessage, 'id' | 'created_at'>>;
       };
     };
     Views: {

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { databaseService } from '../services/databaseService';
-import { useAuthStore } from './authStore';
+import { useSupabaseAuthStore } from './supabaseAuthStore';
 
 export interface StreamInfo {
   id: string; // UUID
@@ -97,7 +97,7 @@ export const useLivestreamStore = create<LivestreamState>()(
       createStream: async (streamData) => {
         set({ isLoading: true, error: null });
         try {
-          const { user } = useAuthStore.getState();
+          const { user } = useSupabaseAuthStore.getState();
           if (!user) throw new Error('User not authenticated');
           
           // Debug: Log the user ID to see what format it's in
@@ -137,7 +137,7 @@ export const useLivestreamStore = create<LivestreamState>()(
       createScheduledStream: async (streamData) => {
         set({ isLoading: true, error: null });
         try {
-          const { user } = useAuthStore.getState();
+          const { user } = useSupabaseAuthStore.getState();
           if (!user) throw new Error('User not authenticated');
           
           // Add streamer_id for scheduled stream
@@ -383,7 +383,7 @@ export const useLivestreamStore = create<LivestreamState>()(
       cleanupOrphanedStreams: async () => {
         set({ isLoading: true, error: null });
         try {
-          const { user } = useAuthStore.getState();
+          const { user } = useSupabaseAuthStore.getState();
           if (!user) throw new Error('User not authenticated');
           await databaseService.cleanupOrphanedActiveStreams(user.uid);
           set({ isLoading: false });

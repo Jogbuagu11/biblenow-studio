@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -10,7 +10,7 @@ const Login: React.FC = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signUp, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, clearError } = useSupabaseAuthStore();
 
   // Get the intended destination from location state
   const from = (location.state as any)?.from?.pathname || '/dashboard';
@@ -20,11 +20,8 @@ const Login: React.FC = () => {
     clearError();
 
     try {
-      if (isSignUp) {
-        await signUp(email, password, displayName);
-      } else {
-        await login(email, password);
-      }
+      // Only login is available - signup is disabled
+      await login(email, password);
       
       // Navigate to the intended destination or dashboard
       navigate(from, { replace: true });

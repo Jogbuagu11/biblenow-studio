@@ -43,4 +43,32 @@ export const checkForCorsIssues = (): void => {
     }
     originalError.apply(console, args);
   };
+};
+
+export const clearAuthCache = (): void => {
+  try {
+    // Clear authentication-related storage
+    localStorage.removeItem('auth-storage');
+    sessionStorage.clear();
+    
+    // Clear any cached user data
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('auth') || key.includes('user') || key.includes('firebase'))) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    console.log('Authentication cache cleared. Please log in again.');
+  } catch (error) {
+    console.error('Error clearing auth cache:', error);
+  }
+};
+
+export const validateUserIdFormat = (userId: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(userId);
 }; 

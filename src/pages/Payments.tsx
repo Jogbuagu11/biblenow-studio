@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
-import Separator from '../components/ui/Separator';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
+
+import Separator from '../components/ui/Separator';
 import Input from '../components/ui/Input';
 import Label from '../components/ui/Label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { stripeService, StripeAccount } from '../services/stripeService';
-import { useAuthStore } from '../stores';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { useToast } from '../hooks/use-toast';
 
 const Payments: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const { toast } = useToast();
   const [connectLoading, setConnectLoading] = useState(false);
-  const [stripeAccount, setStripeAccount] = useState<StripeAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stripeAccount, setStripeAccount] = useState<StripeAccount | null>(null);
   const [accountId, setAccountId] = useState('');
   const [showConnectForm, setShowConnectForm] = useState(false);
 
-  // Check Stripe account status on component mount
   useEffect(() => {
     const checkStripeStatus = async () => {
       if (!user?.uid) {
@@ -33,8 +33,7 @@ const Payments: React.FC = () => {
         const accountStatus = await stripeService.getAccountStatus(user.uid);
         setStripeAccount(accountStatus);
       } catch (error) {
-        console.error("Error checking Stripe status:", error);
-        setStripeAccount(null);
+        console.error('Error checking Stripe status:', error);
       } finally {
         setIsLoading(false);
       }
@@ -47,8 +46,8 @@ const Payments: React.FC = () => {
     if (!user?.uid) {
       toast({
         title: "Error",
-        description: "Please log in to continue",
-        variant: "destructive",
+        description: "Please log in to connect your Stripe account",
+        variant: "destructive"
       });
       return;
     }
@@ -65,27 +64,18 @@ const Payments: React.FC = () => {
         // Redirect to Stripe onboarding
         window.location.href = result.onboardingUrl;
       } else {
-        throw new Error(result.error || 'Failed to create account');
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create Stripe account",
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      console.error("Error creating Express account:", error);
-      
-      let errorMessage = "Failed to create Stripe account. Please try again.";
-      
-      if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Network error. Please check your internet connection and try again.";
-        } else if (error.message.includes('404')) {
-          errorMessage = "API endpoint not found. Please contact support.";
-        } else if (error.message.includes('500')) {
-          errorMessage = "Server error. Please try again later.";
-        }
-      }
-      
+      console.error('Error creating Express account:', error);
       toast({
         title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        description: "Failed to create Stripe account. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setConnectLoading(false);
@@ -96,8 +86,8 @@ const Payments: React.FC = () => {
     if (!user?.uid || !accountId.trim()) {
       toast({
         title: "Error",
-        description: "Please enter your Stripe account ID",
-        variant: "destructive",
+        description: "Please enter a valid Stripe account ID",
+        variant: "destructive"
       });
       return;
     }
@@ -113,35 +103,16 @@ const Payments: React.FC = () => {
       
       toast({
         title: "Success",
-        description: "Your Stripe account has been connected successfully!",
+        description: "Stripe account connected successfully!"
       });
       
-      setShowConnectForm(false);
       setAccountId('');
     } catch (error) {
-      console.error("Error connecting Stripe account:", error);
-      
-      // Provide more specific error messages
-      let errorMessage = "Failed to connect Stripe account. Please check your account ID and try again.";
-      
-      if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Network error. Please check your internet connection and try again.";
-        } else if (error.message.includes('404')) {
-          errorMessage = "API endpoint not found. Please contact support.";
-        } else if (error.message.includes('500')) {
-          errorMessage = "Server error. Please try again later.";
-        } else if (error.message.includes('Invalid Stripe account ID')) {
-          errorMessage = "Invalid Stripe account ID. Please check the ID and try again.";
-        } else if (error.message.includes('already connected')) {
-          errorMessage = "This Stripe account is already connected to another user.";
-        }
-      }
-      
+      console.error('Error connecting existing account:', error);
       toast({
         title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        description: "Failed to connect Stripe account. Please check the account ID and try again.",
+        variant: "destructive"
       });
     } finally {
       setConnectLoading(false);

@@ -14,9 +14,10 @@ import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import { RadioGroup, RadioGroupItem } from './ui/RadioGroup';
 import { useLivestreamStore } from '../stores';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { thumbnailService } from '../services/thumbnailService';
+import { validateUserIdFormat } from '../utils/clearCache';
 
 interface GoLiveModalProps {
   open: boolean;
@@ -36,7 +37,7 @@ const streamPlatforms = [
 
 const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   const { createStream, isLoading, setError, clearError } = useLivestreamStore();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useSupabaseAuthStore();
   const [streamingLimit, setStreamingLimit] = useState<{
     hasReachedLimit: boolean;
     currentMinutes: number;
@@ -65,18 +66,41 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
   // Check streaming limits when modal opens
   useEffect(() => {
     const checkStreamingLimits = async () => {
-      if (!user?.uid || !open) return;
+      if (!isAuthenticated || !user?.uid || !open) return;
+      
+      // Check if user ID is a valid UUID format for Supabase
+      if (!validateUserIdFormat(user.uid)) {
+        console.error('Invalid user ID format for Supabase:', user.uid);
+        console.error('User ID must be a valid UUID format. Please log out and log back in.');
+        // Set a default limit to prevent blocking the UI
+        setStreamingLimit({
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 0,
+          remainingMinutes: 0,
+          usagePercentage: 0
+        });
+        return;
+      }
       
       try {
         const limitData = await databaseService.checkWeeklyStreamingLimit(user.uid);
         setStreamingLimit(limitData);
       } catch (error) {
         console.error('Error checking streaming limits:', error);
+        // Set default values on error to prevent UI blocking
+        setStreamingLimit({
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 0,
+          remainingMinutes: 0,
+          usagePercentage: 0
+        });
       }
     };
 
     checkStreamingLimits();
-  }, [user?.uid, open]);
+  }, [isAuthenticated, user?.uid, open]);
 
   // Determine platform types
   const isExternalPlatform = formData.platform === 'external';
@@ -166,18 +190,21 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // JAAS Room Name Rules: Must start with full App ID followed by room name
-      const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
+      // Self-hosted Jitsi: use plain room name (no JAAS appId prefix)
       const cleanRoomName = formData.title
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '') || 'bible_study';
       
+      // Prefix with platform to produce URLs like https://stream.biblenow.io/prayer-t12
+      const platformPrefix = (formData.platform || 'livestream').toLowerCase();
+      const jitsiRoomName = `${platformPrefix}-${cleanRoomName.replace(/_/g, '-')}`;
+      
       const streamData = {
         title: formData.title,
         description: formData.description,
-        room_name: `${jaasAppId}/${cleanRoomName}`,
+        room_name: jitsiRoomName,
         platform: formData.platform,
         stream_type: formData.stream_type,
         scheduled_at: formData.scheduled_at,

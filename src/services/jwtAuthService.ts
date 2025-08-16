@@ -5,8 +5,8 @@ import { getDisplayName } from '../utils/profileUtils';
 import jwt from 'jsonwebtoken';
 
 export interface JWTPayload {
-  aud: string; // Audience (your JAAS app ID)
-  iss: string; // Issuer (your JAAS app ID)
+  aud: string; // Audience (your app ID)
+  iss: string; // Issuer (your app ID)
   sub: string; // Subject (user email)
   room: string; // Room name
   context: {
@@ -173,7 +173,7 @@ export class JWTAuthService {
         };
       }
 
-      // Verify JaaS password - all users use 'biblenow123'
+      // Simple password check used previously; replace with your auth as needed
       if (password !== 'biblenow123') {
         return {
           success: false,

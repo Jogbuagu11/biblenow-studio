@@ -1,20 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import ChartCard from '../components/Dashboard/ChartCard';
 import MetricCard from '../components/Dashboard/MetricCard';
-import { databaseService } from '../services/databaseService';
+
 import { analyticsService } from '../services/analyticsService';
 import { ga4ApiService } from '../services/ga4ApiService';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
+import { databaseService } from '../services/databaseService';
 
 const Analytics: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const [totalViews, setTotalViews] = useState(0);
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [topPerformingStreams, setTopPerformingStreams] = useState<any[]>([]);
-  const [averageWatchTime, setAverageWatchTime] = useState('0m 0s');
+  const [averageWatchTime, setAverageWatchTime] = useState('');
   const [engagementRate, setEngagementRate] = useState(0);
   const [uniqueViewers, setUniqueViewers] = useState(0);
+  const [dateRange] = useState({
+    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    end: new Date()
+  });
 
   useEffect(() => {
     const fetchAnalyticsData = async () => {
@@ -44,15 +49,10 @@ const Analytics: React.FC = () => {
         const engagement = await analyticsService.getEngagementRate(user.uid);
         setEngagementRate(engagement);
 
-        // Fetch additional GA4 data
-        const dateRange = {
-          start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end: new Date().toISOString().split('T')[0]
-        };
-        
+        // Fetch GA4 data
         const ga4Data = await ga4ApiService.getEngagementData({
-          startDate: dateRange.start,
-          endDate: dateRange.end,
+          startDate: dateRange.start.toISOString().split('T')[0],
+          endDate: dateRange.end.toISOString().split('T')[0],
           streamerId: user.uid
         });
         
@@ -69,7 +69,7 @@ const Analytics: React.FC = () => {
     };
 
     fetchAnalyticsData();
-  }, [user]);
+  }, [user?.uid, dateRange]);
 
   return (
     <Layout>
@@ -114,7 +114,7 @@ const Analytics: React.FC = () => {
             <div className="h-64 flex items-center justify-center text-gray-500">
               <div className="text-center">
                 <div className="text-4xl mb-2">📈</div>
-                <p>Chart placeholder - Add your chart component here</p>
+                <p>Chart coming soon</p>
               </div>
             </div>
           </ChartCard>
@@ -123,46 +123,42 @@ const Analytics: React.FC = () => {
             <div className="h-64 flex items-center justify-center text-gray-500">
               <div className="text-center">
                 <div className="text-4xl mb-2">🌍</div>
-                <p>Map placeholder - Add your map component here</p>
+                <p>Map coming soon</p>
               </div>
             </div>
           </ChartCard>
         </div>
 
         <div className="bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg shadow-md p-6 transition-colors duration-200">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 transition-colors duration-200">Top Performing Content</h2>
-          
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 transition-colors duration-200">Top Performing Streams</h2>
           {topPerformingStreams.length > 0 ? (
             <div className="space-y-4">
-              {topPerformingStreams.map((stream) => (
-                <div key={stream.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-darkBrown-400 rounded-lg transition-colors duration-200">
+              {topPerformingStreams.map((stream, index) => (
+                <div key={stream.id} className="flex items-center justify-between p-4 bg-white dark:bg-darkBrown-700 rounded-lg shadow-sm transition-colors duration-200">
                   <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-darkBrown-100 dark:bg-darkBrown-600 rounded-lg flex items-center justify-center transition-colors duration-200">
-                      <span className="text-darkBrown-600 dark:text-darkBrown-200 font-semibold">{stream.rank}</span>
-                    </div>
+                    <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">#{index + 1}</div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white transition-colors duration-200">
-                        {stream.title || 'Untitled Stream'}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 transition-colors duration-200">
-                        {stream.viewer_count} views
-                        {stream.duration && ` • ${stream.duration}m duration`}
+                      <h3 className="font-medium text-gray-900 dark:text-white transition-colors duration-200">{stream.title}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                        {stream.viewer_count} viewers • {stream.duration} minutes
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-green-600">Top Performer</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-                      {stream.started_at ? new Date(stream.started_at).toLocaleDateString() : 'No date'}
-                    </p>
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-200">
+                      {stream.engagement_rate}%
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                      Engagement Rate
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="text-4xl mb-4">📊</div>
-              <p className="text-gray-500 dark:text-gray-400">No content available yet. Start streaming to see your top performing content here.</p>
+              <div className="text-4xl mb-2">📊</div>
+              <p className="text-gray-500 dark:text-gray-400 transition-colors duration-200">No stream data available yet</p>
             </div>
           )}
         </div>

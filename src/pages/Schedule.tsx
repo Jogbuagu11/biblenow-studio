@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
+import Button from '../components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Calendar from '../components/ui/Calendar';
+import { format } from 'date-fns';
+import { ThumbnailUploadResult } from '../services/thumbnailService';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
+import { databaseService } from '../services/databaseService';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
+import Separator from '../components/ui/Separator';
+import { useLivestreamStore } from '../stores';
 import Input from '../components/ui/Input';
 import Label from '../components/ui/Label';
 import Textarea from '../components/ui/Textarea';
 import Checkbox from '../components/ui/Checkbox';
-import Button from '../components/ui/Button';
 import ThumbnailUpload from '../components/ThumbnailUpload';
-import { format } from 'date-fns';
-import { useLivestreamStore } from '../stores';
-import { useEffect } from 'react';
-import { ThumbnailUploadResult } from '../services/thumbnailService';
-import { useAuthStore } from '../stores/authStore';
-import { databaseService } from '../services/databaseService';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
-import Separator from '../components/ui/Separator';
 
 const Schedule: React.FC = () => {
   const { createScheduledStream, updateStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
+  const [activeTab, setActiveTab] = useState<string>('calendar');
   const [date, setDate] = useState<Date>();
   const [editingStreamId, setEditingStreamId] = useState<string | null>(null);
   const [streamingLimit, setStreamingLimit] = useState<{
@@ -88,6 +88,7 @@ const Schedule: React.FC = () => {
     
     if (editStreamId) {
       setEditingStreamId(editStreamId);
+      setActiveTab('create');
       // Find the stream to edit
       const streamToEdit = scheduledStreams.find(stream => stream.id === editStreamId);
       
@@ -178,17 +179,19 @@ const Schedule: React.FC = () => {
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       // Create room name
-      const jaasAppId = "vpaas-magic-cookie-ac668e9fea2743709f7c43628fe9d372";
+      // Self-hosted Jitsi: no appId prefix
       const cleanRoomName = formState.title
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '') || 'scheduled_stream';
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'scheduled_stream';
+      
+      const platformPrefix = (formState.platform || 'livestream').toLowerCase();
+      const baseRoomName = `${platformPrefix}-${cleanRoomName}`;
       
       const streamData = {
         title: formState.title,
         description: formState.description,
-        room_name: `${jaasAppId}/${cleanRoomName}`,
+        room_name: baseRoomName,
         platform: formState.platform,
         stream_type: formState.streamType,
         scheduled_at: dateTime.toISOString(),
@@ -231,7 +234,7 @@ const Schedule: React.FC = () => {
             ...streamData,
             title: `${formState.title} - Episode ${i + 1}`,
             scheduled_at: episodeDateTime.toISOString(),
-            room_name: `${jaasAppId}/${cleanRoomName}_ep${i + 1}`,
+            room_name: `${baseRoomName}-ep${i + 1}`,
           };
           
           streams.push(episodeStreamData);
@@ -278,6 +281,7 @@ const Schedule: React.FC = () => {
         repeatFrequency: "weekly",
         repeatCount: "",
       });
+      setActiveTab('calendar');
       
     } catch (error) {
       console.error('Error scheduling stream:', error);
@@ -362,7 +366,7 @@ const Schedule: React.FC = () => {
         </div>
         <Separator className="my-6" />
         
-        <Tabs defaultValue="calendar" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-between items-center mb-4">
             <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
@@ -655,6 +659,7 @@ const Schedule: React.FC = () => {
                           repeatFrequency: "weekly",
                           repeatCount: "",
                         });
+                        setActiveTab('calendar');
                       }}
                       disabled={isLoading}
                     >

@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 
 export interface UploadResult {
   url: string;
@@ -31,7 +31,7 @@ class FileUploadService {
       }
 
       // Get current user
-      const user = useAuthStore.getState().user;
+      const user = useSupabaseAuthStore.getState().user;
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -131,7 +131,7 @@ class FileUploadService {
   async deleteThumbnail(path: string): Promise<boolean> {
     try {
       // Get current user to verify ownership
-      const user = useAuthStore.getState().user;
+      const user = useSupabaseAuthStore.getState().user;
       if (!user) {
         console.error('User not authenticated for delete operation');
         return false;

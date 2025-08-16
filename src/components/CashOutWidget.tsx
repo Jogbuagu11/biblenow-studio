@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import Button from './ui/Button';
 import { Alert, AlertDescription, AlertTitle } from './ui/Alert';
 import { useToast } from '../hooks/use-toast';
-import { useAuthStore } from '../stores/authStore';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import cashOutService, { CashOutSummary } from '../services/cashOutService';
 
 interface CashOutWidgetProps {
@@ -11,18 +11,13 @@ interface CashOutWidgetProps {
 }
 
 const CashOutWidget: React.FC<CashOutWidgetProps> = ({ onCashOutSuccess }) => {
-  const { user } = useAuthStore();
+  const { user } = useSupabaseAuthStore();
   const { toast } = useToast();
   const [summary, setSummary] = useState<CashOutSummary | null>(null);
+  const [eligibility, setEligibility] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [amount, setAmount] = useState(200); // Default to minimum amount
-  const [eligibility, setEligibility] = useState<{
-    eligible: boolean;
-    balance: number;
-    minAmount: number;
-    error?: string;
-  } | null>(null);
+  const [amount, setAmount] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,86 +31,45 @@ const CashOutWidget: React.FC<CashOutWidgetProps> = ({ onCashOutSuccess }) => {
 
       // Add timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
-        console.log('CashOutWidget: Request timeout, setting default values');
+        console.log('CashOutWidget: Timeout reached, stopping loading');
         setIsLoading(false);
-        setSummary({
-          total_cashed_out: 0,
-          pending_amount: 0,
-          available_balance: 0,
-          is_verified_user: false
-        });
-        setEligibility({
-          eligible: false,
-          balance: 0,
-          minAmount: 200,
-          error: 'Request timeout - please try again'
-        });
-      }, 5000); // 5 second timeout
+      }, 10000);
 
       try {
-        setIsLoading(true);
-        
-        // Test the service directly first
         console.log('CashOutWidget: Testing service methods...');
         try {
           const testResult = await cashOutService.testEmptyTableHandling(user.uid);
           console.log('CashOutWidget: Service test result:', testResult);
         } catch (testError) {
-          console.error('CashOutWidget: Service test failed:', testError);
+          console.log('CashOutWidget: Service test failed:', testError);
         }
-        
+
         // Simplified approach - just check eligibility first
         console.log('CashOutWidget: Checking eligibility...');
         const eligibilityData = await cashOutService.checkEligibility(user.uid);
         console.log('CashOutWidget: Eligibility data:', eligibilityData);
 
-        clearTimeout(timeoutId); // Clear timeout on success
-        setEligibility(eligibilityData);
-
-        // Only try to get summary if user is eligible
         if (eligibilityData.eligible) {
           try {
             console.log('CashOutWidget: Getting summary...');
             const summaryData = await cashOutService.getCashOutSummary(user.uid);
             console.log('CashOutWidget: Summary data:', summaryData);
             setSummary(summaryData);
-            setAmount(Math.max(eligibilityData.minAmount, 200));
           } catch (summaryError) {
-            console.error('CashOutWidget: Summary error:', summaryError);
-            // Set default summary if it fails
-            setSummary({
-              total_cashed_out: 0,
-              pending_amount: 0,
-              available_balance: eligibilityData.balance,
-              is_verified_user: true
-            });
+            console.error('CashOutWidget: Error fetching summary:', summaryError);
           }
-        } else {
-          // Set default summary for non-eligible users
-          setSummary({
-            total_cashed_out: 0,
-            pending_amount: 0,
-            available_balance: eligibilityData.balance,
-            is_verified_user: false
-          });
         }
+
+        setEligibility(eligibilityData);
       } catch (error) {
-        clearTimeout(timeoutId); // Clear timeout on error
         console.error('CashOutWidget: Error fetching data:', error);
-        // Set default values on error
-        setSummary({
-          total_cashed_out: 0,
-          pending_amount: 0,
-          available_balance: 0,
-          is_verified_user: false
-        });
-        setEligibility({
-          eligible: false,
-          balance: 0,
-          minAmount: 2000,
-          error: error instanceof Error ? error.message : 'Failed to load data'
+        toast({
+          title: 'Error',
+          description: 'Failed to load cash out data. Please try again.',
+          variant: 'destructive'
         });
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
@@ -132,10 +86,10 @@ const CashOutWidget: React.FC<CashOutWidgetProps> = ({ onCashOutSuccess }) => {
 
       if (result.success) {
         toast({
-          title: "Cash Out Requested!",
-          description: `Your request for ${formatShekels(amount)} has been submitted. You'll receive the payment in 2-3 business days.`,
+          title: 'Success',
+          description: 'Cash out request submitted successfully!'
         });
-        
+
         // Refresh data
         const [summaryData, eligibilityData] = await Promise.all([
           cashOutService.getCashOutSummary(user.uid),
@@ -143,24 +97,23 @@ const CashOutWidget: React.FC<CashOutWidgetProps> = ({ onCashOutSuccess }) => {
         ]);
         setSummary(summaryData);
         setEligibility(eligibilityData);
-        
-        // Reset amount to minimum
-        setAmount(eligibilityData.minAmount);
-        
-        onCashOutSuccess?.();
+
+        if (onCashOutSuccess) {
+          onCashOutSuccess();
+        }
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to process cash out request",
-          variant: "destructive",
+          title: 'Error',
+          description: result.error || 'Failed to submit cash out request.',
+          variant: 'destructive'
         });
       }
     } catch (error) {
-      console.error('Error processing cash out:', error);
+      console.error('CashOutWidget: Error during cash out:', error);
       toast({
-        title: "Error",
-        description: "Failed to process cash out request",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to submit cash out request. Please try again.',
+        variant: 'destructive'
       });
     } finally {
       setIsProcessing(false);
@@ -192,26 +145,14 @@ const CashOutWidget: React.FC<CashOutWidgetProps> = ({ onCashOutSuccess }) => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-            </svg>
-            Cash Out Shekelz
-          </CardTitle>
-          <CardDescription>
-            Please log in to access cash out features
-          </CardDescription>
+          <CardTitle>Cash Out</CardTitle>
+          <CardDescription>Withdraw your shekelz balance</CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                <span className="text-white text-xs">!</span>
-              </div>
-              <AlertTitle className="text-gray-600 dark:text-gray-400">Login Required</AlertTitle>
-            </div>
-            <AlertDescription className="text-gray-700 dark:text-gray-300">
-              You must be logged in to use the cash out feature.
+          <Alert>
+            <AlertTitle>Not Available</AlertTitle>
+            <AlertDescription>
+              Please log in to access cash out functionality.
             </AlertDescription>
           </Alert>
         </CardContent>
