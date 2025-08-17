@@ -797,6 +797,44 @@ app.post('/api/jitsi/token', async (req, res) => {
   }
 });
 
+// Serve custom viewer under stream domain that wraps Studio UI
+app.get('/live/:room', (req, res) => {
+  const room = encodeURIComponent(req.params.room || 'room');
+  const title = encodeURIComponent(req.query.title || 'Live Stream');
+  const platform = encodeURIComponent(req.query.platform || 'livestream');
+  const studioUrl = `https://studio.biblenow.io/live-stream?room=${room}&title=${title}&platform=${platform}`;
+  res.set('Content-Type', 'text/html');
+  res.send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${decodeURIComponent(title)} · BibleNOW</title>
+    <style>
+      html, body { margin:0; padding:0; height:100%; background:#000; }
+      iframe { border:0; width:100%; height:100%; display:block; }
+    </style>
+  </head>
+  <body>
+    <iframe src="${studioUrl}" allow="camera; microphone; display-capture; autoplay; clipboard-write"></iframe>
+  </body>
+</html>`);
+});
+
+// Redirect bare room path to the custom viewer
+app.get('/:room', (req, res, next) => {
+  const room = req.params.room;
+  // Skip known non-room paths
+  const nonRoomPrefixes = ['api', 'health', 'static', 'assets', 'favicon.ico', 'robots.txt'];
+  if (!room || nonRoomPrefixes.includes(room)) return next();
+
+  const params = new URLSearchParams();
+  if (typeof req.query.title === 'string') params.set('title', req.query.title);
+  if (typeof req.query.platform === 'string') params.set('platform', req.query.platform);
+  const qs = params.toString();
+  res.redirect(302, `/live/${encodeURIComponent(room)}${qs ? `?${qs}` : ''}`);
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
