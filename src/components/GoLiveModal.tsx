@@ -227,7 +227,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       onOpenChange(false);
       
       // Navigate to the stream URL
-      const streamUrl = `/live-stream?room=${encodeURIComponent(newStream.room_name || '')}&title=${encodeURIComponent(newStream.title)}&platform=${encodeURIComponent(newStream.platform || '')}`;
+      const streamUrl = `https://stream.biblenow.io/live/${encodeURIComponent(newStream.room_name || '')}?title=${encodeURIComponent(newStream.title)}&platform=${encodeURIComponent(newStream.platform || '')}`;
       window.location.href = streamUrl;
       
     } catch (error) {
