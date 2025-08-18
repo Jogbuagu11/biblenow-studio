@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+const fetch = require('node-fetch');
 // Initialize Stripe with debugging
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 console.log('Initializing Stripe with key type:', stripeKey ? 
@@ -797,46 +799,129 @@ app.post('/api/jitsi/token', async (req, res) => {
   }
 });
 
-// Serve custom viewer under stream domain that wraps Studio UI
-app.get('/live/:room', (req, res) => {
-  const room = encodeURIComponent(req.params.room || 'room');
-  const title = encodeURIComponent(req.query.title || 'Live Stream');
-  const platform = encodeURIComponent(req.query.platform || 'livestream');
-  const studioUrl = `https://studio.biblenow.io/live-stream?room=${room}&title=${title}&platform=${platform}`;
-  res.set('Content-Type', 'text/html');
-  res.send(`<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${decodeURIComponent(title)} · BibleNOW</title>
-    <style>
-      html, body { margin:0; padding:0; height:100%; background:#000; }
-      iframe { border:0; width:100%; height:100%; display:block; }
-    </style>
-  </head>
-  <body>
-    <iframe src="${studioUrl}" allow="camera; microphone; display-capture; autoplay; clipboard-write"></iframe>
-  </body>
-</html>`);
+// Proxy /live routes to studio.biblenow.io with proper headers to prevent gzip issues
+app.get('/live/:room', async (req, res) => {
+  const room = req.params.room;
+  const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+  
+  try {
+    const targetUrl = `https://studio.biblenow.io/live?room=${encodeURIComponent(room)}${queryString}`;
+    
+    console.log(`Proxying /live/${room} to: ${targetUrl}`);
+    
+    // Make request to studio.biblenow.io with Accept-Encoding disabled
+    const response = await fetch(targetUrl, {
+      headers: {
+        'Accept-Encoding': '', // Disable gzip compression
+        'User-Agent': req.headers['user-agent'] || 'BibleNOW-Proxy/1.0',
+        'Accept': req.headers.accept || '*/*',
+        'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+
+    console.log(`Upstream response status: ${response.status}`);
+    console.log(`Upstream content-type: ${response.headers.get('content-type')}`);
+
+    // Forward the response status and headers
+    res.status(response.status);
+    
+    // Copy relevant headers from the upstream response
+    const headersToForward = [
+      'content-type',
+      'content-length',
+      'cache-control',
+      'expires',
+      'last-modified',
+      'etag'
+    ];
+    
+    headersToForward.forEach(header => {
+      const value = response.headers.get(header);
+      if (value) {
+        res.set(header, value);
+        console.log(`Forwarding header ${header}: ${value}`);
+      }
+    });
+
+    // Stream the response body to prevent memory issues
+    response.body.pipe(res);
+    
+  } catch (error) {
+    console.error('Error proxying /live request:', error);
+    res.status(500).json({ error: 'Failed to proxy request to studio' });
+  }
 });
 
-// Redirect bare room path to the custom viewer
-app.get('/:room', (req, res, next) => {
-  const room = req.params.room;
-  // Skip known non-room paths
-  const nonRoomPrefixes = ['api', 'health', 'static', 'assets', 'favicon.ico', 'robots.txt'];
-  if (!room || nonRoomPrefixes.includes(room)) return next();
+// Handle bare /live route
+app.get('/live', async (req, res) => {
+  const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+  
+  try {
+    const targetUrl = `https://studio.biblenow.io/live${queryString}`;
+    
+    console.log(`Proxying /live to: ${targetUrl}`);
+    
+    // Make request to studio.biblenow.io with Accept-Encoding disabled
+    const response = await fetch(targetUrl, {
+      headers: {
+        'Accept-Encoding': '', // Disable gzip compression
+        'User-Agent': req.headers['user-agent'] || 'BibleNOW-Proxy/1.0',
+        'Accept': req.headers.accept || '*/*',
+        'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
 
-  const params = new URLSearchParams();
-  if (typeof req.query.title === 'string') params.set('title', req.query.title);
-  if (typeof req.query.platform === 'string') params.set('platform', req.query.platform);
-  const qs = params.toString();
-  res.redirect(302, `/live/${encodeURIComponent(room)}${qs ? `?${qs}` : ''}`);
+    console.log(`Upstream response status: ${response.status}`);
+    console.log(`Upstream content-type: ${response.headers.get('content-type')}`);
+
+    // Forward the response status and headers
+    res.status(response.status);
+    
+    // Copy relevant headers from the upstream response
+    const headersToForward = [
+      'content-type',
+      'content-length',
+      'cache-control',
+      'expires',
+      'last-modified',
+      'etag'
+    ];
+    
+    headersToForward.forEach(header => {
+      const value = response.headers.get(header);
+      if (value) {
+        res.set(header, value);
+        console.log(`Forwarding header ${header}: ${value}`);
+      }
+    });
+
+    // Stream the response body to prevent memory issues
+    response.body.pipe(res);
+    
+  } catch (error) {
+    console.error('Error proxying /live request:', error);
+    res.status(500).json({ error: 'Failed to proxy request to studio' });
+  }
+});
+
+// Serve React app for all non-API routes
+app.get('*', (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  // Serve the React app's index.html for all other routes
+  res.sendFile(path.join(__dirname, '../build/index.html'));
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`React app will be served for all non-API routes`);
 }); 
