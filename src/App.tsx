@@ -45,8 +45,9 @@ function App() {
           {/* Public viewer routes */}
           <Route path="/live/:room" element={<LiveStreamPage />} />
           <Route path="/live" element={<LiveStreamPage />} />
-          {/* Backward-compat: old path redirects to /live */}
-          <Route path="/live-stream" element={<Navigate to="/live" replace />} />
+          {/* Also accept old /live-stream variants to avoid 404s */}
+          <Route path="/live-stream/:room" element={<LiveStreamPage />} />
+          <Route path="/live-stream" element={<LiveStreamPage />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Dashboard /></div></ProtectedRoute>} />
