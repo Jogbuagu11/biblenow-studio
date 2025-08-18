@@ -276,7 +276,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       // Ensure container is empty and ready
       containerRef.current.innerHTML = '';
 
-      // Generate JWT token via server for self-hosted Jitsi
+      // For public Jitsi server, we don't need JWT tokens for basic usage
       let jwtToken = null;
       let isModerator = false;
       
@@ -290,32 +290,9 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             .maybeSingle();
           isModerator = !!verifiedRow;
           
-          if (isModerator) {
-            // Add: call server to get token
-            try {
-              const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-              const resp = await fetch(`${apiBase}/jitsi/token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  roomTitle: formattedRoomName,
-                  isModerator,
-                  displayName: user?.displayName,
-                  email: user?.email,
-                  avatar: user?.photoURL
-                })
-              });
-              const json = await resp.json();
-              if (json?.token) {
-                jwtToken = json.token;
-              }
-            } catch (e) {
-              console.error('Failed to fetch Jitsi token from server:', e);
-            }
-            console.log('Generated moderator JWT token for verified user');
-          } else {
-            console.log('User is logged in but not verified, joining as participant');
-          }
+          // Note: Public Jitsi server doesn't require JWT tokens for basic usage
+          // JWT tokens are only needed for self-hosted servers with authentication
+          console.log('Using public Jitsi server - no JWT token required');
         } catch (error) {
           console.error('Error checking user verification status:', error);
         }
@@ -326,15 +303,15 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       if (user) {
         try {
           const profileResult = await jwtAuthService.getUserProfile(user.uid);
-          if (profileResult.success) {
-            userAvatar = profileResult.profile?.avatar_url || (profileResult.profile as any)?.profile_photo_url || undefined;
+          if (profileResult.success && profileResult.profile) {
+            userAvatar = (profileResult.profile as any)?.avatar_url || (profileResult.profile as any)?.profile_photo_url || undefined;
           }
         } catch (error) {
           console.error('Error fetching user avatar:', error);
         }
       }
 
-      // Room name already includes the full JAAS App ID prefix from GoLiveModal
+      // Configuration for public Jitsi server
       const options: any = {
         roomName: formattedRoomName,
         parentNode: containerRef.current,
@@ -345,7 +322,6 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           email: user?.email || "user@biblenowstudio.com",
           avatar: userAvatar
         },
-        ...(jwtToken && { jwt: jwtToken }),
         configOverwrite: {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
