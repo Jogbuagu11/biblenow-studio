@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, useParams } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
