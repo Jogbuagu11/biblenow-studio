@@ -237,8 +237,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   }, [formattedRoomName]);
 
   // Initialize Jitsi
-  useEffect(() => {
-    const initializeJitsi = async () => {
+  const initializeJitsi = async () => {
       // Dispose of any existing Jitsi instance first
       if (apiRef.current) {
         console.log('Disposing of existing Jitsi instance');
@@ -263,6 +262,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             initializeJitsi();
           } else {
             console.error("Jitsi script still not loaded after timeout");
+            setError('Video conference service is currently unavailable. Please try again later.');
           }
         }, 2000);
         return;
@@ -383,6 +383,13 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       });
       
       try {
+        console.log('Attempting to initialize Jitsi with domain:', jitsiConfig.domain);
+        console.log('JitsiMeetExternalAPI available:', !!window.JitsiMeetExternalAPI);
+        
+        if (!window.JitsiMeetExternalAPI) {
+          throw new Error('JitsiMeetExternalAPI not available - script may not have loaded');
+        }
+        
         apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
         hasInitializedRef.current = true;
         
@@ -438,15 +445,26 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         });
 
         console.log('Jitsi Meet initialized successfully');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error initializing Jitsi Meet:', error);
+        console.error('Error details:', {
+          message: error?.message || 'Unknown error',
+          stack: error?.stack,
+          domain: jitsiConfig.domain,
+          hasJitsiAPI: !!window.JitsiMeetExternalAPI
+        });
+        
+        // Show user-friendly error message
+        setError('Failed to initialize video conference. Please check your connection and try again.');
       }
     };
 
+  // Initialize Jitsi when user is ready
+  useEffect(() => {
     // Only initialize if user is logged in
     if (user) {
       if (hasInitializedRef.current) return;
-    initializeJitsi();
+      initializeJitsi();
     }
 
     return () => {
@@ -563,12 +581,42 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         {/* Video Stream */}
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Top-left Branding Overlay to fully cover Jitsi watermark */}
-        <div className="absolute top-0 left-0 z-[9999] pointer-events-none">
-          <div className="bg-black/80 w-36 h-28 md:w-40 md:h-32 flex items-center justify-center">
-            <img src="/logo172.png" alt="BibleNOW" className="h-12 md:h-16" />
+        {/* Top-left Branding Overlay - Only show when not in fullscreen and not interfering with Jitsi */}
+        {!isFullscreen && !error && (
+          <div className="absolute top-0 left-0 z-10 pointer-events-none opacity-60 hover:opacity-100 transition-opacity">
+            <div className="bg-black/60 w-32 h-24 md:w-36 md:h-28 flex items-center justify-center rounded-br-lg">
+              <img src="/logo172.png" alt="BibleNOW" className="h-10 md:h-12" />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Error Display Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center z-50 bg-black bg-opacity-75">
+            <div className="bg-red-900 border border-red-600 rounded-lg p-6 max-w-md mx-4">
+              <h3 className="text-white text-lg font-bold mb-2">Connection Error</h3>
+              <p className="text-red-200 mb-4">{error}</p>
+              <button 
+                onClick={() => {
+                  setError(null);
+                  // Retry initialization
+                  if (containerRef.current) {
+                    containerRef.current.innerHTML = '';
+                    hasInitializedRef.current = false;
+                    setTimeout(() => {
+                      if (user) {
+                        initializeJitsi();
+                      }
+                    }, 1000);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Gift Burst Overlay */}
         {giftOverlay && (

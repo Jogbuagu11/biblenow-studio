@@ -1,5 +1,16 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/live/(.*)",
+      "destination": "/api/proxy/live/$1"
+    },
+    {
+      "source": "/live",
+      "destination": "/api/proxy/live"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 } 

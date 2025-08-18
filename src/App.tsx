@@ -26,13 +26,15 @@ function App() {
 
   React.useEffect(() => {
     initialize();
-    // Monitor for CORS issues in development
     if (process.env.NODE_ENV === 'development') {
       checkForCorsIssues();
     }
   }, [initialize]);
 
-  console.log("App loaded");
+  console.log("App loaded", {
+    currentPath: window.location.pathname,
+    currentUrl: window.location.href
+  });
   return (
     <ThemeProvider>
       <Router>
@@ -42,12 +44,15 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/endstream" element={<EndStream />} />
           <Route path="/download-app" element={<DownloadApp />} />
-          {/* Public viewer routes */}
+
+          {/* Public viewer routes (path-based and catch-all) */}
           <Route path="/live/:room" element={<LiveStreamPage />} />
           <Route path="/live" element={<LiveStreamPage />} />
-          {/* Also accept old /live-stream variants to avoid 404s */}
           <Route path="/live-stream/:room" element={<LiveStreamPage />} />
           <Route path="/live-stream" element={<LiveStreamPage />} />
+          
+          {/* Test route to verify routing is working */}
+          <Route path="/test-route" element={<div>Test route working!</div>} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Dashboard /></div></ProtectedRoute>} />
@@ -69,25 +74,49 @@ function App() {
 // LiveStream page component
 const LiveStreamPage: React.FC = () => {
   const { isStreaming, setIsStreaming, currentStream, stopStream } = useLivestreamStore();
-  const { room: roomFromPath } = useParams<{ room?: string }>();
+  const { room: roomFromParams } = useParams<{ room?: string }>();
 
   const [roomName, setRoomName] = React.useState("");
 
-  // Parse URL parameters on component mount
-  React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomParam = roomFromPath || urlParams.get('room') || "";
+  console.log('LiveStreamPage: Component rendered', {
+    isStreaming,
+    roomFromParams,
+    roomName,
+    currentPath: window.location.pathname
+  });
 
-    if (roomParam) {
-      setRoomName(roomParam);
-      setIsStreaming(true);
+  // Derive room from path segments first, then query string
+  React.useEffect(() => {
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    // Expect ['live', '{room}', ...] or ['live-stream', '{room}', ...]
+    let roomFromPath = "";
+    if (pathParts.length >= 2 && (pathParts[0] === 'live' || pathParts[0] === 'live-stream')) {
+      roomFromPath = decodeURIComponent(pathParts[1] || "");
     }
-  }, [roomFromPath, setIsStreaming]);
+    const qsRoom = new URLSearchParams(window.location.search).get('room') || "";
+    const derivedRoom = roomFromParams || roomFromPath || qsRoom;
+
+    console.log('LiveStreamPage: Deriving room name', {
+      pathParts,
+      roomFromParams,
+      roomFromPath,
+      qsRoom,
+      derivedRoom
+    });
+
+    // If we have a room from the URL, start streaming immediately
+    if (derivedRoom && derivedRoom.trim()) {
+      console.log('LiveStreamPage: Starting stream with room:', derivedRoom);
+      setRoomName(derivedRoom);
+      setIsStreaming(true);
+    } else {
+      console.log('LiveStreamPage: No room found in URL, showing form');
+    }
+  }, [roomFromParams, setIsStreaming]);
 
   // Cleanup when component unmounts
   React.useEffect(() => {
     return () => {
-      // If we're leaving the stream page and still streaming, stop the stream
       if (isStreaming && currentStream) {
         stopStream(currentStream.id);
         setIsStreaming(false);
@@ -107,10 +136,7 @@ const LiveStreamPage: React.FC = () => {
     <>
       {isStreaming ? (
         <div style={{ height: "100vh" }}>
-          <LiveStream 
-            roomName={roomName} 
-            isStreamer={true}
-          />
+          <LiveStream roomName={roomName} isStreamer={true} />
         </div>
       ) : (
         <div className="min-h-screen p-8 transition-colors duration-200">
