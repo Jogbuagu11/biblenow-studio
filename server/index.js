@@ -846,7 +846,14 @@ app.get('/live/:room', async (req, res) => {
     });
 
     // Stream the response body to prevent memory issues
-    response.body.pipe(res);
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      const originalHtml = await response.text();
+      const rewrittenHtml = originalHtml.replace(/<head>/i, '<head><base href="https://studio.biblenow.io/">');
+      res.send(rewrittenHtml);
+    } else {
+      response.body.pipe(res);
+    }
     
   } catch (error) {
     console.error('Error proxying /live request:', error);
@@ -899,8 +906,15 @@ app.get('/live', async (req, res) => {
       }
     });
 
-    // Stream the response body to prevent memory issues
-    response.body.pipe(res);
+    // Stream or rewrite HTML body to ensure assets resolve to upstream
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      const originalHtml = await response.text();
+      const rewrittenHtml = originalHtml.replace(/<head>/i, '<head><base href="https://studio.biblenow.io/">');
+      res.send(rewrittenHtml);
+    } else {
+      response.body.pipe(res);
+    }
     
   } catch (error) {
     console.error('Error proxying /live request:', error);
@@ -908,11 +922,45 @@ app.get('/live', async (req, res) => {
   }
 });
 
-// Serve React app for all non-API routes
+// When navigating a /live page, proxy upstream static assets referenced with absolute paths
+app.get(['/static/*', '/favicon.png', '/manifest.json', '/logo172.png', '/logo192.png', '/logo512.png'], async (req, res, next) => {
+  const referer = req.get('referer') || '';
+  if (!referer.includes('/live')) {
+    return next();
+  }
+  try {
+    const targetUrl = `https://studio.biblenow.io${req.path}`;
+    console.log(`Proxying asset for live referer: ${targetUrl}`);
+    const response = await fetch(targetUrl, {
+      headers: {
+        'Accept-Encoding': '',
+        'User-Agent': req.headers['user-agent'] || 'BibleNOW-Proxy/1.0',
+        'Accept': req.headers.accept || '*/*',
+        'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9'
+      }
+    });
+    res.status(response.status);
+    ['content-type','content-length','cache-control','expires','last-modified','etag'].forEach(h => {
+      const v = response.headers.get(h);
+      if (v) res.set(h, v);
+    });
+    response.body.pipe(res);
+  } catch (e) {
+    console.error('Error proxying live asset:', e);
+    res.status(502).send('Upstream asset fetch failed');
+  }
+});
+
+// Serve React app for all non-API and non-live routes
 app.get('*', (req, res) => {
   // Skip API routes
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  // Skip live routes (these should be handled by proxy routes above)
+  if (req.path.startsWith('/live')) {
+    return res.status(404).json({ error: 'Live route not found' });
   }
   
   // Serve the React app's index.html for all other routes
