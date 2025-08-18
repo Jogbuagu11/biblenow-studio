@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useParams } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -42,14 +42,17 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/endstream" element={<EndStream />} />
           <Route path="/download-app" element={<DownloadApp />} />
-
+          {/* Public viewer routes */}
+          <Route path="/live/:room" element={<LiveStreamPage />} />
+          <Route path="/live" element={<LiveStreamPage />} />
+          {/* Backward-compat: old path redirects to /live */}
+          <Route path="/live-stream" element={<Navigate to="/live" replace />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Dashboard /></div></ProtectedRoute>} />
           <Route path="/schedule" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Schedule /></div></ProtectedRoute>} />
           <Route path="/streams" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Streams /></div></ProtectedRoute>} />
           <Route path="/go-live" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><GoLive /></div></ProtectedRoute>} />
-          <Route path="/live-stream" element={<ProtectedRoute><LiveStreamPage /></ProtectedRoute>} />
           <Route path="/viewers" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Viewers /></div></ProtectedRoute>} />
           <Route path="/shekelz" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Shekelz /></div></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Payments /></div></ProtectedRoute>} />
@@ -65,19 +68,20 @@ function App() {
 // LiveStream page component
 const LiveStreamPage: React.FC = () => {
   const { isStreaming, setIsStreaming, currentStream, stopStream } = useLivestreamStore();
-  
+  const { room: roomFromPath } = useParams<{ room?: string }>();
+
   const [roomName, setRoomName] = React.useState("");
 
   // Parse URL parameters on component mount
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const roomParam = urlParams.get('room');
-    
+    const roomParam = roomFromPath || urlParams.get('room') || "";
+
     if (roomParam) {
       setRoomName(roomParam);
       setIsStreaming(true);
     }
-  }, [setIsStreaming]);
+  }, [roomFromPath, setIsStreaming]);
 
   // Cleanup when component unmounts
   React.useEffect(() => {

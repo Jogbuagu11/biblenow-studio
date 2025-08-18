@@ -13,7 +13,7 @@ const RecentStreams: React.FC = () => {
   const [selectedStream, setSelectedStream] = useState<StreamInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const itemsPerPage = 16;
 
   useEffect(() => {
     fetchRecentStreams();

@@ -282,9 +282,13 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
       
       if (user) {
         try {
-          // Check if user is in verified_profiles table (moderator)
-          const userProfile = await databaseService.getUserProfile(user.uid);
-          isModerator = userProfile && userProfile.verified === true;
+          // Check Supabase verified_profiles membership (moderator if a row exists)
+          const { data: verifiedRow } = await supabase
+            .from('verified_profiles')
+            .select('id')
+            .eq('id', user.uid)
+            .maybeSingle();
+          isModerator = !!verifiedRow;
           
           if (isModerator) {
             // Add: call server to get token
@@ -298,7 +302,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                   isModerator,
                   displayName: user?.displayName,
                   email: user?.email,
-                  avatar: userProfile.avatar_url // Use user's verified avatar
+                  avatar: user?.photoURL
                 })
               });
               const json = await resp.json();
@@ -346,6 +350,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
           prejoinConfig: { enabled: false },
+          prejoinPageEnabled: false,
           disableModeratorIndicator: false,
           startAudioOnly: false,
           guestDialOutEnabled: false,
@@ -558,10 +563,10 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         {/* Video Stream */}
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Top-left Branding Overlay to cover Jitsi watermark */}
-        <div className="absolute top-3 left-3 z-50 pointer-events-none">
-          <div className="bg-black/40 rounded-md p-1">
-            <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
+        {/* Top-left Branding Overlay to fully cover Jitsi watermark */}
+        <div className="absolute top-0 left-0 z-[9999] pointer-events-none">
+          <div className="bg-black/80 w-36 h-28 md:w-40 md:h-32 flex items-center justify-center">
+            <img src="/logo172.png" alt="BibleNOW" className="h-12 md:h-16" />
           </div>
         </div>
 

@@ -289,7 +289,14 @@ export const useLivestreamStore = create<LivestreamState>()(
       fetchRecentStreams: async () => {
         set({ isLoading: true, error: null });
         try {
-          const recentStreams = await databaseService.getRecentLivestreams(10);
+          // Prefer current streamer's ended streams
+          const { user } = useSupabaseAuthStore.getState();
+          let recentStreams;
+          if (user?.uid) {
+            recentStreams = await databaseService.getRecentLivestreamsByStreamer(user.uid);
+          } else {
+            recentStreams = await databaseService.getRecentLivestreams(10);
+          }
           set({ recentStreams, isLoading: false });
         } catch (error) {
           set({ 

@@ -219,6 +219,23 @@ class DatabaseService {
     return data || [];
   }
 
+  // Get recent livestreams for a specific streamer (all ended streams)
+  async getRecentLivestreamsByStreamer(streamerId: string, limit?: number): Promise<StreamInfo[]> {
+    let query = supabase
+      .from('livestreams')
+      .select('*')
+      .eq('streamer_id', streamerId)
+      .eq('is_live', false)
+      .not('ended_at', 'is', null)
+      .order('ended_at', { ascending: false });
+    if (typeof limit === 'number') {
+      query = query.limit(limit);
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   // Get upcoming livestreams
   async getUpcomingLivestreams(): Promise<StreamInfo[]> {
     const { data, error } = await supabase
