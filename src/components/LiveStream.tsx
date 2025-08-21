@@ -2,17 +2,16 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Send, MessageCircle, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff } from 'lucide-react';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
-import { jitsiConfig } from '../config/jitsi';
-import jwtAuthService from '../services/jwtAuthService';
-import { analyticsService } from '../services/analyticsService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
-import { sanitizeRoomName } from '../utils/roomUtils';
-import GiftBurst from './GiftBurst';
 import { supabase } from '../config/supabase';
+import { jitsiConfig } from '../config/jitsi';
+import GiftBurst from './GiftBurst';
 
 declare global {
   interface Window {
     JitsiMeetExternalAPI: any;
+    interfaceConfig?: any;
+    config?: any;
   }
 }
 
@@ -21,14 +20,12 @@ interface Props {
   isStreamer?: boolean;
 }
 
-const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
-  // Ensure room name is properly formatted for self-hosted Jitsi (plain room slug, no JAAS appId)
-  const formattedRoomName = roomName
-    ? sanitizeRoomName(roomName)
-    : sanitizeRoomName('BibleNOW Room');
-  const containerRef = useRef<HTMLDivElement>(null);
-  const apiRef = useRef<any>(null);
-  const hasInitializedRef = useRef<boolean>(false);
+const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = false }) => {
+  // Get room name from URL parameters or props
+  const urlParams = new URLSearchParams(window.location.search);
+  const rawRoomName = urlParams.get('room') || propRoomName || 'bible-study';
+  // Ensure room name format is consistent for JWT token
+  const roomName = rawRoomName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const { user } = useSupabaseAuthStore();
   const [isEnding, setIsEnding] = useState(false);
   const [showChat, setShowChat] = useState(true);
@@ -36,7 +33,14 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [appliedJitsiAvatar, setAppliedJitsiAvatar] = useState(false);
+  const [isJitsiReady, setIsJitsiReady] = useState(false);
+  const [moderators, setModerators] = useState<string[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [isModerator, setIsModerator] = useState(false);
+  
+  // Jitsi refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<any>(null);
   
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -71,52 +75,35 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, scrollToBottom]);
 
-  // Robust stream end handler
-  const handleStreamEnd = useCallback(async (eventType: string) => {
-    if (isEnding) {
-      console.log('Stream end already in progress, skipping:', eventType);
-      return;
-    }
-
+  // Stream end handler
+  const handleStreamEnd = useCallback(async () => {
+    if (isEnding) return;
     setIsEnding(true);
-    console.log(`Handling stream end event: ${eventType}`);
-
+    
     try {
       if (user) {
-        // Try multiple times to ensure stream is ended
-        let attempts = 0;
-        const maxAttempts = 3;
-        
-        while (attempts < maxAttempts) {
-          try {
-            await databaseService.endStreamOnRedirect(user.uid);
-            console.log(`Stream ended successfully on attempt ${attempts + 1}`);
-            break;
-          } catch (error) {
-            attempts++;
-            console.error(`Attempt ${attempts} failed to end stream:`, error);
-            
-            if (attempts >= maxAttempts) {
-              console.error('All attempts to end stream failed');
-              throw error;
-            }
-            
-            // Wait before retrying - capture attempts value to avoid closure issue
-            const currentAttempt = attempts;
-            await new Promise(resolve => setTimeout(resolve, 1000 * currentAttempt));
-          }
-        }
+        await databaseService.endStreamOnRedirect(user.uid);
       }
     } catch (error) {
       console.error('Error ending stream:', error);
-      // Don't throw here - we still want to redirect even if ending fails
     } finally {
-      // Always redirect to endstream page
       window.location.href = '/endstream';
     }
-  }, [user, isEnding]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, isEnding]);
+
+  // Appoint moderator function
+  const appointModerator = useCallback((participantId: string) => {
+    if (apiRef.current && isModerator) {
+      try {
+        apiRef.current.executeCommand('setModerator', participantId);
+        console.log('Appointed moderator:', participantId);
+      } catch (error) {
+        console.error('Error appointing moderator:', error);
+      }
+    }
+  }, [isModerator]);
 
   // Fetch stream data and user profile
   useEffect(() => {
@@ -131,6 +118,12 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             ...prev,
             title: decodeURIComponent(titleParam)
           }));
+        } else {
+          // Fallback to room name as title
+          setStreamData(prev => ({
+            ...prev,
+            title: roomName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+          }));
         }
 
         // Get current user's profile for avatar and name
@@ -140,24 +133,22 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             if (userProfile) {
               setStreamData(prev => ({
                 ...prev,
-                hostName: userProfile.full_name || userProfile.username || user?.displayName || (user?.email ? user.email.split('@')[0] : "BibleNOW User"),
+                hostName: userProfile.full_name || userProfile.username || user?.displayName || "BibleNOW User",
                 hostAvatar: userProfile.avatar_url || userProfile.profile_photo_url || "",
                 hostId: user.uid
               }));
             } else {
-              // Fallback: derive host info from authenticated user
               setStreamData(prev => ({
                 ...prev,
-                hostName: user?.displayName || (user?.email ? user.email.split('@')[0] : prev.hostName),
+                hostName: user?.displayName || "BibleNOW User",
                 hostId: user.uid
               }));
             }
           } catch (error) {
             console.error('Error fetching user profile:', error);
-            // Fallback in case of error
             setStreamData(prev => ({
               ...prev,
-              hostName: user?.displayName || (user?.email ? user.email.split('@')[0] : prev.hostName),
+              hostName: user?.displayName || "BibleNOW User",
               hostId: user.uid
             }));
           }
@@ -168,7 +159,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     };
 
     fetchStreamData();
-  }, [formattedRoomName, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomName, user?.uid]);
 
   // Check if user is already following the streamer
   useEffect(() => {
@@ -185,43 +176,43 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     };
 
     checkFollowStatus();
-  }, [user?.uid, streamData.hostId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.uid, streamData.hostId]);
 
   // Subscribe to chat messages
   useEffect(() => {
-    console.log('Initializing chat for room:', formattedRoomName);
+    console.log('Initializing chat for room:', roomName);
     
     const handleMessages = (newMessages: ChatMessage[]) => {
       console.log('Received chat messages:', newMessages.length);
       setMessages(newMessages);
     };
 
-    supabaseChatService.subscribeToMessages(formattedRoomName, handleMessages);
+    supabaseChatService.subscribeToMessages(roomName, handleMessages);
 
     return () => {
-      console.log('Cleaning up chat subscription for room:', formattedRoomName);
+      console.log('Cleaning up chat subscription for room:', roomName);
       supabaseChatService.unsubscribeFromMessages();
     };
-  }, [formattedRoomName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomName]);
 
   // Subscribe to Shekelz gifts for this room and show overlay
   useEffect(() => {
-    if (!formattedRoomName) return;
+    if (!roomName) return;
 
     const channel = supabase
-      .channel(`gifts:${formattedRoomName}`)
+      .channel(`gifts:${roomName}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'shekel_gifts',
-        filter: `context_id=eq.${formattedRoomName}`
+        filter: `context_id=eq.${roomName}`
       }, async (payload: any) => {
         const gift = payload.new as any;
         setGiftOverlay({ amount: gift.amount, sender: gift.sender_name || undefined });
         // Optional: drop a system chat message so viewers see it persisted
         try {
           await supabase.from('livestream_chat').insert([{ 
-            room_id: formattedRoomName,
+            room_id: roomName,
             user_id: gift.sender_id,
             user_name: 'System',
             text: `🎁 ${gift.sender_name || 'A viewer'} sent ${gift.amount} Shekelz!`,
@@ -234,14 +225,13 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     return () => {
       channel.unsubscribe();
     };
-  }, [formattedRoomName]);
+  }, [roomName]);
 
   // Initialize Jitsi
   useEffect(() => {
     const initializeJitsi = async () => {
-      // Dispose of any existing Jitsi instance first
+      // Clean up any existing instance
       if (apiRef.current) {
-        console.log('Disposing of existing Jitsi instance');
         try {
           apiRef.current.dispose();
         } catch (error) {
@@ -250,186 +240,383 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         apiRef.current = null;
       }
 
-      // Clear the container to remove any existing elements
+      // Clear container
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
 
-      if (!window.JitsiMeetExternalAPI) {
-        console.error("Jitsi script not loaded. Waiting for script to load...");
-        // Wait a bit and try again
-        setTimeout(() => {
-          if (window.JitsiMeetExternalAPI) {
-            initializeJitsi();
-          } else {
-            console.error("Jitsi script still not loaded after timeout");
-          }
-        }, 2000);
+      // Let Jitsi handle media permissions per docs
+
+      // Wait for Jitsi script to load with retry
+      let retryCount = 0;
+      const maxRetries = 10;
+      
+      const waitForJitsi = () => {
+        if (window.JitsiMeetExternalAPI) {
+          console.log("Jitsi script loaded successfully");
+          return true;
+        }
+        
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Waiting for Jitsi script... (${retryCount}/${maxRetries})`);
+          setTimeout(waitForJitsi, 500);
+          return false;
+        }
+        
+        console.error("Jitsi script failed to load after retries");
+        return false;
+      };
+      
+      if (!waitForJitsi()) {
         return;
       }
 
       if (!containerRef.current) {
-        console.error("Container ref not available.");
+        console.error("Container ref not available");
         return;
       }
 
-      // Ensure container is empty and ready
-      containerRef.current.innerHTML = '';
-
-      // Generate JWT token via server for self-hosted Jitsi
+      // Get JWT token for custom Jitsi server - required for all users
       let jwtToken = null;
       let isModerator = false;
       
       if (user) {
         try {
-          // Check if user is in verified_profiles table (moderator)
-          const userProfile = await databaseService.getUserProfile(user.uid);
-          isModerator = userProfile && userProfile.verified === true;
+          // Check if user exists in either verified_profiles or profiles table
+          let userProfile = null;
+          let isModerator = false;
           
-          if (isModerator) {
-            // Add: call server to get token
+                      // First check verified_profiles table
             try {
-              const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-              const resp = await fetch(`${apiBase}/jitsi/token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  roomTitle: formattedRoomName,
-                  isModerator,
-                  displayName: user?.displayName,
-                  email: user?.email,
-                  avatar: userProfile.avatar_url // Use user's verified avatar
-                })
-              });
-              const json = await resp.json();
-              if (json?.token) {
-                jwtToken = json.token;
+              const verifiedProfile = await databaseService.getUserProfile(user.uid);
+              if (verifiedProfile) {
+                userProfile = verifiedProfile;
+                console.log('User found in verified_profiles table');
               }
-            } catch (e) {
-              console.error('Failed to fetch Jitsi token from server:', e);
+            } catch (error) {
+              console.log('User not found in verified_profiles table, checking profiles table...');
             }
-            console.log('Generated moderator JWT token for verified user');
-          } else {
-            console.log('User is logged in but not verified, joining as participant');
+            
+            // If not in verified_profiles, check profiles table
+            if (!userProfile) {
+              try {
+                const { data: profileData, error } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', user.uid)
+                  .single();
+                
+                if (profileData && !error) {
+                  userProfile = profileData;
+                  console.log('User found in profiles table');
+                }
+              } catch (error) {
+                console.log('User not found in profiles table either');
+              }
+            }
+          
+          // If not in verified_profiles, check profiles table
+          if (!userProfile) {
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.uid)
+                .single();
+              
+              if (profileData && !error) {
+                userProfile = profileData;
+                console.log('User found in profiles table');
+              }
+            } catch (error) {
+              console.log('User not found in profiles table either');
+            }
+          }
+          
+          // If user is not found in either table, they shouldn't have access
+          if (!userProfile) {
+            console.error('User not found in any profile table');
+            window.location.href = '/login';
+            return;
+          }
+          
+          // Check if this is the first user to join (moderator)
+          // Only users from verified_profiles table can be moderators
+          // The first user who creates the stream becomes the moderator
+          const isFromVerifiedProfiles = userProfile && 'subscription_plan' in userProfile;
+          const moderatorStatus = isStreamer && isFromVerifiedProfiles;
+          setIsModerator(moderatorStatus);
+          
+          console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
+          console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
+          
+          // Always try to get JWT token for authenticated users
+          try {
+            console.log('Generating JWT token for room:', roomName);
+            const jwtAuthService = await import('../services/jwtAuthService');
+            jwtToken = await jwtAuthService.default.generateJitsiToken(
+              {
+                uid: user.uid,
+                email: user.email || '',
+                displayName: user.displayName || 'BibleNOW User'
+              },
+              roomName,
+              moderatorStatus
+            );
+            console.log('JWT token generated successfully:', jwtToken ? 'YES' : 'NO');
+          } catch (e) {
+            console.error('Failed to generate JWT token:', e);
+            // If JWT token generation fails, redirect to login
+            window.location.href = '/login';
+            return;
           }
         } catch (error) {
           console.error('Error checking user verification status:', error);
+          // If user verification fails, redirect to login
+          window.location.href = '/login';
+          return;
         }
+      } else {
+        // No user authenticated, redirect to login
+        console.log('No authenticated user found, redirecting to login');
+        window.location.href = '/login';
+        return;
       }
 
-      // Get user avatar for both authenticated and anonymous users
-      let userAvatar: string | undefined = undefined;
-      if (user) {
-        try {
-          const profileResult = await jwtAuthService.getUserProfile(user.uid);
-          if (profileResult.success) {
-            userAvatar = profileResult.profile?.avatar_url || (profileResult.profile as any)?.profile_photo_url || undefined;
-          }
-        } catch (error) {
-          console.error('Error fetching user avatar:', error);
-        }
-      }
-
-      // Room name already includes the full JAAS App ID prefix from GoLiveModal
-      const options: any = {
-        roomName: formattedRoomName,
+      const options = {
+        roomName: roomName,
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
         userInfo: {
-          displayName: user?.displayName || "BibleNOW Studio User",
-          email: user?.email || "user@biblenowstudio.com",
-          avatar: userAvatar
+          displayName: user?.displayName || "BibleNOW User",
+          email: user?.email || "user@biblenowstudio.com"
         },
-        ...(jwtToken && { jwt: jwtToken }),
+        jwt: jwtToken, // JWT token is required for all users
         configOverwrite: {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
           prejoinConfig: { enabled: false },
-          disableModeratorIndicator: false,
-          startAudioOnly: false,
+          prejoinPageEnabled: false,
+          // Require authentication for all users
+          authenticationRequired: true,
+          passwordRequired: false,
           guestDialOutEnabled: false,
-          guestDialOutUrl: "",
           enableClosePage: false,
-          disableNotifications: true,
-          disableReactions: true,
-          disableSelfView: true,
-          disableFilmstrip: true,
-          disableInviteFunctions: true,
+          // Disable moderator indicators for cleaner interface
+          disableModeratorIndicator: false,
+          startAudioOnly: false
         },
         interfaceConfigOverwrite: {
+          // Show pre-join page for authentication
+          SHOW_PREJOIN_PAGE: true,
+          SHOW_WELCOME_PAGE: false,
+          // Enable chat functionality
+          DISABLE_CHAT: false,
+          HIDE_CHAT_BUTTON: false,
+          // Hide Jitsi branding
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          SHOW_WELCOME_PAGE: false,
-          TOOLBAR_BUTTONS: [],
-          brandLabel: 'BibleNOW'
+          // Custom branding
+          APP_NAME: 'BibleNOW Studio',
+          NATIVE_APP_NAME: 'BibleNOW Studio',
+          PROVIDER_NAME: 'BibleNOW Studio',
+          PRIMARY_COLOR: '#D97706',
+          BRAND_COLOR: '#D97706',
+          // Interface settings
+          TOOLBAR_ALWAYS_VISIBLE: true
         }
       };
 
-      console.log('Initializing Jitsi with options:', {
-        roomName: options.roomName,
-        appId: options.appId,
-        hasJWT: !!jwtToken,
-        isModerator,
-        userAvatar: !!userAvatar
-      });
-      
       try {
+        // Use custom Jitsi server
+        console.log('Initializing Jitsi Meet with options:', {
+          roomName: options.roomName,
+          jwt: options.jwt ? 'PRESENT' : 'MISSING',
+          domain: jitsiConfig.domain,
+          userInfo: options.userInfo
+        });
+        console.log('Jitsi domain:', jitsiConfig.domain);
         apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
-        hasInitializedRef.current = true;
+        console.log('Jitsi instance created:', apiRef.current);
         
+        // Set ready immediately after instance creation
+        console.log('Setting Jitsi ready immediately after instance creation');
+        setIsJitsiReady(true);
+
+        // Ensure iframe has required permissions
+        console.log('Looking for Jitsi iframe...');
+        const iframe = containerRef.current?.querySelector('iframe');
+        console.log('Found iframe:', iframe);
+        
+        if (iframe) {
+          console.log('Setting iframe permissions and onload handler');
+          iframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen');
+          
+          // Set ready when iframe loads
+          iframe.onload = () => {
+            console.log('Jitsi iframe loaded - setting ready');
+            setIsJitsiReady(true);
+          };
+        } else {
+          console.log('No iframe found, will check again in 1 second');
+          // Check again after a delay
+          setTimeout(() => {
+            const delayedIframe = containerRef.current?.querySelector('iframe');
+            console.log('Delayed iframe check:', delayedIframe);
+            if (delayedIframe) {
+              delayedIframe.onload = () => {
+                console.log('Delayed Jitsi iframe loaded - setting ready');
+                setIsJitsiReady(true);
+              };
+            }
+          }, 1000);
+        }
+        
+        // Set up event listeners
         apiRef.current.on('readyToClose', () => {
           console.log('Jitsi readyToClose event');
-          handleStreamEnd('readyToClose');
+          handleStreamEnd();
+        });
+
+        // API ready event
+        apiRef.current.on('apiReady', () => {
+          console.log('Jitsi API is ready');
+          setIsJitsiReady(true);
         });
 
         apiRef.current.on('videoConferenceJoined', () => {
           console.log('User joined video conference');
-          analyticsService.trackViewerJoin(formattedRoomName, user?.uid || 'anonymous', streamData.hostId || 'unknown');
-          // Ensure display name and avatar are applied to the preview tile
-          try {
-            if (streamData.hostName) {
-              apiRef.current.executeCommand('displayName', streamData.hostName);
-            }
-            if (user?.email) {
-              apiRef.current.executeCommand('email', user.email);
-            }
-            if (typeof userAvatar === 'string' && userAvatar.length > 0) {
-              // Not officially documented everywhere but supported on many builds
-              apiRef.current.executeCommand('avatarUrl', userAvatar);
-              setAppliedJitsiAvatar(!!userAvatar);
-            }
-          } catch (e) {
-            console.warn('Optional avatarUrl command not supported on this Jitsi build');
-            setAppliedJitsiAvatar(false);
-          }
+          setIsJitsiReady(true);
         });
 
-        // Sync local state with Jitsi events
-        apiRef.current.on('audioMuteStatusChanged', (event: any) => {
-          setIsAudioMuted(!!event?.muted);
+        // Additional events to track when Jitsi is ready
+        apiRef.current.on('participantJoined', () => {
+          console.log('Participant joined - Jitsi should be ready');
+          setIsJitsiReady(true);
         });
-        apiRef.current.on('videoMuteStatusChanged', (event: any) => {
-          setIsVideoMuted(!!event?.muted);
+
+        apiRef.current.on('participantLeft', () => {
+          console.log('Participant left');
         });
+
+        // Fallback: Set ready after a delay if no events fire
+        setTimeout(() => {
+          if (!isJitsiReady) {
+            console.log('Fallback: Setting Jitsi ready after timeout');
+            setIsJitsiReady(true);
+          }
+        }, 5000);
+
+        // Minimal listeners per docs (no forced permission handling)
+
+        apiRef.current.on('videoConferenceLeft', () => {
+          console.log('User left video conference');
+          setIsJitsiReady(false);
+          handleStreamEnd();
+        });
+
+
+
         apiRef.current.on('screenSharingStatusChanged', (event: any) => {
           setIsScreenSharing(!!event?.on);
         });
 
-        apiRef.current.on('videoConferenceLeft', () => {
-          console.log('User left video conference');
-          handleStreamEnd('videoConferenceLeft');
+        // Track media stream events
+        apiRef.current.on('audioMuteStatusChanged', (event: any) => {
+          console.log('Audio mute status changed:', event);
+          setIsAudioMuted(!!event?.muted);
         });
 
+        apiRef.current.on('videoMuteStatusChanged', (event: any) => {
+          console.log('Video mute status changed:', event);
+          setIsVideoMuted(!!event?.muted);
+        });
+
+        // Track when media streams are actually started
+        apiRef.current.on('mediaSessionStarted', () => {
+          console.log('Media session started - camera and mic should be working');
+        });
+
+        apiRef.current.on('mediaSessionStopped', () => {
+          console.log('Media session stopped');
+        });
+
+        // Handle media permission events
+        apiRef.current.on('mediaPermissionRequested', () => {
+          console.log('Media permission requested');
+        });
+
+        apiRef.current.on('mediaPermissionGranted', () => {
+          console.log('Media permission granted');
+        });
+
+        apiRef.current.on('mediaPermissionDenied', () => {
+          console.log('Media permission denied');
+        });
+
+        // Handle media session events
+        apiRef.current.on('mediaSessionStarted', () => {
+          console.log('Media session started - camera and mic should be working');
+        });
+
+        apiRef.current.on('mediaSessionStopped', () => {
+          console.log('Media session stopped');
+        });
+
+        // Handle device events
+        apiRef.current.on('deviceListChanged', (devices: any) => {
+          console.log('Device list changed:', devices);
+        });
+
+        apiRef.current.on('audioDeviceChanged', (device: any) => {
+          console.log('Audio device changed:', device);
+        });
+
+        apiRef.current.on('videoDeviceChanged', (device: any) => {
+          console.log('Video device changed:', device);
+        });
+
+
+
+        // Handle connection events
+        apiRef.current.on('connectionEstablished', () => {
+          console.log('Connection established');
+        });
+
+        apiRef.current.on('connectionInterrupted', () => {
+          console.log('Connection interrupted');
+        });
+
+        apiRef.current.on('connectionRestored', () => {
+          console.log('Connection restored');
+        });
+
+        // Handle participant events
         apiRef.current.on('participantJoined', (participant: any) => {
           console.log('Participant joined:', participant);
+          setParticipants(prev => [...prev, participant]);
         });
 
         apiRef.current.on('participantLeft', (participant: any) => {
           console.log('Participant left:', participant);
+          setParticipants(prev => prev.filter(p => p.id !== participant.id));
+          // Remove from moderators if they leave
+          setModerators(prev => prev.filter(id => id !== participant.id));
+        });
+
+        // Handle moderator events
+        apiRef.current.on('moderatorChanged', (event: any) => {
+          console.log('Moderator changed:', event);
+          if (event.id && event.moderator) {
+            setModerators(prev => [...prev, event.id]);
+          } else if (event.id) {
+            setModerators(prev => prev.filter(id => id !== event.id));
+          }
         });
 
         console.log('Jitsi Meet initialized successfully');
@@ -440,8 +627,7 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
 
     // Only initialize if user is logged in
     if (user) {
-      if (hasInitializedRef.current) return;
-    initializeJitsi();
+      initializeJitsi();
     }
 
     return () => {
@@ -453,11 +639,9 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         }
         apiRef.current = null;
       }
-      hasInitializedRef.current = false;
-      setAppliedJitsiAvatar(false);
     };
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-  
+  }, [user, roomName, handleStreamEnd]);
+
   // Don't render anything if user is not logged in
   if (!user) {
     return (
@@ -471,19 +655,22 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
     );
   }
 
+
+
+
+
   // Handle sending a new message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMessage.trim()) return;
 
-    console.log('Sending message to room:', formattedRoomName, 'Message:', newMessage);
+    console.log('Sending message to room:', roomName, 'Message:', newMessage);
     setIsLoading(true);
     setError(null);
 
     try {
-      // Allow all users to chat, not just verified users
-      await supabaseChatService.sendMessage(formattedRoomName, newMessage, false, streamData.hostAvatar || undefined);
+      await supabaseChatService.sendMessage(roomName, newMessage, false, streamData.hostAvatar || undefined);
       console.log('Message sent successfully');
       setNewMessage('');
     } catch (err) {
@@ -496,20 +683,74 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
 
   // Custom toolbar control handlers
   const handleToggleAudio = () => {
-    try { apiRef.current?.executeCommand('toggleAudio'); } catch {}
-    setIsAudioMuted(prev => !prev);
+    if (!isJitsiReady) {
+      console.log('Jitsi not ready yet, waiting...');
+      return;
+    }
+    
+    try { 
+      if (apiRef.current && apiRef.current.executeCommand) {
+        console.log('Executing toggleAudio command');
+        apiRef.current.executeCommand('toggleAudio'); 
+      } else {
+        console.error('Jitsi API not ready for toggleAudio');
+      }
+    } catch (error) {
+      console.error('Error toggling audio:', error);
+    }
   };
+
   const handleToggleVideo = () => {
-    try { apiRef.current?.executeCommand('toggleVideo'); } catch {}
-    setIsVideoMuted(prev => !prev);
+    if (!isJitsiReady) {
+      console.log('Jitsi not ready yet, waiting...');
+      return;
+    }
+    
+    try { 
+      if (apiRef.current && apiRef.current.executeCommand) {
+        console.log('Executing toggleVideo command');
+        apiRef.current.executeCommand('toggleVideo'); 
+      } else {
+        console.error('Jitsi API not ready for toggleVideo');
+      }
+    } catch (error) {
+      console.error('Error toggling video:', error);
+    }
   };
+
   const handleToggleShare = () => {
-    try { apiRef.current?.executeCommand('toggleShareScreen'); } catch {}
-    setIsScreenSharing(prev => !prev);
+    if (!isJitsiReady) {
+      console.log('Jitsi not ready yet, waiting...');
+      return;
+    }
+    
+    try { 
+      if (apiRef.current && apiRef.current.executeCommand) {
+        apiRef.current.executeCommand('toggleShareScreen'); 
+      } else {
+        console.error('Jitsi API not ready for toggleShare');
+      }
+    } catch (error) {
+      console.error('Error toggling screen share:', error);
+    }
   };
+
   const handleHangup = () => {
-    try { apiRef.current?.executeCommand('hangup'); } catch {}
-    handleStreamEnd('hangup');
+    if (!isJitsiReady) {
+      console.log('Jitsi not ready yet, waiting...');
+      return;
+    }
+    
+    try { 
+      if (apiRef.current && apiRef.current.executeCommand) {
+        apiRef.current.executeCommand('hangup'); 
+      } else {
+        console.error('Jitsi API not ready for hangup');
+      }
+    } catch (error) {
+      console.error('Error hanging up:', error);
+    }
+    handleStreamEnd();
   };
 
   // Format viewer count
@@ -558,7 +799,9 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         {/* Video Stream */}
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Top-left Branding Overlay to cover Jitsi watermark */}
+
+
+        {/* Top-left Branding Overlay */}
         <div className="absolute top-3 left-3 z-50 pointer-events-none">
           <div className="bg-black/40 rounded-md p-1">
             <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
@@ -568,21 +811,6 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
         {/* Gift Burst Overlay */}
         {giftOverlay && (
           <GiftBurst amount={giftOverlay.amount} senderName={giftOverlay.sender} onDone={() => setGiftOverlay(null)} />
-        )}
-
-        {/* Centered Avatar Overlay when video is muted */}
-        {isVideoMuted && streamData.hostAvatar && !appliedJitsiAvatar && (
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <img
-              src={streamData.hostAvatar}
-              alt={streamData.hostName}
-              className="rounded-full object-cover shadow-xl w-[22vw] h-[22vw] max-w-64 max-h-64 min-w-24 min-h-24"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-            />
-          </div>
         )}
         
         {/* Stream Info Overlay */}
@@ -598,7 +826,6 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                       alt={streamData.hostName}
                       className="w-10 h-10 rounded-full object-cover"
                       onError={(e) => {
-                        // Fallback to initial if image fails to load
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
                         const parent = target.parentElement;
@@ -630,22 +857,38 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                 </div>
               </div>
 
-              {/* Custom Controls (Jitsi toolbar replacement) */}
+              {/* Custom Controls */}
               <div className="flex items-center space-x-3">
-                <button onClick={handleToggleAudio} title={isAudioMuted ? 'Unmute' : 'Mute'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                <button 
+                  onClick={handleToggleAudio} 
+                  title={isAudioMuted ? 'Unmute' : 'Mute'} 
+                  className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all"
+                >
                   {isAudioMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                 </button>
-                <button onClick={handleToggleVideo} title={isVideoMuted ? 'Start camera' : 'Stop camera'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                <button 
+                  onClick={handleToggleVideo} 
+                  title={isVideoMuted ? 'Start camera' : 'Stop camera'} 
+                  className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all"
+                >
                   {isVideoMuted ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
                 </button>
-                <button onClick={handleToggleShare} title={isScreenSharing ? 'Stop sharing' : 'Share screen'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                <button 
+                  onClick={handleToggleShare} 
+                  title={isScreenSharing ? 'Stop sharing' : 'Share screen'} 
+                  className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all"
+                >
                   <ScreenShare className="w-6 h-6" />
                 </button>
                 <button onClick={() => setShowChat(!showChat)} title={showChat ? 'Hide chat' : 'Show chat'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
                   <MessageCircle className="w-6 h-6" />
                 </button>
                 {isStreamer && (
-                  <button onClick={handleHangup} title="End stream" className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all">
+                  <button 
+                    onClick={handleHangup} 
+                    title="End stream" 
+                    className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all"
+                  >
                     <PhoneOff className="w-6 h-6" />
                   </button>
                 )}
@@ -668,11 +911,9 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
             </div>
           </div>
         </div>
-        
+
         {/* Overlay Controls */}
         <div className="absolute top-4 right-4 flex space-x-2">
-          {/* Controls moved into brown bar; keep area reserved for layout alignment */}
-          
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
@@ -681,15 +922,37 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
           >
             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
-          
-          {/* End Stream Button (for streamers) */}
-          {/* End button moved to brown bar */}
         </div>
       </div>
 
       {/* Chat Panel */}
       {showChat && (
         <div className="w-80 border-l border-gray-700 flex flex-col h-full">
+          {/* Moderator Management Panel */}
+          {isModerator && (
+            <div className="p-4 border-b border-yellow-500 bg-gray-800">
+              <h3 className="text-white font-semibold mb-2">Moderator Panel</h3>
+              <div className="space-y-2">
+                <p className="text-gray-300 text-sm">Participants:</p>
+                {participants.map((participant) => (
+                  <div key={participant.id} className="flex items-center justify-between bg-gray-700 p-2 rounded">
+                    <span className="text-white text-sm">{participant.displayName || 'Unknown'}</span>
+                    {!moderators.includes(participant.id) && (
+                      <button
+                        onClick={() => appointModerator(participant.id)}
+                        className="px-2 py-1 bg-yellow-500 text-black text-xs rounded hover:bg-yellow-600"
+                      >
+                        Make Moderator
+                      </button>
+                    )}
+                    {moderators.includes(participant.id) && (
+                      <span className="text-yellow-400 text-xs">Moderator</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Chat Header */}
           <div className="p-4 border-b border-yellow-500 bg-gray-800">
             <h3 className="text-white font-semibold">Live Chat</h3>
@@ -718,7 +981,6 @@ const LiveStream: React.FC<Props> = ({ roomName, isStreamer = false }) => {
                           alt={message.userName}
                           className="w-8 h-8 rounded-full object-cover"
                           onError={(e) => {
-                            // Fallback to initial if image fails to load
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
                             const parent = target.parentElement;

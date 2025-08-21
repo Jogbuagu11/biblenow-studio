@@ -298,6 +298,43 @@ export class JWTAuthService {
       // Don't throw error as this is not critical
     }
   }
+
+  /**
+   * Generate JWT token for Jitsi authentication
+   */
+  public async generateJitsiToken(user: {
+    uid: string;
+    email: string;
+    displayName: string;
+  }, roomName: string, isModerator: boolean = false): Promise<string | null> {
+    try {
+      // Get JWT token from server endpoint
+      const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+      const resp = await fetch(`${apiBase}/jitsi/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomTitle: roomName,
+          isModerator,
+          displayName: user.displayName,
+          email: user.email
+        })
+      });
+      
+      const json = await resp.json();
+      if (json?.token) {
+        return json.token;
+      }
+      
+      console.error('Failed to get JWT token from server:', json);
+      return null;
+    } catch (error) {
+      console.error('Error generating Jitsi JWT token:', error);
+      return null;
+    }
+  }
 }
 
-export default JWTAuthService.getInstance(); 
+const jwtAuthService = JWTAuthService.getInstance();
+
+export default jwtAuthService; 

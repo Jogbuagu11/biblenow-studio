@@ -50,6 +50,7 @@ function App() {
           <Route path="/streams" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Streams /></div></ProtectedRoute>} />
           <Route path="/go-live" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><GoLive /></div></ProtectedRoute>} />
           <Route path="/live-stream" element={<ProtectedRoute><LiveStreamPage /></ProtectedRoute>} />
+          <Route path="/livestream" element={<ProtectedRoute><LiveStreamPage /></ProtectedRoute>} />
           <Route path="/viewers" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Viewers /></div></ProtectedRoute>} />
           <Route path="/shekelz" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Shekelz /></div></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><div className="min-h-screen bg-offWhite-50 dark:bg-chocolate-900 transition-colors duration-200"><Payments /></div></ProtectedRoute>} />

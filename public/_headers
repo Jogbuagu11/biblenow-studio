@@ -1,10 +1,10 @@
 # Security Headers
 /*
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(self "https://stream.biblenow.io"), microphone=(self "https://stream.biblenow.io"), display-capture=(self "https://stream.biblenow.io"), geolocation=()
 
 # CORS Headers for manifest.json
 /manifest.json

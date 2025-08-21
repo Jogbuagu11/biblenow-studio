@@ -9,9 +9,8 @@
       name="description"
       content="Web site created using create-react-app"
     />
-    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
-    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
     <link rel="apple-touch-icon" href="/logo192.png" />
+    <meta http-equiv="Permissions-Policy" content="camera=(self https://stream.biblenow.io), microphone=(self https://stream.biblenow.io), display-capture=(self https://stream.biblenow.io)" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -27,6 +26,7 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>BibleNOW Studio</title>
+    <!-- Jitsi External API - Standard approach -->
     <script src="https://stream.biblenow.io/external_api.js"></script>
     
     <!-- Google Analytics -->

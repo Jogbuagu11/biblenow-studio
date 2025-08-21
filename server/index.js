@@ -48,6 +48,7 @@ app.use(cors({
     'https://biblenow.io',
     'https://stream.biblenow.io',
     'https://live.biblenow.io',
+    'https://your-hetzner-jitsi-domain.com',
     'http://localhost:3000'
   ],
   credentials: true,
@@ -757,25 +758,21 @@ app.post('/api/jitsi/token', async (req, res) => {
       return res.status(500).json({ error: 'Server JWT secret not configured' });
     }
 
-    // Simple slug enforcement (must match client)
-    const raw = String(roomTitle);
-    const lastSegment = raw.includes('/') ? raw.split('/').filter(Boolean).pop() : raw;
-    const noPrefix = lastSegment.replace(/^vpaas-magic-cookie-[a-z0-9]+-?/i, '');
-    const room = noPrefix
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    // Ensure room name format is consistent
+    const room = String(roomTitle).toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       aud: APP_ID,
       iss: APP_ID,
-      sub: SUBJECT,
+      sub: APP_ID, // Use APP_ID as subject to match accepted issuers
       room,
       nbf: now - 5,
       exp: now + 3600,
+      iat: now,
       context: {
         user: {
+          id: email,
           name: displayName || 'BibleNOW Viewer',
           email: email || undefined,
           avatar: avatar || undefined,

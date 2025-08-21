@@ -190,16 +190,14 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // Self-hosted Jitsi: use plain room name (no JAAS appId prefix)
+      // Simple room name for Jitsi
       const cleanRoomName = formData.title
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '') || 'bible_study';
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'bible-study';
       
-      // Prefix with platform to produce URLs like https://stream.biblenow.io/prayer-t12
-      const platformPrefix = (formData.platform || 'livestream').toLowerCase();
-      const jitsiRoomName = `${platformPrefix}-${cleanRoomName.replace(/_/g, '-')}`;
+      const jitsiRoomName = cleanRoomName;
       
       const streamData = {
         title: formData.title,
@@ -227,7 +225,7 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
       onOpenChange(false);
       
       // Navigate to the stream URL
-      const streamUrl = `https://stream.biblenow.io/${encodeURIComponent(newStream.room_name || '')}#config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.disableInviteFunctions=true&interfaceConfig.SHOW_WELCOME_PAGE=false`;
+      const streamUrl = `/live-stream?room=${encodeURIComponent(newStream.room_name || '')}&title=${encodeURIComponent(formData.title)}`;
       window.location.href = streamUrl;
       
     } catch (error) {
