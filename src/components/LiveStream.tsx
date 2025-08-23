@@ -367,7 +367,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           const isFromVerifiedProfiles = userProfile && 'subscription_plan' in userProfile;
           const moderatorStatus = isStreamer && isFromVerifiedProfiles;
           setIsModerator(moderatorStatus);
-          isModerator = moderatorStatus; // Use the local variable
           
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
