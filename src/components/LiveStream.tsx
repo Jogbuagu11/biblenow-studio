@@ -739,7 +739,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current = null;
       }
     };
-  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer]);
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator]);
 
   // Don't render anything if user is not logged in
   if (!user) {
