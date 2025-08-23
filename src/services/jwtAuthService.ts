@@ -310,6 +310,8 @@ export class JWTAuthService {
     try {
       // Get JWT token from server endpoint
       const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+      console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
+      
       const resp = await fetch(`${apiBase}/jitsi/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -321,12 +323,20 @@ export class JWTAuthService {
         })
       });
       
+      if (!resp.ok) {
+        console.error('Server responded with status:', resp.status);
+        const errorText = await resp.text();
+        console.error('Server error response:', errorText);
+        return null;
+      }
+      
       const json = await resp.json();
       if (json?.token) {
+        console.log('JWT token received successfully from server');
         return json.token;
       }
       
-      console.error('Failed to get JWT token from server:', json);
+      console.error('Failed to get JWT token from server response:', json);
       return null;
     } catch (error) {
       console.error('Error generating Jitsi JWT token:', error);

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Send, MessageCircle, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff } from 'lucide-react';
+import { Send, MessageCircle, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Users } from 'lucide-react';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
@@ -37,6 +37,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   const [moderators, setModerators] = useState<string[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [isModerator, setIsModerator] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
   
   // Jitsi refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,6 +67,12 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [giftOverlay, setGiftOverlay] = useState<null | { amount: number; sender?: string }>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    roomName: string;
+    jwtToken: string | null;
+    domain: string;
+    userInfo: any;
+  } | null>(null);
 
   // Scroll to bottom of chat
   const scrollToBottom = useCallback(() => {
@@ -93,14 +100,29 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     }
   }, [user, isEnding]);
 
-  // Appoint moderator function
+  // Appoint moderator function (only for streamer/host)
   const appointModerator = useCallback((participantId: string) => {
-    if (apiRef.current && isModerator) {
+    // Only the streamer/host can appoint moderators, not other moderators
+    if (apiRef.current && isStreamer) {
       try {
         apiRef.current.executeCommand('setModerator', participantId);
         console.log('Appointed moderator:', participantId);
       } catch (error) {
         console.error('Error appointing moderator:', error);
+      }
+    } else {
+      console.warn('Only the streamer can appoint moderators');
+    }
+  }, [isStreamer]);
+
+  // Kick participant function
+  const kickParticipant = useCallback((participantId: string) => {
+    if (apiRef.current && isModerator) {
+      try {
+        apiRef.current.executeCommand('kickParticipant', participantId);
+        console.log('Kicked participant:', participantId);
+      } catch (error) {
+        console.error('Error kicking participant:', error);
       }
     }
   }, [isModerator]);
@@ -278,7 +300,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
 
       // Get JWT token for custom Jitsi server - required for all users
-      let jwtToken = null;
+      let jwtToken: string | null = null;
       let isModerator = false;
       
       if (user) {
@@ -334,11 +356,9 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
             }
           }
           
-          // If user is not found in either table, they shouldn't have access
+          // If user is not found in either table, continue anyway
           if (!userProfile) {
-            console.error('User not found in any profile table');
-            window.location.href = '/login';
-            return;
+            console.warn('User not found in any profile table, continuing as guest');
           }
           
           // Check if this is the first user to join (moderator)
@@ -351,37 +371,67 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
           
-          // Always try to get JWT token for authenticated users
-          try {
-            console.log('Generating JWT token for room:', roomName);
-            const jwtAuthService = await import('../services/jwtAuthService');
-            jwtToken = await jwtAuthService.default.generateJitsiToken(
-              {
-                uid: user.uid,
-                email: user.email || '',
-                displayName: user.displayName || 'BibleNOW User'
-              },
-              roomName,
-              moderatorStatus
-            );
-            console.log('JWT token generated successfully:', jwtToken ? 'YES' : 'NO');
-          } catch (e) {
-            console.error('Failed to generate JWT token:', e);
-            // If JWT token generation fails, redirect to login
-            window.location.href = '/login';
+          // Generate JWT token for authenticated users (required)
+          if (user?.email) {
+            try {
+              console.log('Generating JWT token for room:', roomName, 'moderator:', moderatorStatus);
+              const jwtAuthService = await import('../services/jwtAuthService');
+              jwtToken = await jwtAuthService.default.generateJitsiToken(
+                {
+                  uid: user.uid,
+                  email: user.email,
+                  displayName: user.displayName || 'BibleNOW User'
+                },
+                roomName,
+                moderatorStatus
+              );
+              
+              if (jwtToken) {
+                console.log('✅ JWT token generated successfully');
+                console.log('Token length:', jwtToken.length, 'characters');
+              } else {
+                console.error('❌ JWT token generation failed - authentication required');
+                setError('Authentication failed. Please try logging in again.');
+                // Redirect to login after a delay
+                setTimeout(() => {
+                  window.location.href = '/login';
+                }, 3000);
+                return;
+              }
+            } catch (e) {
+              console.error('❌ JWT token generation error:', e instanceof Error ? e.message : String(e));
+              setError('Authentication error. Please try logging in again.');
+              // Redirect to login after a delay
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 3000);
+              return;
+            }
+          } else {
+            console.error('No user email available - authentication required');
+            setError('Authentication required. Please log in to join the livestream.');
+            // Redirect to login after a delay
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 3000);
             return;
+          }
+          
+          // Log the final JWT token status
+          console.log('Final JWT token status:', jwtToken ? 'AVAILABLE' : 'NOT AVAILABLE');
+          
+          // Ensure JWT token is properly set
+          if (!jwtToken) {
+            console.log('No JWT token available, proceeding without authentication');
           }
         } catch (error) {
           console.error('Error checking user verification status:', error);
-          // If user verification fails, redirect to login
-          window.location.href = '/login';
-          return;
+          // Continue without user verification
+          console.warn('Continuing without user verification...');
         }
       } else {
-        // No user authenticated, redirect to login
-        console.log('No authenticated user found, redirecting to login');
-        window.location.href = '/login';
-        return;
+        // No user authenticated, continue as anonymous
+        console.log('No authenticated user found, continuing as anonymous');
       }
 
       const options = {
@@ -389,60 +439,62 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
+        jwt: jwtToken, // JWT token is required for authentication
         userInfo: {
           displayName: user?.displayName || "BibleNOW User",
           email: user?.email || "user@biblenowstudio.com"
         },
-        jwt: jwtToken, // JWT token is required for all users
         configOverwrite: {
           startWithAudioMuted: false,
           startWithVideoMuted: false,
           prejoinConfig: { enabled: false },
           prejoinPageEnabled: false,
-          // Require authentication for all users
-          authenticationRequired: true,
+          authenticationRequired: true, // Always require authentication
           passwordRequired: false,
           guestDialOutEnabled: false,
           enableClosePage: false,
-          // Disable moderator indicators for cleaner interface
           disableModeratorIndicator: false,
-          startAudioOnly: false
+          startAudioOnly: false,
+          requireDisplayName: false,
+          enableWelcomePage: false
         },
         interfaceConfigOverwrite: {
-          // Show pre-join page for authentication
-          SHOW_PREJOIN_PAGE: true,
+          SHOW_PREJOIN_PAGE: false,
           SHOW_WELCOME_PAGE: false,
-          // Enable chat functionality
           DISABLE_CHAT: false,
           HIDE_CHAT_BUTTON: false,
-          // Hide Jitsi branding
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          // Custom branding
+          SHOW_CLOSE_PAGE: false,
           APP_NAME: 'BibleNOW Studio',
           NATIVE_APP_NAME: 'BibleNOW Studio',
           PROVIDER_NAME: 'BibleNOW Studio',
           PRIMARY_COLOR: '#D97706',
           BRAND_COLOR: '#D97706',
-          // Interface settings
           TOOLBAR_ALWAYS_VISIBLE: true
         }
       };
 
       try {
-        // Use custom Jitsi server
-        console.log('Initializing Jitsi Meet with options:', {
-          roomName: options.roomName,
-          jwt: options.jwt ? 'PRESENT' : 'MISSING',
-          domain: jitsiConfig.domain,
-          userInfo: options.userInfo
-        });
-        console.log('Jitsi domain:', jitsiConfig.domain);
-        apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
-        console.log('Jitsi instance created:', apiRef.current);
+        // Log Jitsi initialization details
+        console.log('🚀 Initializing Jitsi Meet with configuration:');
+        console.log('   Domain:', jitsiConfig.domain);
+        console.log('   Room:', options.roomName);
+        console.log('   JWT Token:', options.jwt ? '✅ Present' : '❌ Missing');
+        console.log('   Authentication Required:', options.configOverwrite.authenticationRequired);
+        console.log('   User:', options.userInfo.displayName, `(${options.userInfo.email})`);
+        console.log('   Moderator Status:', isModerator);
+        try {
+          // Create Jitsi instance with domain and options, similar to working example
+          apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
+          console.log('Jitsi instance created successfully with domain:', jitsiConfig.domain);
+        } catch (error) {
+          console.error('Error initializing Jitsi Meet:', error);
+          return;
+        }
         
         // Set ready immediately after instance creation
         console.log('Setting Jitsi ready immediately after instance creation');
@@ -492,6 +544,55 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current.on('videoConferenceJoined', () => {
           console.log('User joined video conference');
           setIsJitsiReady(true);
+        });
+
+        // Add error handling for connection failures
+        apiRef.current.on('conferenceFailed', (event: any) => {
+          console.error('Jitsi conference failed:', event);
+          console.error('Error details:', {
+            error: event.error,
+            message: event.message,
+            room: roomName,
+            jwtPresent: !!jwtToken
+          });
+          
+          // Capture debug info for troubleshooting
+          setDebugInfo({
+            roomName,
+            jwtToken,
+            domain: jitsiConfig.domain,
+            userInfo: {
+              displayName: user?.displayName,
+              email: user?.email,
+              isModerator
+            }
+          });
+          
+          // Check for specific authentication errors
+          if (event.error === 'conference.authentication.failed' || 
+              event.message?.includes('authentication') ||
+              event.message?.includes('not allowed')) {
+            setError('Authentication failed. Please log in again to join the livestream.');
+            // Redirect to login after a delay
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 3000);
+          } else {
+            // Show user-friendly error message for other errors
+            setError(`Connection failed: ${event.error || 'Unknown error'}. Please try refreshing the page.`);
+          }
+        });
+
+        apiRef.current.on('connectionEstablished', () => {
+          console.log('Jitsi connection established successfully');
+        });
+
+        apiRef.current.on('connectionInterrupted', () => {
+          console.log('Jitsi connection interrupted');
+        });
+
+        apiRef.current.on('connectionRestored', () => {
+          console.log('Jitsi connection restored');
         });
 
         // Additional events to track when Jitsi is ready
@@ -803,7 +904,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
 
         {/* Top-left Branding Overlay */}
         <div className="absolute top-3 left-3 z-50 pointer-events-none">
-          <div className="bg-black/40 rounded-md p-1">
+          <div className="bg-black rounded-md p-2 shadow-lg">
             <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
           </div>
         </div>
@@ -815,7 +916,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         
         {/* Stream Info Overlay */}
         <div className="absolute left-0 right-0 bottom-0 z-10">
-          <div className="bg-amber-950 bg-opacity-95 p-4 border-t border-amber-800 pointer-events-auto">
+          <div className="bg-amber-950 p-4 border-t border-amber-800 pointer-events-auto shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {/* Host Avatar */}
@@ -883,6 +984,9 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 <button onClick={() => setShowChat(!showChat)} title={showChat ? 'Hide chat' : 'Show chat'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
                   <MessageCircle className="w-6 h-6" />
                 </button>
+                <button onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? 'Hide participants' : 'Show participants'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
+                  <Users className="w-6 h-6" />
+                </button>
                 {isStreamer && (
                   <button 
                     onClick={handleHangup} 
@@ -928,31 +1032,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       {/* Chat Panel */}
       {showChat && (
         <div className="w-80 border-l border-gray-700 flex flex-col h-full">
-          {/* Moderator Management Panel */}
-          {isModerator && (
-            <div className="p-4 border-b border-yellow-500 bg-gray-800">
-              <h3 className="text-white font-semibold mb-2">Moderator Panel</h3>
-              <div className="space-y-2">
-                <p className="text-gray-300 text-sm">Participants:</p>
-                {participants.map((participant) => (
-                  <div key={participant.id} className="flex items-center justify-between bg-gray-700 p-2 rounded">
-                    <span className="text-white text-sm">{participant.displayName || 'Unknown'}</span>
-                    {!moderators.includes(participant.id) && (
-                      <button
-                        onClick={() => appointModerator(participant.id)}
-                        className="px-2 py-1 bg-yellow-500 text-black text-xs rounded hover:bg-yellow-600"
-                      >
-                        Make Moderator
-                      </button>
-                    )}
-                    {moderators.includes(participant.id) && (
-                      <span className="text-yellow-400 text-xs">Moderator</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          
           {/* Chat Header */}
           <div className="p-4 border-b border-yellow-500 bg-gray-800">
             <h3 className="text-white font-semibold">Live Chat</h3>
@@ -1031,6 +1111,27 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           {error && (
             <div className="px-4 py-2 bg-red-900 text-red-200 text-sm">
               {error}
+              
+              {/* Debug Information for Jitsi Issues */}
+              {debugInfo && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-yellow-300 hover:text-yellow-200">
+                    🔧 Debug Information (Click to expand)
+                  </summary>
+                  <div className="mt-2 p-2 bg-gray-800 rounded text-xs font-mono">
+                    <div><strong>Room Name:</strong> {debugInfo.roomName}</div>
+                    <div><strong>Domain:</strong> {debugInfo.domain}</div>
+                    <div><strong>JWT Token:</strong> {debugInfo.jwtToken ? 'Present' : 'Missing'}</div>
+                    <div><strong>User:</strong> {debugInfo.userInfo.displayName} ({debugInfo.userInfo.email})</div>
+                    <div><strong>Moderator:</strong> {debugInfo.userInfo.isModerator ? 'Yes' : 'No'}</div>
+                    {debugInfo.jwtToken && (
+                      <div className="mt-1">
+                        <strong>JWT Preview:</strong> {debugInfo.jwtToken.substring(0, 50)}...
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
             </div>
           )}
 
@@ -1053,6 +1154,101 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 <Send className="w-4 h-4" />
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Participants Panel */}
+      {showParticipants && (
+        <div className="w-80 border-l border-gray-700 flex flex-col h-full bg-gray-900">
+          
+          {/* Participants Header */}
+          <div className="p-4 border-b border-yellow-500 bg-gray-800">
+            <h3 className="text-white font-semibold">Participants ({participants.length + 1})</h3>
+          </div>
+
+          {/* Participants List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Host/Streamer */}
+            <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-blue-400 flex items-center justify-center overflow-hidden">
+                  {streamData.hostAvatar ? (
+                    <img 
+                      src={streamData.hostAvatar} 
+                      alt={streamData.hostName}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-semibold">
+                      {streamData.hostName.charAt(0)}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-white font-medium">{streamData.hostName}</span>
+                    <CheckCircle className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded">Host</span>
+                  </div>
+                  <span className="text-gray-400 text-sm">Streamer</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Other Participants */}
+            {participants.map((participant) => (
+              <div key={participant.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                    <span className="text-white font-semibold">
+                      {participant.displayName?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-white font-medium">
+                        {participant.displayName || 'Unknown User'}
+                      </span>
+                      {moderators.includes(participant.id) && (
+                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Moderator</span>
+                      )}
+                    </div>
+                    <span className="text-gray-400 text-sm">Viewer</span>
+                  </div>
+                </div>
+                
+                {/* Moderator Controls */}
+                {isModerator && participant.id !== user?.uid && (
+                  <div className="flex space-x-2">
+                    {/* Only streamer can appoint moderators */}
+                    {isStreamer && (
+                      <button
+                        onClick={() => appointModerator(participant.id)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        title="Make Moderator"
+                      >
+                        👑
+                      </button>
+                    )}
+                    {/* Moderators can kick participants */}
+                    <button
+                      onClick={() => kickParticipant(participant.id)}
+                      className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                      title="Kick Participant"
+                    >
+                      🚫
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {participants.length === 0 && (
+              <div className="text-center text-gray-400 py-8">
+                <p>No other participants yet.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

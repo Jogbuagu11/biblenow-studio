@@ -750,29 +750,32 @@ app.post('/api/jitsi/token', async (req, res) => {
       return res.status(400).json({ error: 'roomTitle is required' });
     }
 
+    // Use more specific configuration for Jitsi JWT
     const APP_ID = process.env.JITSI_JWT_APP_ID || 'biblenow';
     const SECRET = process.env.JITSI_JWT_SECRET;
     const SUBJECT = process.env.JITSI_SUBJECT || 'stream.biblenow.io';
+    const DOMAIN = process.env.JITSI_DOMAIN || 'stream.biblenow.io';
 
     if (!SECRET) {
+      console.error('JITSI_JWT_SECRET not configured');
       return res.status(500).json({ error: 'Server JWT secret not configured' });
     }
 
-    // Ensure room name format is consistent
+    // Ensure room name format is consistent and matches Jitsi requirements
     const room = String(roomTitle).toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       aud: APP_ID,
       iss: APP_ID,
-      sub: APP_ID, // Use APP_ID as subject to match accepted issuers
+      sub: DOMAIN, // Use domain as subject for better compatibility
       room,
       nbf: now - 5,
       exp: now + 3600,
       iat: now,
       context: {
         user: {
-          id: email,
+          id: email || 'anonymous',
           name: displayName || 'BibleNOW Viewer',
           email: email || undefined,
           avatar: avatar || undefined,
@@ -780,13 +783,23 @@ app.post('/api/jitsi/token', async (req, res) => {
         },
         features: {
           'screen-sharing': !!isModerator,
-          livestreaming: false,
+          livestreaming: !!isModerator,
           recording: false
         }
       }
     };
 
+    console.log('Generating JWT token with payload:', {
+      aud: payload.aud,
+      iss: payload.iss,
+      sub: payload.sub,
+      room: payload.room,
+      moderator: payload.context.user.moderator
+    });
+
     const token = jsonwebtoken.sign(payload, SECRET, { algorithm: 'HS256' });
+    
+    console.log('JWT token generated successfully for room:', room);
     return res.json({ token, room });
   } catch (e) {
     console.error('Error creating Jitsi token:', e);
