@@ -181,7 +181,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     };
 
     fetchStreamData();
-  }, [roomName, user?.uid]);
+  }, [roomName, user?.uid, user?.displayName]);
 
   // Check if user is already following the streamer
   useEffect(() => {
@@ -367,6 +367,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           const isFromVerifiedProfiles = userProfile && 'subscription_plan' in userProfile;
           const moderatorStatus = isStreamer && isFromVerifiedProfiles;
           setIsModerator(moderatorStatus);
+          isModerator = moderatorStatus; // Use the local variable
           
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
@@ -741,7 +742,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current = null;
       }
     };
-  }, [user, roomName, handleStreamEnd]);
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer]);
 
   // Don't render anything if user is not logged in
   if (!user) {
