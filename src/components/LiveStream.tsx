@@ -301,13 +301,11 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
 
       // Get JWT token for custom Jitsi server - required for all users
       let jwtToken: string | null = null;
-      let isModerator = false;
       
       if (user) {
         try {
           // Check if user exists in either verified_profiles or profiles table
           let userProfile = null;
-          let isModerator = false;
           
                       // First check verified_profiles table
             try {
