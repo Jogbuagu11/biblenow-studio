@@ -254,11 +254,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     const initializeJitsi = async () => {
       // Clean up any existing instance
       if (apiRef.current) {
-        try {
-          apiRef.current.dispose();
-        } catch (error) {
-          console.error('Error disposing Jitsi instance:', error);
-        }
+        apiRef.current.dispose();
         apiRef.current = null;
       }
 
@@ -267,74 +263,25 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         containerRef.current.innerHTML = '';
       }
 
-      // Let Jitsi handle media permissions per docs
-
-      // Wait for Jitsi script to load with retry
-      let retryCount = 0;
-      const maxRetries = 10;
-      
-      const waitForJitsi = () => {
-        if (window.JitsiMeetExternalAPI) {
-          console.log("Jitsi script loaded successfully");
-          return true;
-        }
-        
-        if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Waiting for Jitsi script... (${retryCount}/${maxRetries})`);
-          setTimeout(waitForJitsi, 500);
-          return false;
-        }
-        
-        console.error("Jitsi script failed to load after retries");
-        return false;
-      };
-      
-      if (!waitForJitsi()) {
-        return;
-      }
-
-      if (!containerRef.current) {
-        console.error("Container ref not available");
-        return;
-      }
-
       // Get JWT token for custom Jitsi server - required for all users
       let jwtToken: string | null = null;
+      let iframeRoomPath = roomName; // Default to roomName
       
       if (user) {
         try {
           // Check if user exists in either verified_profiles or profiles table
           let userProfile = null;
           
-                      // First check verified_profiles table
-            try {
-              const verifiedProfile = await databaseService.getUserProfile(user.uid);
-              if (verifiedProfile) {
-                userProfile = verifiedProfile;
-                console.log('User found in verified_profiles table');
-              }
-            } catch (error) {
-              console.log('User not found in verified_profiles table, checking profiles table...');
+          // First check verified_profiles table
+          try {
+            const verifiedProfile = await databaseService.getUserProfile(user.uid);
+            if (verifiedProfile) {
+              userProfile = verifiedProfile;
+              console.log('User found in verified_profiles table');
             }
-            
-            // If not in verified_profiles, check profiles table
-            if (!userProfile) {
-              try {
-                const { data: profileData, error } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', user.uid)
-                  .single();
-                
-                if (profileData && !error) {
-                  userProfile = profileData;
-                  console.log('User found in profiles table');
-                }
-              } catch (error) {
-                console.log('User not found in profiles table either');
-              }
-            }
+          } catch (error) {
+            console.log('User not found in verified_profiles table, checking profiles table...');
+          }
           
           // If not in verified_profiles, check profiles table
           if (!userProfile) {
@@ -421,6 +368,29 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           // Ensure JWT token is properly set
           if (!jwtToken) {
             console.log('No JWT token available, proceeding without authentication');
+          } else {
+            // Decode JWT to verify room name matches
+            try {
+              const tokenParts = jwtToken.split('.');
+              if (tokenParts.length === 3) {
+                const payloadBase64 = tokenParts[1];
+                const payloadJson = Buffer.from(payloadBase64, 'base64').toString();
+                const jwtPayload = JSON.parse(payloadJson);
+                
+                // Verify room name in JWT matches the room name we're using
+                if (jwtPayload.room && jwtPayload.room !== roomName) {
+                  console.warn('Room name mismatch - JWT room:', jwtPayload.room, 'URL room:', roomName);
+                  // Use the room name from JWT to ensure consistency
+                  iframeRoomPath = jwtPayload.room;
+                } else {
+                  console.log('Room names match - JWT room:', jwtPayload.room, 'URL room:', roomName);
+                  iframeRoomPath = roomName;
+                }
+              }
+            } catch (error) {
+              console.error('Error decoding JWT for room verification:', error);
+              iframeRoomPath = roomName;
+            }
           }
         } catch (error) {
           console.error('Error checking user verification status:', error);
@@ -433,7 +403,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
 
       const options = {
-        roomName: roomName,
+        roomName: iframeRoomPath,
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
@@ -447,8 +417,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           startWithVideoMuted: false,
           prejoinConfig: { enabled: false },
           prejoinPageEnabled: false,
-          authenticationRequired: true, // Always require authentication
-          passwordRequired: false,
+          authenticationRequired: true, // Re-enable for JWT auth
+          passwordRequired: false, // But disable password requirement
           guestDialOutEnabled: false,
           enableClosePage: false,
           disableModeratorIndicator: false,
@@ -542,6 +512,17 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current.on('videoConferenceJoined', () => {
           console.log('User joined video conference');
           setIsJitsiReady(true);
+        });
+
+        // Add authentication event handlers
+        apiRef.current.on('authenticationRequired', () => {
+          console.log('Jitsi authentication required - JWT should handle this automatically');
+          // The JWT token should automatically authenticate
+        });
+
+        apiRef.current.on('passwordRequired', () => {
+          console.log('Jitsi password required - this should not happen with JWT auth');
+          setError('Password authentication is not supported. Please use JWT authentication.');
         });
 
         // Add error handling for connection failures

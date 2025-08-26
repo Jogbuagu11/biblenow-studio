@@ -745,65 +745,102 @@ const jsonwebtoken = require('jsonwebtoken');
 
 app.post('/api/jitsi/token', async (req, res) => {
   try {
-    const { roomTitle, isModerator, displayName, email, avatar } = req.body || {};
-    if (!roomTitle) {
-      return res.status(400).json({ error: 'roomTitle is required' });
+    // Input validation
+    const { room, moderator = false, name, email } = req.body || {};
+    
+    if (!room || typeof room !== 'string') {
+      return res.status(400).json({ 
+        error: 'room is required and must be a string',
+        hint: 'Provide room name in request body'
+      });
     }
 
-    // Use more specific configuration for Jitsi JWT
-    const APP_ID = process.env.JITSI_JWT_APP_ID || 'biblenow';
-    const SECRET = process.env.JITSI_JWT_SECRET;
-    const SUBJECT = process.env.JITSI_SUBJECT || 'stream.biblenow.io';
-    const DOMAIN = process.env.JITSI_DOMAIN || 'stream.biblenow.io';
+    // JWT configuration
+    const JITSI_AUD = process.env.JITSI_AUD || 'biblenow';
+    const JITSI_ISS = process.env.JITSI_ISS || 'biblenow';
+    const JITSI_SUB = process.env.JITSI_SUB || ''; // Optional tenant
+    const JWT_SECRET = process.env.JITSI_JWT_SECRET;
 
-    if (!SECRET) {
+    if (!JWT_SECRET) {
       console.error('JITSI_JWT_SECRET not configured');
-      return res.status(500).json({ error: 'Server JWT secret not configured' });
+      return res.status(500).json({ 
+        error: 'JWT secret not configured',
+        hint: 'Set JITSI_JWT_SECRET environment variable'
+      });
     }
 
-    // Ensure room name format is consistent and matches Jitsi requirements
-    const room = String(roomTitle).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    // JWT algorithm (HS256 default, RS256 if specified)
+    const algorithm = process.env.JITSI_JWT_ALGORITHM || 'HS256';
+    
+    // Room name processing (keep exact room name from request)
+    const roomName = String(room).trim();
+    
+    if (!roomName) {
+      return res.status(400).json({ 
+        error: 'room cannot be empty',
+        hint: 'Provide a valid room name'
+      });
+    }
 
     const now = Math.floor(Date.now() / 1000);
+    
+    // Build JWT payload
     const payload = {
-      aud: APP_ID,
-      iss: APP_ID,
-      sub: DOMAIN, // Use domain as subject for better compatibility
-      room,
-      nbf: now - 5,
-      exp: now + 3600,
+      aud: JITSI_AUD,
+      iss: JITSI_ISS,
+      room: roomName,
+      nbf: now - 10, // 10 seconds before now
+      exp: now + 3600, // 1 hour from now
       iat: now,
       context: {
         user: {
-          id: email || 'anonymous',
-          name: displayName || 'BibleNOW Viewer',
+          name: name || 'BibleNOW User',
           email: email || undefined,
-          avatar: avatar || undefined,
-          moderator: !!isModerator
-        },
-        features: {
-          'screen-sharing': !!isModerator,
-          livestreaming: !!isModerator,
-          recording: false
+          moderator: !!moderator
         }
       }
     };
 
-    console.log('Generating JWT token with payload:', {
+    // Add sub claim only if configured
+    if (JITSI_SUB) {
+      payload.sub = JITSI_SUB;
+    }
+
+    console.log('Generating JWT token:', {
       aud: payload.aud,
       iss: payload.iss,
-      sub: payload.sub,
       room: payload.room,
-      moderator: payload.context.user.moderator
+      sub: payload.sub || 'none',
+      moderator: payload.context.user.moderator,
+      algorithm
     });
 
-    const token = jsonwebtoken.sign(payload, SECRET, { algorithm: 'HS256' });
+    // Sign JWT
+    const token = jsonwebtoken.sign(payload, JWT_SECRET, { algorithm });
     
-    console.log('JWT token generated successfully for room:', room);
-    return res.json({ token, room });
-  } catch (e) {
-    console.error('Error creating Jitsi token:', e);
-    return res.status(500).json({ error: 'Failed to create token' });
+    console.log('JWT token generated successfully for room:', roomName);
+    
+    // Return token in expected format
+    return res.json({ 
+      jwt: token,
+      room: roomName,
+      expires: payload.exp
+    });
+    
+  } catch (error) {
+    console.error('Error creating Jitsi JWT token:', error);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(500).json({ 
+        error: 'JWT signing failed',
+        hint: 'Check JWT secret and algorithm configuration'
+      });
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to create JWT token',
+      hint: 'Internal server error'
+    });
   }
 });
 

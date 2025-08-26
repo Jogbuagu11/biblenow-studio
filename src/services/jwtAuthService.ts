@@ -316,9 +316,9 @@ export class JWTAuthService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roomTitle: roomName,
-          isModerator,
-          displayName: user.displayName,
+          room: roomName,
+          moderator: isModerator,
+          name: user.displayName,
           email: user.email
         })
       });
@@ -331,9 +331,9 @@ export class JWTAuthService {
       }
       
       const json = await resp.json();
-      if (json?.token) {
+      if (json?.jwt) {
         console.log('JWT token received successfully from server');
-        return json.token;
+        return json.jwt;
       }
       
       console.error('Failed to get JWT token from server response:', json);
