@@ -65,22 +65,22 @@ export async function POST(request: NextRequest) {
 
     const now = Math.floor(Date.now() / 1000);
     
-    // Build JWT payload
-    const payload: any = {
-      aud: JITSI_AUD,
-      iss: JITSI_ISS,
-      room: roomName,
-      nbf: now - 10, // 10 seconds before now
-      exp: now + 3600, // 1 hour from now
-      iat: now,
-      context: {
-        user: {
-          name: name || 'BibleNOW User',
-          email: email || undefined,
-          moderator: !!moderator
-        }
-      }
-    };
+               // Build JWT payload
+           const payload: any = {
+             aud: JITSI_AUD,
+             iss: JITSI_ISS,
+             room: "*", // Use wildcard for room access
+             nbf: now - 10, // 10 seconds before now
+             exp: now + 3600, // 1 hour from now
+             iat: now,
+             context: {
+               user: {
+                 name: name || 'BibleNOW User',
+                 email: email || undefined,
+                 moderator: !!moderator
+               }
+             }
+           };
 
     // Add sub claim only if configured
     if (JITSI_SUB) {

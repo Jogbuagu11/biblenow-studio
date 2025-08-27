@@ -797,7 +797,7 @@ app.post('/api/jitsi/token', async (req, res) => {
     const payload = {
       aud: JITSI_AUD,
       iss: JITSI_ISS,
-      room: roomName,
+      room: "*", // Use wildcard for room access
       nbf: now - 10, // 10 seconds before now
       exp: now + 3600, // 1 hour from now
       iat: now,
