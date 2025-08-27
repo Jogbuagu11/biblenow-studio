@@ -413,16 +413,27 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           email: user?.email || "user@biblenowstudio.com"
         },
         configOverwrite: {
+          // Authentication settings
+          authenticationRequired: false, // Disable auth dialog since we have JWT
+          passwordRequired: false, // Disable password requirement
+          
+          // Camera and microphone settings
           startWithAudioMuted: false,
           startWithVideoMuted: false,
-          prejoinConfig: { enabled: false },
+          startSilent: false,
+          startAudioOnly: false,
+          
+          // Pre-join page settings
           prejoinPageEnabled: false,
-          authenticationRequired: true, // Re-enable for JWT auth
-          passwordRequired: false, // But disable password requirement
+          prejoinConfig: {
+            enabled: false,
+            hideGuestDialOut: true
+          },
+          
+          // Other settings
           guestDialOutEnabled: false,
           enableClosePage: false,
           disableModeratorIndicator: false,
-          startAudioOnly: false,
           requireDisplayName: false,
           enableWelcomePage: false
         },
@@ -475,12 +486,26 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         
         if (iframe) {
           console.log('Setting iframe permissions and onload handler');
-          iframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen');
+          iframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen; geolocation');
+          iframe.setAttribute('allowfullscreen', 'true');
           
           // Set ready when iframe loads
           iframe.onload = () => {
             console.log('Jitsi iframe loaded - setting ready');
             setIsJitsiReady(true);
+            
+            // Request camera permissions after iframe loads
+            setTimeout(() => {
+              if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                  .then(() => {
+                    console.log('✅ Camera and microphone permissions granted');
+                  })
+                  .catch((error) => {
+                    console.warn('⚠️ Camera/microphone permission denied:', error);
+                  });
+              }
+            }, 1000);
           };
         } else {
           console.log('No iframe found, will check again in 1 second');
@@ -489,6 +514,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
             const delayedIframe = containerRef.current?.querySelector('iframe');
             console.log('Delayed iframe check:', delayedIframe);
             if (delayedIframe) {
+              delayedIframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen; geolocation');
+              delayedIframe.setAttribute('allowfullscreen', 'true');
               delayedIframe.onload = () => {
                 console.log('Delayed Jitsi iframe loaded - setting ready');
                 setIsJitsiReady(true);

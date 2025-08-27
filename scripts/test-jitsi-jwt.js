@@ -20,9 +20,9 @@ async function testJitsiJWT() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        roomTitle: 'test-room',
-        isModerator: true,
-        displayName: 'Test User',
+        room: 'test-room',
+        moderator: true,
+        name: 'Test User',
         email: 'test@biblenowstudio.com'
       })
     });
@@ -33,9 +33,9 @@ async function testJitsiJWT() {
 
     const tokenData = await tokenResponse.json();
     
-    if (tokenData.token) {
+    if (tokenData.jwt) {
       console.log('✅ JWT token generated successfully');
-      console.log(`   Token length: ${tokenData.token.length} characters`);
+      console.log(`   Token length: ${tokenData.jwt.length} characters`);
       console.log(`   Room: ${tokenData.room}`);
     } else {
       console.log('❌ Failed to generate JWT token');
@@ -45,8 +45,8 @@ async function testJitsiJWT() {
     // Test 2: Verify token structure (basic check)
     console.log('\n2️⃣ Testing JWT token structure...');
     
-    if (tokenData.token) {
-      const tokenParts = tokenData.token.split('.');
+    if (tokenData.jwt) {
+      const tokenParts = tokenData.jwt.split('.');
       if (tokenParts.length === 3) {
         console.log('✅ JWT token has correct structure (header.payload.signature)');
         
@@ -76,16 +76,16 @@ async function testJitsiJWT() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        roomTitle: 'test-room',
-        isModerator: false,
-        displayName: 'Guest User',
+        room: 'test-room',
+        moderator: false,
+        name: 'Guest User',
         email: 'guest@biblenowstudio.com'
       })
     });
 
     if (guestTokenResponse.ok) {
       const guestTokenData = await guestTokenResponse.json();
-      if (guestTokenData.token) {
+      if (guestTokenData.jwt) {
         console.log('✅ Guest JWT token generated successfully');
       } else {
         console.log('❌ Failed to generate guest JWT token');

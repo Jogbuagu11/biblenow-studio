@@ -30,8 +30,8 @@ console.log('Initializing Supabase client with:', {
 
 let supabase = null;
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && 
-    process.env.SUPABASE_URL !== 'https://your-project.supabase.co' &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY !== 'your_supabase_service_role_key_here') {
+    process.env.SUPABASE_URL !== 'https://jhlawjmyorpmafokxtuh.supabase.co' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpobGF3am15b3JwbWFmb2t4dHVoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MjkzMjkyNiwiZXhwIjoyMDU4NTA4OTI2fQ.yZYmE3cPhAiyc97-dW1WddzYs4sZE0Tm74kC7mHsotQ') {
   supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -767,16 +767,16 @@ app.post('/api/jitsi/token', async (req, res) => {
     // JWT configuration
     const JITSI_AUD = process.env.JITSI_AUD || 'biblenow';
     const JITSI_ISS = process.env.JITSI_ISS || 'biblenow';
-    const JITSI_SUB = process.env.JITSI_SUB || ''; // Optional tenant
-              const JWT_SECRET = process.env.JWT_APP_SECRET;
+    const JITSI_SUB = process.env.JITSI_SUB || 'stream.biblenow.io'; // Optional tenant
+    const JWT_SECRET = process.env.JWT_APP_SECRET;
 
-               if (!JWT_SECRET) {
-             console.error('JWT_APP_SECRET not configured');
-             return res.status(500).json({
-               error: 'JWT secret not configured',
-               hint: 'Set JWT_APP_SECRET environment variable'
-             });
-           }
+    if (!JWT_SECRET) {
+      console.error('JWT_APP_SECRET not configured');
+      return res.status(500).json({
+        error: 'JWT secret not configured',
+        hint: 'Set JWT_APP_SECRET environment variable'
+      });
+    }
 
     // JWT algorithm (HS256 default, RS256 if specified)
     const algorithm = process.env.JITSI_JWT_ALGORITHM || 'HS256';
@@ -819,7 +819,7 @@ app.post('/api/jitsi/token', async (req, res) => {
       aud: payload.aud,
       iss: payload.iss,
       room: payload.room,
-      sub: payload.sub || 'none',
+      sub: payload.sub || 'stream.biblenow.io',
       moderator: payload.context.user.moderator,
       algorithm
     });

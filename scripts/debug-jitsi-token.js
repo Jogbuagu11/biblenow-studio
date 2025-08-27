@@ -41,7 +41,8 @@ async function debugJitsiToken() {
 
     console.log('✅ JWT token generated');
     console.log(`   Token length: ${tokenData.token.length} characters`);
-    console.log(`   Room: ${tokenData.room}`);
+    console.log(`   Room: ${tokenData.room} (wildcard for all rooms)`);
+    console.log(`   Original room requested: ${roomName}`);
     
     // Decode and examine the token structure
     console.log('\n2️⃣ Examining JWT token structure...');
@@ -97,9 +98,10 @@ async function debugJitsiToken() {
 
     console.log('\n4️⃣ Potential Issues:');
     console.log('   - Check if Jitsi server expects different aud/iss/sub values');
-    console.log('   - Verify room name format matches Jitsi server requirements');
+    console.log('   - Using wildcard room (*) to bypass room-specific restrictions');
     console.log('   - Ensure JWT secret matches between client and server');
     console.log('   - Check if Jitsi server is configured to accept JWT tokens');
+    console.log('   - Verify Jitsi server allows wildcard room access');
 
   } catch (error) {
     console.error('❌ Debug failed:', error.message);
