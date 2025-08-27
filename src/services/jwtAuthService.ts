@@ -312,7 +312,7 @@ export class JWTAuthService {
       const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
       console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
       
-      const resp = await fetch(`${apiBase}/jitsi/token`, {
+      const resp = await fetch(`${apiBase}/api/jitsi/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
