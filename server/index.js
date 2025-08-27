@@ -749,7 +749,7 @@ app.post('/api/stripe/disconnect-account', async (req, res) => {
   }
 });
 
-// Jitsi JWT signing endpoint
+// Jitsi JWT signing endpoint - Updated for Render deployment
 const jsonwebtoken = require('jsonwebtoken');
 
 app.post('/api/jitsi/token', async (req, res) => {
