@@ -759,15 +759,15 @@ app.post('/api/jitsi/token', async (req, res) => {
     const JITSI_AUD = process.env.JITSI_AUD || 'biblenow';
     const JITSI_ISS = process.env.JITSI_ISS || 'biblenow';
     const JITSI_SUB = process.env.JITSI_SUB || ''; // Optional tenant
-    const JWT_SECRET = process.env.JITSI_JWT_SECRET;
+              const JWT_SECRET = process.env.JWT_APP_SECRET;
 
-    if (!JWT_SECRET) {
-      console.error('JITSI_JWT_SECRET not configured');
-      return res.status(500).json({ 
-        error: 'JWT secret not configured',
-        hint: 'Set JITSI_JWT_SECRET environment variable'
-      });
-    }
+               if (!JWT_SECRET) {
+             console.error('JWT_APP_SECRET not configured');
+             return res.status(500).json({
+               error: 'JWT secret not configured',
+               hint: 'Set JWT_APP_SECRET environment variable'
+             });
+           }
 
     // JWT algorithm (HS256 default, RS256 if specified)
     const algorithm = process.env.JITSI_JWT_ALGORITHM || 'HS256';
