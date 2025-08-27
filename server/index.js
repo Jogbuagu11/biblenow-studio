@@ -49,7 +49,10 @@ app.use(cors({
     'https://stream.biblenow.io',
     'https://live.biblenow.io',
     'https://your-hetzner-jitsi-domain.com',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    // Allow Vercel preview URLs
+    /^https:\/\/studio-biblenow.*\.vercel\.app$/,
+    /^https:\/\/.*--studio-biblenow.*\.vercel\.app$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -68,7 +71,13 @@ app.options('*', (req, res) => {
   ];
   
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  
+  // Check if origin is in allowed list or matches Vercel pattern
+  const isAllowed = allowedOrigins.includes(origin) || 
+    /^https:\/\/studio-biblenow.*\.vercel\.app$/.test(origin) ||
+    /^https:\/\/.*--studio-biblenow.*\.vercel\.app$/.test(origin);
+  
+  if (isAllowed) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
