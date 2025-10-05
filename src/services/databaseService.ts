@@ -83,7 +83,7 @@ class DatabaseService {
         is_live: false,
         started_at: null,
         ended_at: null,
-        status: 'active',
+        status: 'scheduled',
         viewer_count: 0,
         updated_at: new Date().toISOString()
     };
@@ -150,10 +150,26 @@ class DatabaseService {
 
   // Update livestream
   async updateLivestream(id: string, updates: Partial<StreamInfo>): Promise<StreamInfo> {
+    // First get the current stream
+    const { data: currentStream, error: fetchError } = await supabase
+      .from('livestreams')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    // If stream is scheduled, don't allow status changes except through startLivestream
+    if (currentStream?.status === 'scheduled' && updates.status && updates.status !== 'scheduled') {
+      throw new Error('Cannot change status of scheduled stream. Use startLivestream to go live.');
+    }
+
     const { data, error } = await supabase
       .from('livestreams')
       .update({
         ...updates,
+        // Preserve scheduled status if it's a scheduled stream
+        status: currentStream?.status === 'scheduled' ? 'scheduled' : updates.status,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -174,6 +190,20 @@ class DatabaseService {
 
   // Start livestream
   async startLivestream(id: string): Promise<StreamInfo> {
+    // First verify this is a scheduled stream
+    const { data: stream, error: checkError } = await supabase
+      .from('livestreams')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    if (checkError) throw new Error(checkError.message);
+    
+    // Only allow starting if status is 'scheduled'
+    if (stream?.status !== 'scheduled') {
+      throw new Error('Only scheduled streams can be started');
+    }
+
     const { data, error } = await supabase
       .from('livestreams')
       .update({
@@ -208,14 +238,22 @@ class DatabaseService {
 
   // Get recent livestreams
   async getRecentLivestreams(limit: number = 10): Promise<StreamInfo[]> {
+    console.log('🔍 Fetching recent livestreams with limit:', limit);
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .eq('is_live', false)
-      .not('ended_at', 'is', null)
+      .or('status.eq.ended,and(is_live.eq.false,ended_at.not.is.null)')
       .order('ended_at', { ascending: false })
+      .order('started_at', { ascending: false })
       .limit(limit);
-    if (error) throw new Error(error.message);
+    
+    if (error) {
+      console.error('❌ Error fetching recent livestreams:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log('✅ Recent livestreams fetched:', data?.length || 0, 'streams');
+    console.log('📊 Recent streams data:', data);
     return data || [];
   }
 
@@ -232,13 +270,21 @@ class DatabaseService {
 
   // Get scheduled livestreams (future streams that are not live)
   async getScheduledLivestreams(): Promise<StreamInfo[]> {
+    console.log('🔍 Fetching scheduled livestreams');
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .eq('is_live', false)
+      .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true });
-    if (error) throw new Error(error.message);
+    
+    if (error) {
+      console.error('❌ Error fetching scheduled livestreams:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log('✅ Scheduled livestreams fetched:', data?.length || 0, 'streams');
+    console.log('📊 Scheduled streams data:', data);
     return data || [];
   }
 
@@ -292,11 +338,12 @@ class DatabaseService {
     console.log('Attempting to end stream for user:', userId);
     
     try {
-      // First, check if user has any active streams
+      // First, check if user has any active streams (but not scheduled ones)
       const { data: activeStreams, error: checkError } = await supabase
         .from('livestreams')
         .select('id, title, is_live, status, started_at')
         .eq('streamer_id', userId)
+        .neq('status', 'scheduled')
         .or('is_live.eq.true,status.eq.active');
       
       if (checkError) {
@@ -493,9 +540,9 @@ class DatabaseService {
       dayOfWeek
     });
 
-    // First try to get from weekly_usage table
+    // First try to get from livestream_weekly_usage table
     const { data: weeklyData, error: weeklyError } = await supabase
-      .from('weekly_usage')
+      .from('livestream_weekly_usage')
       .select('streamed_minutes')
       .eq('user_id', userId)
       .eq('week_start_date', startOfWeek.toISOString().split('T')[0])
@@ -642,14 +689,42 @@ class DatabaseService {
     usagePercentage: number;
   }> {
     try {
+      console.log('🔍 Checking weekly streaming limit for user:', userId);
+      
+      // First check if the table exists
+      const { error: tableCheckError } = await supabase
+        .from('livestream_weekly_usage')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError && tableCheckError.code === '42P01') {
+        console.log('⚠️ Weekly usage table not found, returning default values');
+        return {
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 60,
+          remainingMinutes: 60,
+          usagePercentage: 0
+        };
+      }
+      
       const { data, error } = await supabase
         .rpc('check_weekly_streaming_limit', { user_id_param: userId })
         .single();
 
       if (error) {
-        console.error('Error checking weekly streaming limit:', error);
-        throw new Error(error.message);
+        console.error('❌ Error checking weekly streaming limit:', error);
+        // Return unlimited values if there's an error to avoid blocking streams
+        return {
+          hasReachedLimit: false,
+          currentMinutes: 0,
+          limitMinutes: 0, // 0 means unlimited
+          remainingMinutes: 0,
+          usagePercentage: 0
+        };
       }
+
+      console.log('✅ Weekly streaming limit data:', data);
 
       // Type the response data
       const responseData = data as {

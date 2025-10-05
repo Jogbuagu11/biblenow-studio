@@ -11,7 +11,7 @@ export interface StreamInfo {
   is_live: boolean;
   started_at?: string; // timestamptz
   ended_at?: string; // timestamptz
-  status?: 'active' | 'ended'; // Stream lifecycle status (optional, defaults to 'active')
+  status?: 'active' | 'ended' | 'scheduled'; // Stream lifecycle status (optional, defaults to 'active')
 
   embed_url?: string;
   stream_type?: string;
@@ -140,18 +140,22 @@ export const useLivestreamStore = create<LivestreamState>()(
           const { user } = useSupabaseAuthStore.getState();
           if (!user) throw new Error('User not authenticated');
           
-          // Add streamer_id for scheduled stream
+          console.log('Creating scheduled stream with data:', streamData);
+          
+          // Add streamer_id and ensure status is set
           const newStream = await databaseService.createScheduledStream({
             ...streamData,
             streamer_id: user.uid,
+            status: 'scheduled',
+            is_live: false
           });
           
-          const { scheduledStreams } = get();
-          const updatedScheduledStreams = [...scheduledStreams, newStream];
-          set({ 
-            scheduledStreams: updatedScheduledStreams,
-            isLoading: false 
-          });
+          console.log('New stream created:', newStream);
+          
+          // Fetch fresh list of scheduled streams
+          await get().fetchScheduledStreams();
+          
+          set({ isLoading: false });
           return newStream;
         } catch (error) {
           set({ 
@@ -289,7 +293,7 @@ export const useLivestreamStore = create<LivestreamState>()(
       fetchRecentStreams: async () => {
         set({ isLoading: true, error: null });
         try {
-          const recentStreams = await databaseService.getRecentLivestreams(10);
+          const recentStreams = await databaseService.getRecentLivestreams(1000); // Get all recent streams
           set({ recentStreams, isLoading: false });
         } catch (error) {
           set({ 
