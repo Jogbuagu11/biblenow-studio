@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import ChartCard from '../components/Dashboard/ChartCard';
 import MetricCard from '../components/Dashboard/MetricCard';
-
 import UsageCard from '../components/Dashboard/UsageCard';
 import WeeklyUsageBar from '../components/Dashboard/WeeklyUsageBar';
 import DashboardHeader from '../components/Dashboard/DashboardHeader';
@@ -15,58 +14,57 @@ const Dashboard: React.FC = () => {
   const [daysRemaining, setDaysRemaining] = useState(7);
   const [totalViews, setTotalViews] = useState(0);
   const [totalFollowers, setTotalFollowers] = useState(0);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>('basic');
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string>('');
   const [streamingLimit, setStreamingLimit] = useState<number>(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!user?.uid) {
-        console.log('No user found, skipping dashboard data fetch');
-        console.log('User object:', user);
-        return;
-      }
-
-      console.log('Fetching dashboard data for user:', user.uid);
-      console.log('Full user object:', user);
+      if (!user?.uid) return;
 
       try {
-        // Fetch user profile to get subscription plan
-        const userProfile = await databaseService.getUserProfile(user.uid);
-        console.log('=== USER PROFILE DEBUG ===');
-        console.log('Full user profile:', JSON.stringify(userProfile, null, 2));
+        console.log('Fetching dashboard data for user:', user.uid);
 
-        if (userProfile) {
-          const plan = userProfile.subscription_plan || 'basic';
-          setSubscriptionPlan(plan);
-          console.log('Set subscription plan to:', plan);
+        // Get user profile with subscription plan
+        const profile = await databaseService.getUserProfile(user.uid);
+        console.log('User profile:', profile);
+
+        if (profile) {
+          // Set subscription plan name
+          setSubscriptionPlan(profile.subscription_plans?.name || '');
+          
+          // Set streaming limit in minutes
+          const limitMinutes = profile.subscription_plans?.streaming_minutes_limit || 0;
+          console.log('Setting streaming limit:', limitMinutes, 'minutes');
+          setStreamingLimit(limitMinutes);
         }
 
-        // Get streaming limit based on subscription plan
-        const limit = databaseService.getWeeklyLimitFromPlan(subscriptionPlan);
-        setStreamingLimit(limit);
-
-        // Fetch weekly usage
+        // Get weekly usage
         const usage = await databaseService.getWeeklyUsage(user.uid);
-        const remaining = databaseService.getDaysRemainingInWeek();
-        console.log('Weekly usage data:', usage, 'Days remaining:', remaining);
-
+        console.log('Weekly usage:', usage);
         setWeeklyUsage(usage);
+
+        // Get days remaining
+        const remaining = databaseService.getDaysRemainingInWeek();
+        console.log('Days remaining:', remaining);
         setDaysRemaining(remaining);
 
-        // Fetch total view count
+        // Get total views
         const views = await databaseService.getTotalViewCount(user.uid);
+        console.log('Total views:', views);
         setTotalViews(views);
 
-        // Fetch total follower count
+        // Get total followers
         const followers = await databaseService.getTotalFollowerCount(user.uid);
+        console.log('Total followers:', followers);
         setTotalFollowers(followers);
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       }
     };
 
     fetchDashboardData();
-  }, [user, subscriptionPlan]);
+  }, [user?.uid]);
 
   return (
     <Layout>
