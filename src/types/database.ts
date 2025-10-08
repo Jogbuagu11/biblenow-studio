@@ -109,7 +109,7 @@ export interface Database {
         Insert: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>>;
       };
-      weekly_usage: {
+      livestream_weekly_usage: {
         Row: WeeklyUsage;
         Insert: Omit<WeeklyUsage, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<WeeklyUsage, 'id' | 'created_at' | 'updated_at'>>;

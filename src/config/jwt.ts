@@ -3,7 +3,7 @@ export const jwtConfig = {
   // JWT Secret for signing tokens (frontend should not sign; this is for verification only if used)
   secret: process.env.REACT_APP_JITSI_JWT_SECRET || null,
   // Token expiration time (in seconds)
-  expiresIn: 3600 as const,
+  expiresIn: 7200 as const, // 2 hours (7200 seconds)
   // Algorithm to use for signing
   algorithm: 'HS256' as const,
   // App ID (audience and issuer)

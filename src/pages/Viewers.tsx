@@ -271,16 +271,16 @@ const Viewers: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="followers" className="w-full">
-          <TabsList className="!inline-flex !h-10 !items-center !justify-center !rounded-lg !bg-chocolate-800 !p-1 !text-muted-foreground flex w-full !gap-0 !space-x-0">
+          <TabsList className="!inline-flex !h-10 !items-center !justify-center !rounded-lg !bg-chocolate-800 dark:!bg-chocolate-800 !p-1 !text-white flex w-full !gap-0 !space-x-0">
             <TabsTrigger 
               value="followers" 
-              className="flex-1 !inline-flex !items-center !justify-center !whitespace-nowrap !rounded-md !px-4 !py-2 !text-sm !font-medium !ring-offset-background !transition-all !focus-visible:outline-none !focus-visible:ring-2 !focus-visible:ring-ring !focus-visible:ring-offset-2 !disabled:pointer-events-none !disabled:opacity-50 data-[state=active]:bg-chocolate-600 data-[state=active]:text-white data-[state=active]:shadow-sm !m-0 !border-0 !bg-transparent hover:!bg-chocolate-700"
+              className="flex-1 !inline-flex !items-center !justify-center !whitespace-nowrap !rounded-md !px-4 !py-2 !text-sm !font-medium !text-white !ring-offset-background !transition-all !focus-visible:outline-none !focus-visible:ring-2 !focus-visible:ring-ring !focus-visible:ring-offset-2 !disabled:pointer-events-none !disabled:opacity-50 data-[state=active]:bg-chocolate-600 data-[state=active]:text-white data-[state=active]:shadow-sm !m-0 !border-0 !bg-transparent hover:!bg-chocolate-700"
             >
               Followers
             </TabsTrigger>
             <TabsTrigger 
               value="invite" 
-              className="flex-1 !inline-flex !items-center !justify-center !whitespace-nowrap !rounded-md !px-4 !py-2 !text-sm !font-medium !ring-offset-background !transition-all !focus-visible:outline-none !focus-visible:ring-2 !focus-visible:ring-ring !focus-visible:ring-offset-2 !disabled:pointer-events-none !disabled:opacity-50 data-[state=active]:bg-chocolate-600 data-[state=active]:text-white data-[state=active]:shadow-sm !m-0 !border-0 !bg-transparent hover:!bg-chocolate-700"
+              className="flex-1 !inline-flex !items-center !justify-center !whitespace-nowrap !rounded-md !px-4 !py-2 !text-sm !font-medium !text-white !ring-offset-background !transition-all !focus-visible:outline-none !focus-visible:ring-2 !focus-visible:ring-ring !focus-visible:ring-offset-2 !disabled:pointer-events-none !disabled:opacity-50 data-[state=active]:bg-chocolate-600 data-[state=active]:text-white data-[state=active]:shadow-sm !m-0 !border-0 !bg-transparent hover:!bg-chocolate-700"
             >
               Invite Users
             </TabsTrigger>

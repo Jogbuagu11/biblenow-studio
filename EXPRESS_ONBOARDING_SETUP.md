@@ -235,7 +235,7 @@ curl -X POST http://localhost:3001/api/stripe/create-express-account \
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
 FRONTEND_URL=https://studio.biblenow.io
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_WEBHOOK_SECRET_STUDIO=whsec_...
 ```
 
 ### **Webhook Configuration:**
@@ -275,7 +275,7 @@ const onboardingMetrics = {
 
 #### **4. Webhook Not Received**
 - Check webhook endpoint URL
-- Verify webhook secret
+- Verify webhook secret (STRIPE_WEBHOOK_SECRET_STUDIO)
 - Test with Stripe CLI
 
 ## Best Practices

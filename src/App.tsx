@@ -18,6 +18,7 @@ import DownloadApp from "./pages/DownloadApp";
 import ThemeProvider from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useLivestreamStore, useSupabaseAuthStore } from "./stores";
+import { NotificationService } from "./services/notificationService";
 
 import { checkForCorsIssues } from "./utils/clearCache";
 
@@ -30,6 +31,8 @@ function App() {
     if (process.env.NODE_ENV === 'development') {
       checkForCorsIssues();
     }
+    // Start notification processor
+    NotificationService.startNotificationProcessor();
   }, [initialize]);
 
   console.log("App loaded");

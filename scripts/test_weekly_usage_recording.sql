@@ -5,7 +5,7 @@
 SELECT 
     'Current weekly usage data' as test_step,
     COUNT(*) as record_count
-FROM public.weekly_usage;
+FROM public.livestream_weekly_usage;
 
 -- Show detailed weekly usage records
 SELECT 
@@ -14,7 +14,7 @@ SELECT
     wu.week_start_date,
     wu.streamed_minutes,
     wu.updated_at
-FROM public.weekly_usage wu
+FROM public.livestream_weekly_usage wu
 JOIN public.verified_profiles vp ON wu.user_id = vp.id
 ORDER BY wu.week_start_date DESC, wu.streamed_minutes DESC;
 
@@ -95,13 +95,13 @@ SELECT
     SUM(EXTRACT(EPOCH FROM (l.ended_at - l.started_at)) / 60) as calculated_minutes,
     wu.streamed_minutes as stored_minutes,
     CASE 
-        WHEN wu.streamed_minutes IS NULL THEN 'Missing from weekly_usage table'
+        WHEN wu.streamed_minutes IS NULL THEN 'Missing from livestream_weekly_usage table'
         WHEN SUM(EXTRACT(EPOCH FROM (l.ended_at - l.started_at)) / 60) = wu.streamed_minutes THEN 'Match'
         ELSE 'Mismatch'
     END as status
 FROM public.livestreams l
 JOIN public.verified_profiles vp ON l.streamer_id = vp.id
-LEFT JOIN public.weekly_usage wu ON l.streamer_id = wu.user_id 
+LEFT JOIN public.livestream_weekly_usage wu ON l.streamer_id = wu.user_id 
     AND DATE_TRUNC('week', l.started_at)::DATE = wu.week_start_date
 WHERE l.status = 'ended'
 AND l.started_at IS NOT NULL 

@@ -7,20 +7,26 @@ import { databaseService } from '../services/databaseService';
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
-  const { user } = useSupabaseAuthStore();
+  const { user, isLoading: isAuthLoading } = useSupabaseAuthStore();
   const [streamingLimitEmails, setStreamingLimitEmails] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Load email preferences on component mount
   useEffect(() => {
     const loadEmailPreferences = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid) {
+        setIsPageLoading(false);
+        return;
+      }
       
       try {
         const preferences = await databaseService.getEmailPreferences(user.uid);
         setStreamingLimitEmails(preferences.streamingLimitEmails);
       } catch (error) {
         console.error('Error loading email preferences:', error);
+      } finally {
+        setIsPageLoading(false);
       }
     };
 
@@ -45,6 +51,18 @@ const Settings: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  if (isPageLoading || isAuthLoading) {
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -126,8 +144,10 @@ const Settings: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  defaultValue="John Doe"
-                  className="dark:bg-chocolate-800"
+                  value={user?.displayName || ''}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-chocolate-600 rounded-md shadow-sm bg-white dark:bg-chocolate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50"
+                  disabled
+                  placeholder="Loading..."
                 />
               </div>
               <div>
@@ -136,8 +156,10 @@ const Settings: React.FC = () => {
                 </label>
                 <input
                   type="email"
-                  defaultValue="john@example.com"
-                  className="dark:bg-chocolate-800"
+                  value={user?.email || ''}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-chocolate-600 rounded-md shadow-sm bg-white dark:bg-chocolate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50"
+                  disabled
+                  placeholder="Loading..."
                 />
               </div>
             </div>

@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
              iss: JITSI_ISS,
              room: "*", // Use wildcard for room access
              nbf: now - 10, // 10 seconds before now
-             exp: now + 3600, // 1 hour from now
+             exp: now + 7200, // 2 hours from now
              iat: now,
              context: {
                user: {

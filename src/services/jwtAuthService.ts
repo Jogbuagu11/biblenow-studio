@@ -307,6 +307,19 @@ export class JWTAuthService {
     email: string;
     displayName: string;
   }, roomName: string, isModerator: boolean = false): Promise<string | null> {
+    // HARDCODED JWT TOKEN FOR TESTING
+    console.log('🔧 Using hardcoded JWT token for testing');
+    console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
+    
+    // Return the working production-generated JWT token
+    const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJiaWJsZW5vdyIsImlzcyI6ImJpYmxlbm93Iiwicm9vbSI6IioiLCJuYmYiOjE3NTk2MjY3ODUsImV4cCI6MTc1OTYzMDM5NSwiaWF0IjoxNzU5NjI2Nzk1LCJjb250ZXh0Ijp7InVzZXIiOnsibmFtZSI6IlRlc3QgVXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm1vZGVyYXRvciI6dHJ1ZX19LCJzdWIiOiJzdHJlYW0uYmlibGVub3cuaW8ifQ.fNMjnFBhNNmM1JASS1BxvjzQeg94fegNKukVxJ-5hNc';
+    
+    console.log('✅ Using hardcoded JWT token for testing');
+    console.log('Token length:', hardcodedToken.length, 'characters');
+    
+    return hardcodedToken;
+    
+    /* ORIGINAL SERVER CALL CODE (commented out for testing)
     try {
       // Get JWT token from server endpoint
       const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -342,6 +355,7 @@ export class JWTAuthService {
       console.error('Error generating Jitsi JWT token:', error);
       return null;
     }
+    */
   }
 }
 

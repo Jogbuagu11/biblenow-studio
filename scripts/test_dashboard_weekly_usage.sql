@@ -37,7 +37,7 @@ SELECT
     wu.streamed_minutes as stored_minutes,
     wu.streamed_minutes / 60.0 as stored_hours
 FROM weekly_usage_calc wuc
-LEFT JOIN public.weekly_usage wu ON wuc.streamer_id = wu.user_id AND wuc.week_start_date = wu.week_start_date;
+LEFT JOIN public.livestream_weekly_usage wu ON wuc.streamer_id = wu.user_id AND wuc.week_start_date = wu.week_start_date;
 
 -- 3. Get days remaining in week
 SELECT 

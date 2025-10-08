@@ -16,7 +16,7 @@ Backend server for BibleNOW Studio with Stripe Connect integration for existing 
    
    Fill in your environment variables in `.env`:
    - `STRIPE_SECRET_KEY`: Your Stripe secret key
-   - `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook secret
+   - `STRIPE_WEBHOOK_SECRET_STUDIO`: Your Stripe webhook secret
    - `SUPABASE_URL`: Your Supabase project URL
    - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
    - `FRONTEND_URL`: Your frontend URL (e.g., http://localhost:3000)
@@ -87,7 +87,7 @@ Backend server for BibleNOW Studio with Stripe Connect integration for existing 
 2. Navigate to Developers > Webhooks
 3. Add endpoint: `https://yourdomain.com/api/stripe/webhook`
 4. Select events: `account.updated`, `payment_intent.succeeded`
-5. Copy the webhook secret to your `.env` file
+5. Copy the webhook secret to your `.env` file as `STRIPE_WEBHOOK_SECRET_STUDIO`
 
 ## Database Integration
 

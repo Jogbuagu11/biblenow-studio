@@ -1,38 +1,38 @@
--- WEEKLY USAGE RLS POLICIES
--- This script creates Row Level Security policies for the weekly_usage table
+-- LIVESTREAM WEEKLY USAGE RLS POLICIES
+-- This script creates Row Level Security policies for the livestream_weekly_usage table
 -- with different access levels for different user roles
 -- 
 -- SECURITY NOTE: Users CANNOT delete their own weekly usage records
 -- This prevents users from cheating the streaming limit system
 -- Only admins can delete records (for data cleanup purposes)
 
--- Enable RLS on weekly_usage table
-ALTER TABLE public.weekly_usage ENABLE ROW LEVEL SECURITY;
+-- Enable RLS on livestream_weekly_usage table
+ALTER TABLE public.livestream_weekly_usage ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Admins can read all weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Admins can insert weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Admins can update weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Admins can delete weekly usage" ON public.weekly_usage;
+DROP POLICY IF EXISTS "Admins can read all weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Admins can insert weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Admins can update weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Admins can delete weekly usage" ON public.livestream_weekly_usage;
 
-DROP POLICY IF EXISTS "Authenticated users can read own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Authenticated users can insert own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Authenticated users can update own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Authenticated users can delete own weekly usage" ON public.weekly_usage;
+DROP POLICY IF EXISTS "Authenticated users can read own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Authenticated users can insert own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Authenticated users can update own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Authenticated users can delete own weekly usage" ON public.livestream_weekly_usage;
 
-DROP POLICY IF EXISTS "Regular users can read own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Regular users can insert own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Regular users can update own weekly usage" ON public.weekly_usage;
-DROP POLICY IF EXISTS "Regular users can delete own weekly usage" ON public.weekly_usage;
+DROP POLICY IF EXISTS "Regular users can read own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Regular users can insert own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Regular users can update own weekly usage" ON public.livestream_weekly_usage;
+DROP POLICY IF EXISTS "Regular users can delete own weekly usage" ON public.livestream_weekly_usage;
 
-DROP POLICY IF EXISTS "Viewers can read weekly usage" ON public.weekly_usage;
+DROP POLICY IF EXISTS "Viewers can read weekly usage" ON public.livestream_weekly_usage;
 
 -- =============================================================================
 -- ADMIN POLICIES (Full CRUD access to all weekly usage records)
 -- =============================================================================
 
 -- Admin SELECT: Admins can read all weekly usage records
-CREATE POLICY "Admins can read all weekly usage" ON public.weekly_usage
+CREATE POLICY "Admins can read all weekly usage" ON public.livestream_weekly_usage
     FOR SELECT 
     USING (
         EXISTS (
@@ -42,7 +42,7 @@ CREATE POLICY "Admins can read all weekly usage" ON public.weekly_usage
     );
 
 -- Admin INSERT: Admins can create weekly usage records for any user
-CREATE POLICY "Admins can insert weekly usage" ON public.weekly_usage
+CREATE POLICY "Admins can insert weekly usage" ON public.livestream_weekly_usage
     FOR INSERT 
     WITH CHECK (
         EXISTS (
@@ -52,7 +52,7 @@ CREATE POLICY "Admins can insert weekly usage" ON public.weekly_usage
     );
 
 -- Admin UPDATE: Admins can update any weekly usage record
-CREATE POLICY "Admins can update weekly usage" ON public.weekly_usage
+CREATE POLICY "Admins can update weekly usage" ON public.livestream_weekly_usage
     FOR UPDATE 
     USING (
         EXISTS (
@@ -62,7 +62,7 @@ CREATE POLICY "Admins can update weekly usage" ON public.weekly_usage
     );
 
 -- Admin DELETE: Admins can delete any weekly usage record (for data cleanup only)
-CREATE POLICY "Admins can delete weekly usage" ON public.weekly_usage
+CREATE POLICY "Admins can delete weekly usage" ON public.livestream_weekly_usage
     FOR DELETE 
     USING (
         EXISTS (
@@ -76,7 +76,7 @@ CREATE POLICY "Admins can delete weekly usage" ON public.weekly_usage
 -- =============================================================================
 
 -- Authenticated User SELECT: Can read their own weekly usage (verified users)
-CREATE POLICY "Authenticated users can read own weekly usage" ON public.weekly_usage
+CREATE POLICY "Authenticated users can read own weekly usage" ON public.livestream_weekly_usage
     FOR SELECT 
     USING (
         (auth.uid() = user_id AND EXISTS (
@@ -91,7 +91,7 @@ CREATE POLICY "Authenticated users can read own weekly usage" ON public.weekly_u
     );
 
 -- Authenticated User INSERT: Can create their own weekly usage records (verified users)
-CREATE POLICY "Authenticated users can insert own weekly usage" ON public.weekly_usage
+CREATE POLICY "Authenticated users can insert own weekly usage" ON public.livestream_weekly_usage
     FOR INSERT 
     WITH CHECK (
         auth.uid() = user_id 
@@ -108,7 +108,7 @@ CREATE POLICY "Authenticated users can insert own weekly usage" ON public.weekly
     );
 
 -- Authenticated User UPDATE: Can update their own weekly usage records (verified users)
-CREATE POLICY "Authenticated users can update own weekly usage" ON public.weekly_usage
+CREATE POLICY "Authenticated users can update own weekly usage" ON public.livestream_weekly_usage
     FOR UPDATE 
     USING (
         auth.uid() = user_id 
@@ -125,7 +125,7 @@ CREATE POLICY "Authenticated users can update own weekly usage" ON public.weekly
     );
 
 -- Authenticated User DELETE: BLOCKED - Users cannot delete their own weekly usage (security)
--- CREATE POLICY "Authenticated users can delete own weekly usage" ON public.weekly_usage
+-- CREATE POLICY "Authenticated users can delete own weekly usage" ON public.livestream_weekly_usage
 --     FOR DELETE 
 --     USING (false); -- Always deny delete for security
 
@@ -134,7 +134,7 @@ CREATE POLICY "Authenticated users can update own weekly usage" ON public.weekly
 -- =============================================================================
 
 -- Regular User SELECT: Can read their own weekly usage (non-verified users)
-CREATE POLICY "Regular users can read own weekly usage" ON public.weekly_usage
+CREATE POLICY "Regular users can read own weekly usage" ON public.livestream_weekly_usage
     FOR SELECT 
     USING (
         (auth.uid() = user_id AND NOT EXISTS (
@@ -149,7 +149,7 @@ CREATE POLICY "Regular users can read own weekly usage" ON public.weekly_usage
     );
 
 -- Regular User INSERT: Can create their own weekly usage records (non-verified users)
-CREATE POLICY "Regular users can insert own weekly usage" ON public.weekly_usage
+CREATE POLICY "Regular users can insert own weekly usage" ON public.livestream_weekly_usage
     FOR INSERT 
     WITH CHECK (
         auth.uid() = user_id 
@@ -166,7 +166,7 @@ CREATE POLICY "Regular users can insert own weekly usage" ON public.weekly_usage
     );
 
 -- Regular User UPDATE: Can update their own weekly usage records (non-verified users)
-CREATE POLICY "Regular users can update own weekly usage" ON public.weekly_usage
+CREATE POLICY "Regular users can update own weekly usage" ON public.livestream_weekly_usage
     FOR UPDATE 
     USING (
         auth.uid() = user_id 
@@ -183,7 +183,7 @@ CREATE POLICY "Regular users can update own weekly usage" ON public.weekly_usage
     );
 
 -- Regular User DELETE: BLOCKED - Users cannot delete their own weekly usage (security)
--- CREATE POLICY "Regular users can delete own weekly usage" ON public.weekly_usage
+-- CREATE POLICY "Regular users can delete own weekly usage" ON public.livestream_weekly_usage
 --     FOR DELETE 
 --     USING (false); -- Always deny delete for security
 
@@ -192,7 +192,7 @@ CREATE POLICY "Regular users can update own weekly usage" ON public.weekly_usage
 -- =============================================================================
 
 -- Viewer SELECT: Can read weekly usage (read-only access)
-CREATE POLICY "Viewers can read weekly usage" ON public.weekly_usage
+CREATE POLICY "Viewers can read weekly usage" ON public.livestream_weekly_usage
     FOR SELECT 
     USING (true);
 
@@ -206,9 +206,9 @@ SELECT
     tablename,
     rowsecurity
 FROM pg_tables 
-WHERE tablename = 'weekly_usage';
+WHERE tablename = 'livestream_weekly_usage';
 
--- List all policies on weekly_usage table
+-- List all policies on livestream_weekly_usage table
 SELECT 
     schemaname,
     tablename,
@@ -219,20 +219,20 @@ SELECT
     qual,
     with_check
 FROM pg_policies 
-WHERE tablename = 'weekly_usage'
+WHERE tablename = 'livestream_weekly_usage'
 ORDER BY policyname;
 
 -- Test policy access (run as different user types)
 -- Note: These queries will show different results based on the current user's role
 
 -- Test admin access
--- SELECT COUNT(*) FROM public.weekly_usage WHERE EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid());
+-- SELECT COUNT(*) FROM public.livestream_weekly_usage WHERE EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid());
 
 -- Test authenticated user access  
--- SELECT COUNT(*) FROM public.weekly_usage WHERE auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.verified_profiles WHERE user_id = auth.uid());
+-- SELECT COUNT(*) FROM public.livestream_weekly_usage WHERE auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.verified_profiles WHERE user_id = auth.uid());
 
 -- Test regular user access
--- SELECT COUNT(*) FROM public.weekly_usage WHERE auth.uid() = user_id AND NOT EXISTS (SELECT 1 FROM public.verified_profiles WHERE user_id = auth.uid());
+-- SELECT COUNT(*) FROM public.livestream_weekly_usage WHERE auth.uid() = user_id AND NOT EXISTS (SELECT 1 FROM public.verified_profiles WHERE user_id = auth.uid());
 
 -- Test viewer access
--- SELECT COUNT(*) FROM public.weekly_usage; 
+-- SELECT COUNT(*) FROM public.livestream_weekly_usage; 

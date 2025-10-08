@@ -1,23 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { format } from 'date-fns';
+import { useLivestreamStore } from '../stores';
+import { databaseService } from '../services/databaseService';
+import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import Layout from '../components/Layout/Layout';
 import Button from '../components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Calendar from '../components/ui/Calendar';
-import { format } from 'date-fns';
-import { ThumbnailUploadResult } from '../services/thumbnailService';
-import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
-import { databaseService } from '../services/databaseService';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
 import Separator from '../components/ui/Separator';
-import { useLivestreamStore } from '../stores';
-import Input from '../components/ui/Input';
-import Label from '../components/ui/Label';
-import Textarea from '../components/ui/Textarea';
-import Checkbox from '../components/ui/Checkbox';
-import ThumbnailUpload from '../components/ThumbnailUpload';
+import CreateStreamForm from '../components/CreateStreamForm';
 
-const Schedule: React.FC = () => {
-  const { createScheduledStream, updateStream, isLoading, setError, clearError, scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
+const Schedule = (): JSX.Element => {
+  const { scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
   const { user } = useSupabaseAuthStore();
   const [activeTab, setActiveTab] = useState<string>('calendar');
   const [date, setDate] = useState<Date>();
@@ -30,35 +25,6 @@ const Schedule: React.FC = () => {
     usagePercentage: number;
   } | null>(null);
   const [showLimitDialog, setShowLimitDialog] = useState(false);
-  const [formState, setFormState] = useState({
-    title: "",
-    description: "",
-    thumbnailUrl: "",
-    platform: "",
-    streamType: "video",
-    date: null as Date | null,
-    time: "",
-    timeZone: "America/New_York",
-    repeating: false,
-    repeatFrequency: "weekly",
-    repeatCount: "",
-  });
-
-  const handleThumbnailUpload = (result: ThumbnailUploadResult) => {
-    if (result.url) {
-      setFormState((prev) => ({
-        ...prev,
-        thumbnailUrl: result.url,
-      }));
-    }
-  };
-
-  const handleThumbnailRemove = () => {
-    setFormState((prev) => ({
-      ...prev,
-      thumbnailUrl: "",
-    }));
-  };
 
   // Fetch scheduled streams on component mount
   useEffect(() => {
@@ -89,209 +55,8 @@ const Schedule: React.FC = () => {
     if (editStreamId) {
       setEditingStreamId(editStreamId);
       setActiveTab('create');
-      // Find the stream to edit
-      const streamToEdit = scheduledStreams.find(stream => stream.id === editStreamId);
-      
-      if (streamToEdit) {
-        // Populate form with existing stream data
-        const scheduledDate = streamToEdit.scheduled_at ? new Date(streamToEdit.scheduled_at) : null;
-        setFormState({
-          title: streamToEdit.title || "",
-          description: streamToEdit.description || "",
-          thumbnailUrl: streamToEdit.thumbnail_url || "",
-          platform: streamToEdit.platform || "",
-          streamType: streamToEdit.stream_type || "video",
-          date: scheduledDate,
-          time: scheduledDate ? format(scheduledDate, "HH:mm") : "",
-          timeZone: "America/New_York",
-          repeating: false,
-          repeatFrequency: "weekly",
-          repeatCount: "",
-        });
-        
-        // Set the calendar date
-        if (scheduledDate) {
-          setDate(scheduledDate);
-        }
-      }
     }
-  }, [scheduledStreams]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormState((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormState((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleCheckboxChange = (name: string, checked: boolean) => {
-    setFormState((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form submitted:', formState);
-    
-    if (!formState.title.trim()) {
-      alert("Please enter a stream title");
-      return;
-    }
-
-    if (!formState.platform) {
-      alert("Please select a platform");
-      return;
-    }
-
-    if (!formState.date) {
-      alert("Please select a date");
-      return;
-    }
-
-    if (!formState.time) {
-      alert("Please select a time");
-      return;
-    }
-
-    // Check streaming limits before allowing scheduling
-    if (streamingLimit?.hasReachedLimit) {
-      setShowLimitDialog(true);
-      return;
-    }
-
-    clearError();
-    console.log('Starting to create stream...');
-    
-    try {
-      // Combine date and time
-      const dateTime = new Date(formState.date);
-      const [hours, minutes] = formState.time.split(':');
-      dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      // Create room name
-      // Self-hosted Jitsi: no appId prefix
-      const cleanRoomName = formState.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'scheduled_stream';
-      
-      const platformPrefix = (formState.platform || 'livestream').toLowerCase();
-      const baseRoomName = `${platformPrefix}-${cleanRoomName}`;
-      
-      const streamData = {
-        title: formState.title,
-        description: formState.description,
-        room_name: baseRoomName,
-        platform: formState.platform,
-        stream_type: formState.streamType,
-        scheduled_at: dateTime.toISOString(),
-        embed_url: '',
-        stream_key: '',
-        thumbnail_url: formState.thumbnailUrl || undefined,
-        stream_mode: 'solo',
-        tags: [],
-        flag_count: 0,
-        is_hidden: false,
-        max_viewers: 0,
-        jitsi_room_config: {},
-      };
-
-      if (formState.repeating) {
-        // Create multiple recurring streams
-        const episodes = parseInt(formState.repeatCount) || 12; // Default to 12 episodes if not specified
-        const streams = [];
-        
-        for (let i = 0; i < episodes; i++) {
-          const episodeDateTime = new Date(dateTime);
-          
-          // Calculate the date for this episode based on frequency
-          switch (formState.repeatFrequency) {
-            case 'daily':
-              episodeDateTime.setDate(episodeDateTime.getDate() + i);
-              break;
-            case 'weekly':
-              episodeDateTime.setDate(episodeDateTime.getDate() + (i * 7));
-              break;
-            case 'biweekly':
-              episodeDateTime.setDate(episodeDateTime.getDate() + (i * 14));
-              break;
-            case 'monthly':
-              episodeDateTime.setMonth(episodeDateTime.getMonth() + i);
-              break;
-          }
-          
-          const episodeStreamData = {
-            ...streamData,
-            title: `${formState.title} - Episode ${i + 1}`,
-            scheduled_at: episodeDateTime.toISOString(),
-            room_name: `${baseRoomName}-ep${i + 1}`,
-          };
-          
-          streams.push(episodeStreamData);
-        }
-        
-        // Create all streams
-        for (const episodeStream of streams) {
-          await createScheduledStream(episodeStream);
-        }
-        
-        alert(`Recurring Stream Series Created: ${episodes} episodes of "${formState.title}" have been scheduled!`);
-      } else {
-        // Create single stream or update existing stream
-        if (editingStreamId) {
-          // Update existing stream
-          await updateStream(editingStreamId, streamData);
-          alert(`Stream Updated: ${formState.title} has been updated for ${format(dateTime, "PPP 'at' p")}`);
-          
-          // Clear editing mode
-          setEditingStreamId(null);
-          // Remove edit parameter from URL
-          window.history.replaceState({}, '', window.location.pathname);
-        } else {
-          // Create new stream
-          await createScheduledStream(streamData);
-          alert(`Stream Scheduled: ${formState.title} has been scheduled for ${format(dateTime, "PPP 'at' p")}`);
-        }
-      }
-      
-      // Refresh scheduled streams
-      await fetchScheduledStreams();
-      
-      // Reset form
-      setFormState({
-        title: "",
-        description: "",
-        thumbnailUrl: "",
-        platform: "",
-        streamType: "video",
-        date: null,
-        time: "",
-        timeZone: "America/New_York",
-        repeating: false,
-        repeatFrequency: "weekly",
-        repeatCount: "",
-      });
-      setActiveTab('calendar');
-      
-    } catch (error) {
-      console.error('Error scheduling stream:', error);
-      console.error('Error details:', error);
-      setError('Failed to schedule stream. Please try again.');
-      alert('Error scheduling stream. Check console for details.');
-    }
-  };
-
-
+  }, []);
 
   return (
     <Layout>
@@ -366,12 +131,32 @@ const Schedule: React.FC = () => {
         </div>
         <Separator className="my-6" />
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="w-full">
           <div className="flex justify-between items-center mb-4">
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-              <TabsTrigger value="create">Create Stream</TabsTrigger>
-            </TabsList>
+            <div className="grid w-full grid-cols-2 max-w-md bg-gray-100 dark:bg-darkBrown-700 p-1 rounded-lg">
+              <button 
+                type="button"
+                onClick={() => setActiveTab('calendar')}
+                className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                  activeTab === 'calendar' 
+                    ? 'bg-white dark:bg-darkBrown-600 text-gray-900 dark:text-white' 
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-darkBrown-600/50'
+                }`}
+              >
+                Calendar
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveTab('create')}
+                className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                  activeTab === 'create' 
+                    ? 'bg-white dark:bg-darkBrown-600 text-gray-900 dark:text-white' 
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-darkBrown-600/50'
+                }`}
+              >
+                Create Stream
+              </button>
+            </div>
             <Button 
               variant="default" 
               className="bg-chocolate-600 text-white hover:bg-chocolate-700"
@@ -380,9 +165,9 @@ const Schedule: React.FC = () => {
               Go Live Now
             </Button>
           </div>
-          
-          <TabsContent value="calendar" className="mt-4">
-            <div className="bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg shadow-lg border border-gray-200 dark:border-darkBrown-400 p-4">
+
+          {activeTab === 'calendar' && (
+            <div className="mt-4 bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg shadow-lg border border-gray-200 dark:border-darkBrown-400 p-4">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Upcoming Streams</h2>
@@ -408,7 +193,6 @@ const Schedule: React.FC = () => {
                       <div className="space-y-2">
                         {scheduledStreams
                           .filter(stream => {
-                            // For display, use scheduled_at for future streams
                             const streamDate = new Date(stream.scheduled_at || 0);
                             return streamDate.toDateString() === date.toDateString();
                           })
@@ -429,7 +213,6 @@ const Schedule: React.FC = () => {
                             </div>
                           ))}
                         {scheduledStreams.filter(stream => {
-                          // For display, use scheduled_at for future streams
                           const streamDate = new Date(stream.scheduled_at || 0);
                           return streamDate.toDateString() === date.toDateString();
                         }).length === 0 && (
@@ -439,18 +222,18 @@ const Schedule: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  ) :
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-darkBrown-200">Select a date to view scheduled streams</p>
-                  </div>
-                  }
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-darkBrown-200">Select a date to view scheduled streams</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          </TabsContent>
+          )}
           
-          <TabsContent value="create" className="mt-4">
-            <div className="bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg shadow-md p-6">
+          {activeTab === 'create' && (
+            <div className="mt-4 bg-offWhite-25 dark:bg-darkBrown-800 rounded-lg shadow-md p-6">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {editingStreamId ? 'Edit Stream' : 'Schedule a New Stream'}
@@ -460,231 +243,21 @@ const Schedule: React.FC = () => {
                 </p>
               </div>
               
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Stream Title</Label>
-                    <Input 
-                      id="title" 
-                      name="title"
-                      placeholder="Enter your stream title"
-                      value={formState.title}
-                      onChange={handleInputChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea 
-                      id="description"
-                      name="description"
-                      placeholder="Describe what your stream will be about"
-                      value={formState.description}
-                      onChange={handleInputChange}
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <ThumbnailUpload
-                    onUploadComplete={handleThumbnailUpload}
-                    onRemove={handleThumbnailRemove}
-                    currentUrl={formState.thumbnailUrl}
-                    disabled={isLoading}
-                  />
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="platform">Platform</Label>
-                      <select
-                        id="platform"
-                        value={formState.platform}
-                        onChange={(e) => handleSelectChange("platform", e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        required
-                      >
-                        <option value="">Select platform</option>
-                        <option value="prayer">BibleNOW Prayer</option>
-                        <option value="qna">BibleNOW Q&A</option>
-                        <option value="lecture">BibleNOW Lecture</option>
-                        <option value="study">BibleNOW Study</option>
-                        <option value="reading">BibleNOW Reading</option>
-                        <option value="worship">BibleNOW Worship</option>
-                        <option value="livestream">BibleNOW Livestream</option>
-                        <option value="external">External Platform</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="streamType">Stream Type</Label>
-                      <select
-                        id="streamType"
-                        value={formState.streamType}
-                        onChange={(e) => handleSelectChange("streamType", e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        required
-                      >
-                        <option value="">Select type</option>
-                        <option value="video">Video</option>
-                        <option value="audio">Audio</option>
-                        <option value="call">Call-Based</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Date</Label>
-                      <Calendar
-                        mode="single"
-                        selected={formState.date || undefined}
-                        onSelect={(date) => 
-                          setFormState((prev) => ({ ...prev, date: date || null }))
-                        }
-                        className="rounded-md border"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="time">Time</Label>
-                      <div className="relative">
-                        <Input
-                          id="time"
-                          name="time"
-                          type="time"
-                          value={formState.time}
-                          onChange={handleInputChange}
-                          required
-                          className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="timeZone">Time Zone</Label>
-                    <select
-                      id="timeZone"
-                      value={formState.timeZone}
-                      onChange={(e) => handleSelectChange("timeZone", e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="America/New_York">Eastern Time (ET)</option>
-                      <option value="America/Chicago">Central Time (CT)</option>
-                      <option value="America/Denver">Mountain Time (MT)</option>
-                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                      <option value="Europe/London">London (GMT)</option>
-                      <option value="Europe/Paris">Central European (CET)</option>
-                    </select>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="repeating" 
-                      checked={formState.repeating}
-                      onCheckedChange={(checked) => 
-                        handleCheckboxChange("repeating", checked)
-                      }
-                    />
-                    <Label htmlFor="repeating" className="cursor-pointer">
-                      Recurring stream
-                    </Label>
-                  </div>
-                  
-                  {formState.repeating && (
-                    <div className="space-y-4 p-4 bg-blue-50 dark:bg-chocolate-700 rounded-lg border border-blue-200 dark:border-chocolate-500">
-                      <div>
-                        <Label htmlFor="repeatFrequency">Repeat Frequency</Label>
-                        <select
-                          id="repeatFrequency"
-                          value={formState.repeatFrequency}
-                          onChange={(e) => handleSelectChange("repeatFrequency", e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="daily">Daily</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Bi-Weekly</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="repeatCount">Number of Episodes</Label>
-                        <Input
-                          id="repeatCount"
-                          name="repeatCount"
-                          type="number"
-                          min="1"
-                          max="52"
-                          placeholder="e.g., 12 for 3 months of weekly streams"
-                          value={formState.repeatCount}
-                          onChange={handleInputChange}
-                          className="flex h-10 w-full rounded-md border border-gray-300 dark:border-chocolate-600 bg-offWhite-25 dark:bg-chocolate-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500 dark:text-chocolate-200 mt-1">
-                          Leave empty for ongoing (no end date)
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-100 dark:bg-chocolate-600 p-3 rounded-md">
-                        <p className="text-sm text-blue-800 dark:text-chocolate-200">
-                          <strong>Preview:</strong> {formState.repeatFrequency === 'weekly' && formState.date && formState.time ? 
-                            `Every ${format(formState.date, 'EEEE')} at ${formState.time}` :
-                            `Recurring ${formState.repeatFrequency} streams`
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex justify-end gap-2">
-                  {editingStreamId && (
-                    <Button 
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingStreamId(null);
-                        window.history.replaceState({}, '', window.location.pathname);
-                        setFormState({
-                          title: "",
-                          description: "",
-                          thumbnailUrl: "",
-                          platform: "",
-                          streamType: "video",
-                          date: null,
-                          time: "",
-                          timeZone: "America/New_York",
-                          repeating: false,
-                          repeatFrequency: "weekly",
-                          repeatCount: "",
-                        });
-                        setActiveTab('calendar');
-                      }}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                  <Button 
-                    type="submit" 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                    disabled={isLoading || streamingLimit?.hasReachedLimit}
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>{editingStreamId ? 'Updating...' : 'Scheduling...'}</span>
-                      </div>
-                    ) : (
-                      editingStreamId ? 'Update Stream' : 'Schedule Stream'
-                    )}
-                  </Button>
-                </div>
-              </form>
+              <CreateStreamForm 
+                onSuccess={() => {
+                  setActiveTab('calendar');
+                  if (editingStreamId) {
+                    setEditingStreamId(null);
+                    window.history.replaceState({}, '', window.location.pathname);
+                  }
+                }}
+                editingStreamId={editingStreamId}
+                streamingLimit={streamingLimit}
+                onShowLimitDialog={() => setShowLimitDialog(true)}
+              />
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
 
         {/* Streaming Limit Dialog */}
         <AlertDialog open={showLimitDialog} onOpenChange={setShowLimitDialog}>
@@ -712,4 +285,4 @@ const Schedule: React.FC = () => {
   );
 };
 
-export default Schedule; 
+export default Schedule;

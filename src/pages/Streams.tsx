@@ -25,13 +25,15 @@ interface EditStreamFormValues {
 }
 
 const Streams: React.FC = () => {
-  const { scheduledStreams, fetchScheduledStreams } = useLivestreamStore();
+  const { scheduledStreams, fetchScheduledStreams, fetchRecentStreams } = useLivestreamStore();
   const [activeTab] = useState<string>("streams");
 
-  // Fetch scheduled streams on component mount
+  // Fetch scheduled and recent streams on component mount
   useEffect(() => {
+    console.log('🔄 Streams page: Calling fetchScheduledStreams() and fetchRecentStreams()');
     fetchScheduledStreams();
-  }, [fetchScheduledStreams]);
+    fetchRecentStreams();
+  }, [fetchScheduledStreams, fetchRecentStreams]);
   
   // Stream editing states
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

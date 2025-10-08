@@ -7,7 +7,7 @@ console.log('Initializing Stripe with key type:', stripeKey ?
   (stripeKey.startsWith('sk_test_') ? 'test' : 'live') : 'none');
 
 let stripe = null;
-if (stripeKey && stripeKey !== 'sk_test_your_stripe_secret_key_here') {
+if (stripeKey && stripeKey !== 'sk_live_your_stripe_secret_key_here') {
   stripe = require('stripe')(stripeKey);
   console.log('✅ Stripe initialized successfully');
 } else {
@@ -441,7 +441,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET_STUDIO);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -799,7 +799,7 @@ app.post('/api/jitsi/token', async (req, res) => {
       iss: JITSI_ISS,
       room: "*", // Use wildcard for room access
       nbf: now - 10, // 10 seconds before now
-      exp: now + 3600, // 1 hour from now
+      exp: now + 7200, // 2 hours from now
       iat: now,
       context: {
         user: {

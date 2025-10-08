@@ -109,6 +109,11 @@ const Notifications: React.FC<NotificationsProps> = ({ isOpen, onClose }) => {
           navigate(`/live/${notification.metadata.stream_id}`);
         }
         break;
+      case 'streaming_limit_warning':
+      case 'streaming_limit_reached':
+        // Navigate to dashboard to see usage details
+        navigate('/dashboard');
+        break;
       case 'follow':
         // Navigate to profile or handle follow notification
         break;
@@ -126,6 +131,21 @@ const Notifications: React.FC<NotificationsProps> = ({ isOpen, onClose }) => {
     
     // Fallback to default avatar
     return null;
+  };
+
+  const getNotificationIcon = (notification: Notification) => {
+    switch (notification.type) {
+      case 'streaming_limit_warning':
+        return '⚠️';
+      case 'streaming_limit_reached':
+        return '🚫';
+      case 'streamer_live':
+        return '🔴';
+      case 'follow':
+        return '👤';
+      default:
+        return '📢';
+    }
   };
 
   const getStreamerName = (notification: Notification) => {
@@ -208,10 +228,14 @@ const Notifications: React.FC<NotificationsProps> = ({ isOpen, onClose }) => {
                     onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start space-x-3">
-                      {/* Avatar */}
+                      {/* Avatar/Icon */}
                       <div className="flex-shrink-0">
                         <div className="w-10 h-10 rounded-full bg-chocolate-200 dark:bg-chocolate-600 flex items-center justify-center overflow-hidden">
-                          {streamerAvatar ? (
+                          {notification.type.startsWith('streaming_limit') ? (
+                            <span className="text-2xl">
+                              {getNotificationIcon(notification)}
+                            </span>
+                          ) : streamerAvatar ? (
                             <img
                               src={streamerAvatar}
                               alt={streamerName}

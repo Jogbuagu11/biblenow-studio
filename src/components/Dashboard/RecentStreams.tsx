@@ -16,6 +16,7 @@ const RecentStreams: React.FC = () => {
   const itemsPerPage = 12;
 
   useEffect(() => {
+    console.log('🔄 RecentStreams component: Calling fetchRecentStreams()');
     fetchRecentStreams();
   }, [fetchRecentStreams]);
 
@@ -47,6 +48,18 @@ const RecentStreams: React.FC = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentStreams = recentStreams.slice(startIndex, endIndex);
+
+  // Debug logging
+  console.log('📊 RecentStreams: Rendering', recentStreams.length, 'streams');
+  console.log('📊 Current streams for display:', currentStreams.length);
+  console.log('📊 Pagination info:', {
+    currentPage,
+    totalPages,
+    itemsPerPage,
+    startIndex,
+    endIndex,
+    shouldShowPagination: recentStreams.length > itemsPerPage
+  });
 
   return (
     <Card>
@@ -129,15 +142,31 @@ const RecentStreams: React.FC = () => {
             </Button>
           </div>
         )}
-        {recentStreams.length > itemsPerPage && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            totalItems={recentStreams.length}
-            itemsPerPage={itemsPerPage}
-          />
-        )}
+        {(() => {
+          console.log('🔍 Pagination check:', {
+            recentStreamsLength: recentStreams.length,
+            itemsPerPage,
+            shouldShow: recentStreams.length > itemsPerPage,
+            totalPages,
+            currentPage
+          });
+          
+          if (recentStreams.length > itemsPerPage) {
+            console.log('✅ Rendering pagination component');
+            return (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={recentStreams.length}
+                itemsPerPage={itemsPerPage}
+              />
+            );
+          } else {
+            console.log('❌ Not showing pagination - condition not met');
+            return null;
+          }
+        })()}
       </CardContent>
       
       <StreamDetailsModal

@@ -5,6 +5,7 @@ import MetricCard from '../components/Dashboard/MetricCard';
 import UsageCard from '../components/Dashboard/UsageCard';
 import WeeklyUsageBar from '../components/Dashboard/WeeklyUsageBar';
 import DashboardHeader from '../components/Dashboard/DashboardHeader';
+import StreamingLimitBanner from '../components/StreamingLimitBanner';
 import { databaseService } from '../services/databaseService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 
@@ -16,6 +17,7 @@ const Dashboard: React.FC = () => {
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [subscriptionPlan, setSubscriptionPlan] = useState<string>('');
   const [streamingLimit, setStreamingLimit] = useState<number>(0);
+  const [streamingLimitData, setStreamingLimitData] = useState<any>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -58,6 +60,11 @@ const Dashboard: React.FC = () => {
         console.log('Total followers:', followers);
         setTotalFollowers(followers);
 
+        // Get streaming limit data
+        const limitData = await databaseService.checkWeeklyStreamingLimit(user.uid);
+        console.log('Streaming limit data:', limitData);
+        setStreamingLimitData(limitData);
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       }
@@ -71,6 +78,14 @@ const Dashboard: React.FC = () => {
       <DashboardHeader 
         title="Dashboard" 
         subtitle="Welcome to your BibleNow Studio dashboard"
+      />
+      
+      
+      {/* Streaming Limit Banner */}
+      <StreamingLimitBanner 
+        streamingLimit={streamingLimitData}
+        subscriptionPlan={subscriptionPlan}
+        onUpgrade={() => window.location.href = '/settings'}
       />
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -122,6 +137,7 @@ const Dashboard: React.FC = () => {
           </div>
         </ChartCard>
       </div>
+
     </Layout>
   );
 };

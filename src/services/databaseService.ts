@@ -540,22 +540,28 @@ class DatabaseService {
       dayOfWeek
     });
 
-    // First try to get from livestream_weekly_usage table
-    const { data: weeklyData, error: weeklyError } = await supabase
-      .from('livestream_weekly_usage')
-      .select('streamed_minutes')
-      .eq('user_id', userId)
-      .eq('week_start_date', startOfWeek.toISOString().split('T')[0])
-      .single();
-
-    if (weeklyError && weeklyError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching weekly usage:', weeklyError);
-      throw new Error(weeklyError.message);
+      // Get weekly usage using the new function
+    interface PostgrestError {
+      message: string;
+      code: string;
     }
 
-    let totalMinutes = 0;
-    if (weeklyData) {
-      totalMinutes = weeklyData.streamed_minutes || 0;
+    const { data: weeklyData, error: weeklyError } = await supabase
+      .rpc('get_weekly_usage', { 
+        user_id_param: userId,
+        week_start_date_param: startOfWeek.toISOString().split('T')[0]
+      });
+
+    // Handle errors, but allow PGRST116 (no rows) to continue
+    if (weeklyError && (weeklyError as PostgrestError).code !== 'PGRST116') {
+      console.error('Error fetching weekly usage:', weeklyError);
+      throw new Error((weeklyError as PostgrestError).message);
+    }
+
+    const streamedMinutes = weeklyData?.streamed_minutes ?? 0;
+
+    let totalMinutes = streamedMinutes;
+    if (streamedMinutes > 0) {
       console.log('Found weekly usage record:', weeklyData);
     } else {
       console.log('No weekly usage record found, falling back to livestreams calculation');
@@ -714,13 +720,13 @@ class DatabaseService {
 
       if (error) {
         console.error('❌ Error checking weekly streaming limit:', error);
-        // Return unlimited values if there's an error to avoid blocking streams
+        // Return restrictive values if there's an error to prevent unauthorized streaming
         return {
-          hasReachedLimit: false,
+          hasReachedLimit: true,
           currentMinutes: 0,
-          limitMinutes: 0, // 0 means unlimited
+          limitMinutes: 0,
           remainingMinutes: 0,
-          usagePercentage: 0
+          usagePercentage: 100
         };
       }
 

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useToast } from "../../hooks/use-toast";
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface WeeklyUsageBarProps {
@@ -32,6 +33,25 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
   
   // Calculate percentage with safety checks
   const percentage = weeklyLimitInUnit > 0 ? (currentInUnit / weeklyLimitInUnit) * 100 : 0;
+
+  const { toast } = useToast();
+
+  // Show toast notifications for limits
+  useEffect(() => {
+    if (percentage >= 100) {
+      toast({
+        title: "Weekly Streaming Limit Reached",
+        description: "You have reached your weekly streaming limit. Please wait until next week or upgrade your plan to continue streaming.",
+        variant: "destructive"
+      });
+    } else if (percentage >= 75) {
+      toast({
+        title: "Approaching Weekly Streaming Limit",
+        description: `You have used ${percentage.toFixed(1)}% of your weekly streaming limit. Consider upgrading your plan for more streaming time.`,
+        variant: "default"
+      });
+    }
+  }, [percentage, toast]);
 
   // Debug logging for calculations
   console.log('WeeklyUsageBar Calculations:', {

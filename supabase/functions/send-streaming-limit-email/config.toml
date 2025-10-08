@@ -1,0 +1,2 @@
+[functions.send-streaming-limit-email]
+verify_jwt = true
