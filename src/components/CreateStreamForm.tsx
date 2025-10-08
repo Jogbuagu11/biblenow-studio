@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, addWeeks, isBefore } from 'date-fns';
 import { useToast } from "../hooks/use-toast";
 import { useLivestreamStore } from '../stores';
@@ -91,9 +91,9 @@ const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
   const nextWeekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 1 }), 1);
 
   // Check if selected date is within current limit period
-  const isWithinLimitPeriod = (date: Date) => {
+  const isWithinLimitPeriod = useCallback((date: Date) => {
     return isBefore(date, nextWeekStart);
-  };
+  }, [nextWeekStart]);
 
   // Show warning for scheduled streams during limit period
   useEffect(() => {
