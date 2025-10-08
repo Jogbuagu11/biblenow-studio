@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addWeeks, isBefore } from 'date-fns';
 import { useToast } from "../hooks/use-toast";
 import { useLivestreamStore } from '../stores';
-import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Label from './ui/Label';
@@ -105,7 +104,7 @@ const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
         variant: "destructive"
       });
     }
-  }, [formState.date, streamingLimit?.hasReachedLimit]);
+  }, [formState.date, streamingLimit?.hasReachedLimit, isWithinLimitPeriod, toast]);
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();

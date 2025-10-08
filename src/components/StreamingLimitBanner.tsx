@@ -63,7 +63,7 @@ const StreamingLimitBanner: React.FC<StreamingLimitBannerProps> = ({
       });
       setLastNotificationPercentage(50);
     }
-  }, [streamingLimit?.usagePercentage, lastNotificationPercentage, toast]);
+  }, [streamingLimit, lastNotificationPercentage, toast]);
 
   // Don't show banner if dismissed or no limit data
   if (isDismissed || !streamingLimit) return null;

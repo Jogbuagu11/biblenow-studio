@@ -5,7 +5,6 @@ import { databaseService } from '../services/databaseService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import Layout from '../components/Layout/Layout';
 import Button from '../components/ui/Button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Calendar from '../components/ui/Calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/AlertDialog';
 import Separator from '../components/ui/Separator';
