@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { useLivestreamStore } from '../../stores/livestreamStore';
+import { useSupabaseAuthStore } from '../../stores/supabaseAuthStore';
 import { format } from 'date-fns';
 import StreamDetailsModal from '../StreamDetailsModal';
 import Pagination from '../ui/Pagination';
@@ -10,6 +11,7 @@ import { getPlatformConfig } from '../../utils/platformUtils';
 
 const RecentStreams: React.FC = () => {
   const { recentStreams, fetchRecentStreams, isLoading } = useLivestreamStore();
+  const { user, isAuthenticated } = useSupabaseAuthStore();
   const [selectedStream, setSelectedStream] = useState<StreamInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -17,8 +19,10 @@ const RecentStreams: React.FC = () => {
 
   useEffect(() => {
     console.log('🔄 RecentStreams component: Calling fetchRecentStreams()');
+    console.log('🔍 Auth state:', { user: user?.uid, isAuthenticated });
+    console.log('🔍 Current livestream state:', useLivestreamStore.getState());
     fetchRecentStreams();
-  }, [fetchRecentStreams]);
+  }, [fetchRecentStreams, user, isAuthenticated]);
 
   const calculateDuration = (startedAt: string, endedAt: string) => {
     const start = new Date(startedAt);
@@ -74,6 +78,10 @@ const RecentStreams: React.FC = () => {
           <div className="text-center py-8">
             <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
             <p className="text-gray-500">Loading recent streams...</p>
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Please log in to view your recent streams.</p>
           </div>
         ) : recentStreams.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

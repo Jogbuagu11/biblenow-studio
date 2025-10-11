@@ -239,12 +239,23 @@ class DatabaseService {
   // Get recent livestreams
   async getRecentLivestreams(limit: number = 10): Promise<StreamInfo[]> {
     console.log('🔍 Fetching recent livestreams with limit:', limit);
+    
+    // Get current user to filter by their streams
+    const { user } = useSupabaseAuthStore.getState();
+    if (!user) {
+      console.log('❌ No authenticated user found');
+      return [];
+    }
+    
+    console.log('👤 Fetching recent streams for user:', user.uid);
+    
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
-      .or('status.eq.ended,and(is_live.eq.false,ended_at.not.is.null)')
+      .eq('streamer_id', user.uid)
+      .eq('status', 'ended')
+      .not('ended_at', 'is', null)
       .order('ended_at', { ascending: false })
-      .order('started_at', { ascending: false })
       .limit(limit);
     
     if (error) {
@@ -259,9 +270,19 @@ class DatabaseService {
 
   // Get upcoming livestreams
   async getUpcomingLivestreams(): Promise<StreamInfo[]> {
+    // Get current user to filter by their streams
+    const { user } = useSupabaseAuthStore.getState();
+    if (!user) {
+      console.log('❌ No authenticated user found');
+      return [];
+    }
+    
+    console.log('👤 Fetching upcoming streams for user:', user.uid);
+    
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
+      .eq('streamer_id', user.uid)
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true });
     if (error) throw new Error(error.message);
@@ -271,9 +292,20 @@ class DatabaseService {
   // Get scheduled livestreams (future streams that are not live)
   async getScheduledLivestreams(): Promise<StreamInfo[]> {
     console.log('🔍 Fetching scheduled livestreams');
+    
+    // Get current user to filter by their streams
+    const { user } = useSupabaseAuthStore.getState();
+    if (!user) {
+      console.log('❌ No authenticated user found');
+      return [];
+    }
+    
+    console.log('👤 Fetching scheduled streams for user:', user.uid);
+    
     const { data, error } = await supabase
       .from('livestreams')
       .select('*')
+      .eq('streamer_id', user.uid)
       .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true });
