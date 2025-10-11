@@ -25,8 +25,17 @@ const WeeklyUsageBar: React.FC<WeeklyUsageBarProps> = ({
     daysRemaining,
     subscriptionPlan
   });
+  
+  // Additional debugging for unit conversion
+  console.log('WeeklyUsageBar Unit Conversion Debug:', {
+    weeklyLimitInMinutes: weeklyLimit,
+    weeklyLimitInHours: weeklyLimit / 60,
+    currentHours,
+    currentMinutes: currentHours * 60
+  });
 
   // Convert weekly limit to display unit if needed
+  // weeklyLimit is passed in minutes, currentHours is in hours
   const weeklyLimitInUnit = unit === "hours" ? weeklyLimit / 60 : weeklyLimit;
   const currentInUnit = unit === "hours" ? currentHours : currentHours * 60;
   const remainingInUnit = Math.max(0, weeklyLimitInUnit - currentInUnit);
