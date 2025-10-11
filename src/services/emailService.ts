@@ -88,7 +88,7 @@ class EmailService {
               ${totalWeeklyMinutes - remainingMinutes} / ${totalWeeklyMinutes} minutes used
             </p>
             
-            <p>Your streaming minutes will reset on <strong>${resetDate}</strong>. To continue streaming without limits, consider upgrading to a higher plan.</p>
+            <p>Your streaming minutes will reset every <strong>Monday at 12:00 AM</strong>. To continue streaming without limits, consider upgrading to a higher plan.</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="io.biblenow.authapp://subscription-plans" class="button">Upgrade Plan</a>
@@ -145,7 +145,7 @@ class EmailService {
           </div>
           <div class="content">
             <h2>Hi ${firstName},</h2>
-            <p>You have reached your weekly streaming limit on BibleNOW. You can either wait until your minutes reset on <strong>${resetDate}</strong>, or upgrade to a higher plan for unlimited access.</p>
+            <p>You have reached your weekly streaming limit on BibleNOW. Your streaming limits reset every <strong>Monday at 12:00 AM</strong>. You can either wait until the reset, or upgrade to a higher plan for unlimited access.</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="io.biblenow.authapp://subscription-plans" class="button">Manage Subscription</a>

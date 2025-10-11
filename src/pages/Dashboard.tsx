@@ -36,6 +36,12 @@ const Dashboard: React.FC = () => {
           
           // Set streaming limit in minutes
           const limitMinutes = profile.subscription_plans?.streaming_minutes_limit || 0;
+          console.log('User profile data:', {
+            subscriptionPlan: profile.subscription_plans?.name,
+            subscriptionPlanId: profile.subscription_plan_id,
+            streamingMinutesLimit: limitMinutes,
+            planDetails: profile.subscription_plans
+          });
           console.log('Setting streaming limit:', limitMinutes, 'minutes');
           setStreamingLimit(limitMinutes);
         }
@@ -118,7 +124,7 @@ const Dashboard: React.FC = () => {
       {/* Weekly Streaming Usage Bar */}
       <WeeklyUsageBar 
         currentHours={weeklyUsage.totalHours}
-        weeklyLimit={streamingLimit}
+        weeklyLimit={streamingLimit} // streamingLimit is in minutes
         unit="hours"
         daysRemaining={daysRemaining}
         subscriptionPlan={subscriptionPlan}

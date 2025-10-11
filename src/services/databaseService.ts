@@ -555,7 +555,7 @@ class DatabaseService {
     }
   }
 
-  // Get weekly streaming usage for a user from the weekly_usage table
+  // Get weekly streaming usage for a user by calculating from livestreams table
   async getWeeklyUsage(userId: string): Promise<{ totalMinutes: number; totalHours: number }> {
     // Get the start of the current week (Monday)
     const now = new Date();
@@ -572,62 +572,51 @@ class DatabaseService {
       dayOfWeek
     });
 
-      // Get weekly usage using the new function
-    interface PostgrestError {
-      message: string;
-      code: string;
-    }
-
-    const { data: weeklyData, error: weeklyError } = await supabase
-      .rpc('get_weekly_usage', { 
-        user_id_param: userId,
-        week_start_date_param: startOfWeek.toISOString().split('T')[0]
-      });
-
-    // Handle errors, but allow PGRST116 (no rows) to continue
-    if (weeklyError && (weeklyError as PostgrestError).code !== 'PGRST116') {
-      console.error('Error fetching weekly usage:', weeklyError);
-      throw new Error((weeklyError as PostgrestError).message);
-    }
-
-    const streamedMinutes = weeklyData?.streamed_minutes ?? 0;
-
-    let totalMinutes = streamedMinutes;
-    if (streamedMinutes > 0) {
-      console.log('Found weekly usage record:', weeklyData);
-    } else {
-      console.log('No weekly usage record found, falling back to livestreams calculation');
-      
-      // Fallback to calculating from livestreams table
+    // Calculate directly from livestreams table
+    console.log('🔄 Calculating weekly usage directly from livestreams table');
+    
+    // Get all streams from this week (ended, active, or any status)
     const { data, error } = await supabase
       .from('livestreams')
-      .select('started_at, ended_at, title')
+      .select('started_at, ended_at, title, status, is_live')
       .eq('streamer_id', userId)
-      .eq('status', 'ended')
       .not('started_at', 'is', null)
-      .not('ended_at', 'is', null)
       .gte('started_at', startOfWeek.toISOString())
       .lte('started_at', now.toISOString());
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Error fetching livestreams for weekly usage:', error);
+      throw new Error(error.message);
+    }
 
+    let totalMinutes = 0;
+    
     // Calculate total minutes from all streams
     if (data && data.length > 0) {
-      console.log(`Found ${data.length} completed streams this week:`, data);
+      console.log(`Found ${data.length} streams this week:`, data);
       
       totalMinutes = data.reduce((total, stream) => {
         const startTime = new Date(stream.started_at);
-        const endTime = new Date(stream.ended_at);
+        let endTime: Date;
+        
+        // Handle active streams (no ended_at time)
+        if (stream.ended_at) {
+          endTime = new Date(stream.ended_at);
+        } else {
+          // Stream is still active, calculate duration up to now
+          endTime = new Date();
+        }
+        
         const durationMs = endTime.getTime() - startTime.getTime();
         const durationMinutes = Math.floor(durationMs / (1000 * 60));
         
-        console.log(`Stream "${stream.title}": ${durationMinutes} minutes`);
+        const statusText = stream.ended_at ? 'completed' : 'active';
+        console.log(`Stream "${stream.title}" (${statusText}): ${durationMinutes} minutes`);
         
         return total + durationMinutes;
       }, 0);
     } else {
-      console.log('No completed streams found for this week');
-      }
+      console.log('No streams found for this week');
     }
 
     const totalHours = totalMinutes / 60;
@@ -702,19 +691,20 @@ class DatabaseService {
       return streamingMinutesLimit;
     }
     
-    // Default limits based on plan names
+    // Default limits based on plan names (updated to match database schema)
     switch (subscriptionPlan?.toLowerCase()) {
+      case 'free':
+        return 0; // No streaming
       case 'olive':
-      case 'basic':
-        return 60; // 1 hour per week
-      case 'cedar':
-      case 'premium':
-        return 0; // Unlimited
-      case 'cypress':
-      case 'standard':
         return 180; // 3 hours per week
+      case 'branch':
+        return 360; // 6 hours per week
+      case 'vine':
+        return 600; // 10 hours per week
+      case 'cedar':
+        return 1200; // 20 hours per week
       default:
-        return 60; // Default to 1 hour
+        return 60; // Default to 1 hour for unknown plans
     }
   }
 
@@ -729,60 +719,80 @@ class DatabaseService {
     try {
       console.log('🔍 Checking weekly streaming limit for user:', userId);
       
-      // First check if the table exists
-      const { error: tableCheckError } = await supabase
-        .from('livestream_weekly_usage')
-        .select('id')
-        .limit(1);
-
-      if (tableCheckError && tableCheckError.code === '42P01') {
-        console.log('⚠️ Weekly usage table not found, returning default values');
-        return {
-          hasReachedLimit: false,
-          currentMinutes: 0,
-          limitMinutes: 60,
-          remainingMinutes: 60,
-          usagePercentage: 0
-        };
+      // Calculate directly from livestreams table
+      console.log('🔄 Calculating weekly streaming limit directly from livestreams table');
+      
+      // Get current week start
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      const dayOfWeek = now.getDay();
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startOfWeek.setDate(now.getDate() - daysToSubtract);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      // Get current usage by calculating from livestreams table
+      const { data: streamsData, error: streamsError } = await supabase
+        .from('livestreams')
+        .select('started_at, ended_at, title, status, is_live')
+        .eq('streamer_id', userId)
+        .not('started_at', 'is', null)
+        .gte('started_at', startOfWeek.toISOString())
+        .lte('started_at', now.toISOString());
+      
+      if (streamsError) {
+        console.error('Error fetching streams for limit check:', streamsError);
+        throw new Error(streamsError.message);
       }
       
-      const { data, error } = await supabase
-        .rpc('check_weekly_streaming_limit', { user_id_param: userId })
-        .single();
-
-      if (error) {
-        console.error('❌ Error checking weekly streaming limit:', error);
-        // Return restrictive values if there's an error to prevent unauthorized streaming
-        return {
-          hasReachedLimit: true,
-          currentMinutes: 0,
-          limitMinutes: 0,
-          remainingMinutes: 0,
-          usagePercentage: 100
-        };
+      let currentMinutes = 0;
+      if (streamsData && streamsData.length > 0) {
+        console.log(`Found ${streamsData.length} streams for limit check:`, streamsData);
+        
+        currentMinutes = streamsData.reduce((total, stream) => {
+          const startTime = new Date(stream.started_at);
+          let endTime: Date;
+          
+          if (stream.ended_at) {
+            endTime = new Date(stream.ended_at);
+          } else {
+            endTime = new Date(); // Active stream
+          }
+          
+          const durationMs = endTime.getTime() - startTime.getTime();
+          const durationMinutes = Math.floor(durationMs / (1000 * 60));
+          
+          console.log(`Stream "${stream.title}": ${durationMinutes} minutes`);
+          return total + durationMinutes;
+        }, 0);
+      } else {
+        console.log('No streams found for limit check');
       }
-
-      console.log('✅ Weekly streaming limit data:', data);
-
-      // Type the response data
-      const responseData = data as {
-        has_reached_limit: boolean;
-        current_minutes: number;
-        limit_minutes: number;
-        remaining_minutes: number;
-        usage_percentage: number;
-      };
-
+      
+      // Get the actual limit from user's subscription plan
+      const userProfile = await this.getUserProfile(userId);
+      const limitMinutes = userProfile?.subscription_plans?.streaming_minutes_limit || 60; // Default to 60 minutes
+      const remainingMinutes = Math.max(0, limitMinutes - currentMinutes);
+      const usagePercentage = limitMinutes > 0 ? (currentMinutes / limitMinutes) * 100 : 0;
+      const hasReachedLimit = currentMinutes >= limitMinutes;
+      
+      console.log('Weekly limit check result:', {
+        currentMinutes,
+        limitMinutes,
+        remainingMinutes,
+        usagePercentage,
+        hasReachedLimit
+      });
+      
       return {
-        hasReachedLimit: responseData.has_reached_limit,
-        currentMinutes: responseData.current_minutes,
-        limitMinutes: responseData.limit_minutes,
-        remainingMinutes: responseData.remaining_minutes,
-        usagePercentage: responseData.usage_percentage
+        hasReachedLimit,
+        currentMinutes,
+        limitMinutes,
+        remainingMinutes,
+        usagePercentage
       };
     } catch (error) {
       console.error('Error checking weekly streaming limit:', error);
-      // Return default values if function doesn't exist
+      // Return default values if there's an error
       return {
         hasReachedLimit: false,
         currentMinutes: 0,
