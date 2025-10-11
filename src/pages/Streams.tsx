@@ -80,17 +80,11 @@ const Streams: React.FC = () => {
         <Separator className="my-6" />
         
         <Tabs defaultValue={activeTab} className="w-full">
-          <div className="flex justify-between items-center mb-4">
+          <div className="mb-4">
             <TabsList>
               <TabsTrigger value="streams">All Streams</TabsTrigger>
               <TabsTrigger value="recurring">Recurring Series</TabsTrigger>
             </TabsList>
-            <Button 
-              variant="default" 
-              className="bg-chocolate-600 text-white hover:bg-chocolate-700"
-            >
-              Go Live Now
-            </Button>
           </div>
 
           <TabsContent value="streams" className="mt-0 space-y-6">
