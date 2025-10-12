@@ -518,7 +518,13 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           TOOLBAR_ALWAYS_VISIBLE: true,
           HIDE_INVITE_MORE_HEADER: true,
           DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
-          DISABLE_PRESENCE_STATUS: true
+          DISABLE_PRESENCE_STATUS: true,
+          
+          // Video layout settings to prevent multiple instances
+          DEFAULT_LOGO_URL: '',
+          DEFAULT_WELCOME_PAGE_LOGO_URL: '',
+          MAXIMUM_ZOOMING_COEFFICIENT: 1.3,
+          VIDEO_LAYOUT_FIT: 'both'
         }
       };
 
@@ -1069,7 +1075,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
       isInitializingRef.current = false;
     };
-  }, [user, roomName, handleStreamEnd, isJitsiReady, isModerator, isStreamer]); // Include all dependencies
+  }, [user, roomName]); // Only re-initialize when user or room changes
 
   // Handle stream end when isStreamer or isModerator changes
   useEffect(() => {
