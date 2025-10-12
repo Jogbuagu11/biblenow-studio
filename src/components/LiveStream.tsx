@@ -128,7 +128,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     }
   }, [isModerator]);
 
-  // Manual camera recovery function
+  // Manual camera recovery function (unused but kept for debugging)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const recoverCamera = useCallback(() => {
     if (apiRef.current) {
       console.log('🔄 Manual camera recovery initiated...');
@@ -1068,7 +1069,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
       isInitializingRef.current = false;
     };
-  }, [user, roomName]); // Only re-initialize when user or room changes
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isModerator, isStreamer]); // Include all dependencies
 
   // Handle stream end when isStreamer or isModerator changes
   useEffect(() => {
