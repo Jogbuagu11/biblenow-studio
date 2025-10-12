@@ -1253,12 +1253,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
 
 
 
-        {/* Top-left Branding Overlay */}
-        <div className="absolute top-3 left-3 z-50 pointer-events-none">
-          <div className="bg-black rounded-md p-2 shadow-lg">
-            <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
-          </div>
-        </div>
 
         {/* Gift Burst Overlay */}
         {giftOverlay && (
