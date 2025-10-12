@@ -17,6 +17,7 @@ import { useLivestreamStore } from '../stores';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { thumbnailService } from '../services/thumbnailService';
+import { RoomUrlService } from '../services/roomUrlService';
 import { validateUserIdFormat } from '../utils/clearCache';
 
 interface GoLiveModalProps {
@@ -190,14 +191,8 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // Simple room name for Jitsi
-      const cleanRoomName = formData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'bible-study';
-      
-      const jitsiRoomName = cleanRoomName;
+      // Use consistent room naming with Flutter app
+      const jitsiRoomName = RoomUrlService.generateRoomName(formData.title);
       
       const streamData = {
         title: formData.title,

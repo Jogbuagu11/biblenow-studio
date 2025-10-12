@@ -13,10 +13,20 @@ export interface Notification {
 }
 
 export class NotificationService {
+  private static intervalId: NodeJS.Timeout | null = null;
+  private static isProcessing = false;
+
   /**
    * Check for new streaming limit notifications and send emails
    */
   static async processStreamingLimitNotifications(): Promise<void> {
+    // Prevent concurrent executions
+    if (this.isProcessing) {
+      console.log('🔍 [NotificationService] Already processing, skipping...');
+      return;
+    }
+    
+    this.isProcessing = true;
     console.log('🔍 [NotificationService] Starting processStreamingLimitNotifications...');
     
     try {
@@ -166,22 +176,42 @@ export class NotificationService {
       console.error('💥 [NotificationService] Error in processStreamingLimitNotifications:', error);
       console.error('🔍 [NotificationService] Main error stack:', error instanceof Error ? error.stack : 'No stack');
       console.error('🔍 [NotificationService] Main error details:', JSON.stringify(error, null, 2));
+    } finally {
+      this.isProcessing = false;
+      console.log('🔍 [NotificationService] Finished processStreamingLimitNotifications');
     }
-    
-    console.log('🔍 [NotificationService] Finished processStreamingLimitNotifications');
   }
 
   /**
    * Start periodic checking for notifications (call this on app startup)
    */
   static startNotificationProcessor(): void {
+    // Clear any existing interval to prevent duplicates
+    if (this.intervalId) {
+      console.log('🔍 [NotificationService] Clearing existing notification processor interval');
+      clearInterval(this.intervalId);
+    }
+    
     // Process immediately
     this.processStreamingLimitNotifications();
     
     // Then process every 30 seconds
-    setInterval(() => {
+    this.intervalId = setInterval(() => {
       this.processStreamingLimitNotifications();
     }, 30000);
+    
+    console.log('🔍 [NotificationService] Notification processor started with 30-second interval');
+  }
+
+  /**
+   * Stop the notification processor
+   */
+  static stopNotificationProcessor(): void {
+    if (this.intervalId) {
+      console.log('🔍 [NotificationService] Stopping notification processor');
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
   }
 
   /**

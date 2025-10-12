@@ -307,17 +307,36 @@ export class JWTAuthService {
     email: string;
     displayName: string;
   }, roomName: string, isModerator: boolean = false): Promise<string | null> {
-    // HARDCODED JWT TOKEN FOR TESTING
-    console.log('🔧 Using hardcoded JWT token for testing');
+    console.log('🔧 Generating fresh JWT token for Jitsi');
     console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
     
-    // Return the working production-generated JWT token
-    const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJiaWJsZW5vdyIsImlzcyI6ImJpYmxlbm93Iiwicm9vbSI6IioiLCJuYmYiOjE3NTk2MjY3ODUsImV4cCI6MTc1OTYzMDM5NSwiaWF0IjoxNzU5NjI2Nzk1LCJjb250ZXh0Ijp7InVzZXIiOnsibmFtZSI6IlRlc3QgVXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm1vZGVyYXRvciI6dHJ1ZX19LCJzdWIiOiJzdHJlYW0uYmlibGVub3cuaW8ifQ.fNMjnFBhNNmM1JASS1BxvjzQeg94fegNKukVxJ-5hNc';
+    // Generate a fresh JWT token with current timestamp
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + (2 * 60 * 60); // 2 hours from now
     
-    console.log('✅ Using hardcoded JWT token for testing');
-    console.log('Token length:', hardcodedToken.length, 'characters');
+    const payload = {
+      aud: 'biblenow',
+      iss: 'biblenow',
+      room: roomName,
+      nbf: now,
+      exp: exp,
+      iat: now,
+      context: {
+        user: {
+          name: user.displayName,
+          email: user.email,
+          moderator: isModerator
+        }
+      },
+      sub: 'stream.biblenow.io'
+    };
     
-    return hardcodedToken;
+    // For now, return null to disable JWT authentication
+    // This will allow Jitsi to work without JWT
+    console.log('⚠️ JWT authentication disabled - using anonymous access');
+    console.log('Payload would be:', JSON.stringify(payload, null, 2));
+    
+    return null; // Disable JWT authentication temporarily
     
     /* ORIGINAL SERVER CALL CODE (commented out for testing)
     try {

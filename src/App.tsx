@@ -33,6 +33,11 @@ function App() {
     }
     // Start notification processor
     NotificationService.startNotificationProcessor();
+    
+    // Cleanup function to stop notification processor when component unmounts
+    return () => {
+      NotificationService.stopNotificationProcessor();
+    };
   }, [initialize]);
 
   console.log("App loaded");

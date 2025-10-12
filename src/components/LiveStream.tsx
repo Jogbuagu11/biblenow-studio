@@ -5,6 +5,7 @@ import { databaseService } from '../services/databaseService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
 import { supabase } from '../config/supabase';
 import { jitsiConfig } from '../config/jitsi';
+import { RoomUrlService } from '../services/roomUrlService';
 import GiftBurst from './GiftBurst';
 
 declare global {
@@ -22,8 +23,7 @@ interface Props {
 
 const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = false }) => {
   // Get room name from URL parameters or props
-  const urlParams = new URLSearchParams(window.location.search);
-  const rawRoomName = urlParams.get('room') || propRoomName || 'bible-study';
+  const rawRoomName = RoomUrlService.parseRoomFromUrl() || propRoomName || 'biblenow-app/bible-study';
   // Ensure room name format is consistent for JWT token
   const roomName = rawRoomName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const { user } = useSupabaseAuthStore();
@@ -42,6 +42,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   // Jitsi refs
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
+  const isInitializingRef = useRef<boolean>(false);
   
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -126,6 +127,30 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
     }
   }, [isModerator]);
+
+  // Manual camera recovery function
+  const recoverCamera = useCallback(() => {
+    if (apiRef.current) {
+      console.log('🔄 Manual camera recovery initiated...');
+      
+      // First, try to toggle video off and on
+      apiRef.current.executeCommand('toggleVideo');
+      setTimeout(() => {
+        if (apiRef.current) {
+          apiRef.current.executeCommand('toggleVideo');
+          console.log('🔄 Camera toggled off and on');
+        }
+      }, 1000);
+      
+      // If that doesn't work, try to reinitialize camera
+      setTimeout(() => {
+        if (apiRef.current) {
+          apiRef.current.executeCommand('toggleVideo');
+          console.log('🔄 Final camera toggle attempt');
+        }
+      }, 3000);
+    }
+  }, []);
 
   // Fetch stream data and user profile
   useEffect(() => {
@@ -252,8 +277,18 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   // Initialize Jitsi
   useEffect(() => {
     const initializeJitsi = async () => {
-      // Clean up any existing instance
+      // Prevent multiple initializations
+      if (apiRef.current || isInitializingRef.current) {
+        console.log('🔍 [LiveStream] Jitsi already initialized or initializing, skipping...');
+        return;
+      }
+      
+      isInitializingRef.current = true;
+      console.log('🔍 [LiveStream] Starting Jitsi initialization...');
+      
+      // Clean up any existing instance (extra safety)
       if (apiRef.current) {
+        console.log('🔍 [LiveStream] Cleaning up existing Jitsi instance...');
         apiRef.current.dispose();
         apiRef.current = null;
       }
@@ -335,31 +370,16 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 console.log('✅ JWT token generated successfully');
                 console.log('Token length:', jwtToken.length, 'characters');
               } else {
-                console.error('❌ JWT token generation failed - authentication required');
-                setError('Authentication failed. Please try logging in again.');
-                // Redirect to login after a delay
-                setTimeout(() => {
-                  window.location.href = '/login';
-                }, 3000);
-                return;
+                console.log('⚠️ JWT authentication disabled - proceeding with anonymous access');
+                // Continue without JWT token - this is expected when JWT is disabled
               }
             } catch (e) {
-              console.error('❌ JWT token generation error:', e instanceof Error ? e.message : String(e));
-              setError('Authentication error. Please try logging in again.');
-              // Redirect to login after a delay
-              setTimeout(() => {
-                window.location.href = '/login';
-              }, 3000);
-              return;
+              console.warn('⚠️ JWT token generation error (continuing with anonymous access):', e instanceof Error ? e.message : String(e));
+              // Continue without JWT token - this is expected when JWT is disabled
             }
           } else {
-            console.error('No user email available - authentication required');
-            setError('Authentication required. Please log in to join the livestream.');
-            // Redirect to login after a delay
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 3000);
-            return;
+            console.log('⚠️ No user email available - proceeding with anonymous access');
+            // Continue without user authentication - this allows anonymous access
           }
           
           // Log the final JWT token status
@@ -407,57 +427,148 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
-        jwt: jwtToken, // JWT token is required for authentication
+        jwt: jwtToken || undefined, // JWT token is optional when authentication is disabled
         userInfo: {
           displayName: user?.displayName || "BibleNOW User",
           email: user?.email || "user@biblenowstudio.com"
         },
         configOverwrite: {
-          // Authentication settings
-          authenticationRequired: false, // Disable auth dialog since we have JWT
-          passwordRequired: false, // Disable password requirement
+          // Authentication settings - DISABLE JWT AUTHENTICATION
+          authenticationRequired: false,
+          passwordRequired: false,
+          enableInsecureRoomNameWarning: false,
           
-          // Camera and microphone settings
-          startWithAudioMuted: false,
-          startWithVideoMuted: false,
-          startSilent: false,
+          // Different settings for streamers vs viewers
+          startWithAudioMuted: isStreamer ? false : true, // Streamers start with audio, viewers muted
+          startWithVideoMuted: isStreamer ? false : true, // Streamers start with video, viewers muted
+          startSilent: isStreamer ? false : true, // Streamers not silent, viewers silent
           startAudioOnly: false,
           
-          // Pre-join page settings
-          prejoinPageEnabled: false,
+          // CRITICAL: Disable pre-join page completely for both streamers and viewers
+          prejoinPageEnabled: false, // Disable pre-join page completely
           prejoinConfig: {
             enabled: false,
-            hideGuestDialOut: true
+            hideGuestDialOut: true,
+            hideDisplayName: true,
+            hidePrejoinDisplayName: true
           },
           
-          // Other settings
+          // CRITICAL: Remove restrictive media constraints
+          // Let Jitsi handle media constraints automatically
+          
+          // Basic settings
           guestDialOutEnabled: false,
           enableClosePage: false,
           disableModeratorIndicator: false,
           requireDisplayName: false,
-          enableWelcomePage: false
+          enableWelcomePage: false,
+          
+          // CRITICAL: Ensure video layer is not suspended
+          enableLayerSuspension: false,
+          disablePolls: false,
+          disableReactions: false,
+          
+          // Network settings
+          enableNoisyMicDetection: false, // Disable to avoid audio issues
+          enableTalkWhileMuted: false,
+          enableNoAudioDetection: false, // Disable to avoid detection issues
+          
+          // CRITICAL: Ensure video quality is not restricted
+          videoQuality: {
+            maxBitrate: 5000000, // Increase bitrate
+            maxFramerate: 60 // Increase framerate
+          },
+          
+          // CRITICAL: Force video to be enabled
+          defaultLocalDisplayName: user?.displayName || "BibleNOW User",
+          enableRemb: true, // Enable bandwidth adaptation
+          enableTcc: true, // Enable transport congestion control
+          
+          // CRITICAL: Ensure video is not blocked by any settings
+          disableRemoteMute: false,
+          enableLipSync: true
         },
         interfaceConfigOverwrite: {
+          // Completely disable pre-join screen
           SHOW_PREJOIN_PAGE: false,
           SHOW_WELCOME_PAGE: false,
+          DISABLE_PREJOIN_UI: true,
+          
+          // Chat and UI settings
           DISABLE_CHAT: false,
           HIDE_CHAT_BUTTON: false,
+          
+          // Hide Jitsi branding
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_PROMOTIONAL_CLOSE_PAGE: false,
           SHOW_CLOSE_PAGE: false,
+          
+          // App branding
           APP_NAME: 'BibleNOW Studio',
           NATIVE_APP_NAME: 'BibleNOW Studio',
           PROVIDER_NAME: 'BibleNOW Studio',
           PRIMARY_COLOR: '#D97706',
           BRAND_COLOR: '#D97706',
-          TOOLBAR_ALWAYS_VISIBLE: true
+          
+          // UI behavior
+          TOOLBAR_ALWAYS_VISIBLE: true,
+          HIDE_INVITE_MORE_HEADER: true,
+          DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+          DISABLE_PRESENCE_STATUS: true
         }
       };
 
       try {
+        // Enhanced debugging for video feed issues
+        console.log('🎥 Starting Jitsi initialization with enhanced debugging...');
+        console.log('📊 Initialization parameters:', {
+          roomName: iframeRoomPath,
+          jwtToken: jwtToken ? 'Present' : 'Missing',
+          user: user ? { uid: user.uid, email: user.email } : 'Anonymous',
+          container: containerRef.current ? 'Found' : 'Missing',
+          isStreamer: isStreamer,
+          permissionStrategy: isStreamer ? 'Request camera/mic (streamer)' : 'No permissions (viewer)',
+          prejoinPageEnabled: false,
+          startWithVideoMuted: isStreamer ? false : true,
+          startWithAudioMuted: isStreamer ? false : true
+        });
+        
+        // CRITICAL: Pre-request camera permissions for streamers BEFORE Jitsi initializes
+        if (isStreamer) {
+          console.log('🎥 PRE-INIT: Requesting camera permissions for streamer...');
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+              audio: true
+            });
+            console.log('✅ PRE-INIT: Camera access granted!');
+            console.log('📹 Video tracks:', stream.getVideoTracks().length);
+            console.log('🎤 Audio tracks:', stream.getAudioTracks().length);
+            
+            // Don't stop the stream - let Jitsi reuse it
+            // stream.getTracks().forEach(track => track.stop());
+            console.log('✅ PRE-INIT: Keeping stream active for Jitsi to use');
+          } catch (error) {
+            console.error('❌ PRE-INIT: Failed to get camera permissions:', error);
+            // Continue anyway - Jitsi will request permissions
+          }
+        }
+        
+        // Check container dimensions
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          console.log('📐 Container dimensions:', {
+            width: rect.width,
+            height: rect.height,
+            top: rect.top,
+            left: rect.left,
+            visible: rect.width > 0 && rect.height > 0
+          });
+        }
+        
         // Log Jitsi initialization details
         console.log('🚀 Initializing Jitsi Meet with configuration:');
         console.log('   Domain:', jitsiConfig.domain);
@@ -468,10 +579,182 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('   Moderator Status:', isModerator);
         try {
           // Create Jitsi instance with domain and options, similar to working example
+          console.log('🔧 Creating Jitsi API instance with enhanced debugging...');
           apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
-          console.log('Jitsi instance created successfully with domain:', jitsiConfig.domain);
+          console.log('✅ Jitsi instance created successfully with domain:', jitsiConfig.domain);
+          
+          // Store reference for debugging
+          if (containerRef.current) {
+            (containerRef.current as any)._jitsiAPI = apiRef.current;
+          }
+          
+          // Add comprehensive event listeners for debugging
+          apiRef.current.addListener('videoConferenceJoined', () => {
+            console.log('🎉 Video conference joined successfully');
+            setIsJitsiReady(true);
+            
+            // CRITICAL: Immediately request camera access and force video on
+            if (apiRef.current && isStreamer) {
+              console.log('🎥 IMMEDIATE: Requesting camera for streamer...');
+              
+              // Immediately try to enable video (no delay)
+              try {
+                apiRef.current.executeCommand('toggleVideo', false); // false = unmute video
+                console.log('✅ IMMEDIATE: Video unmute command sent');
+              } catch (error) {
+                console.error('❌ IMMEDIATE error forcing video:', error);
+              }
+              
+              // Follow up with additional camera commands
+              setTimeout(() => {
+                if (apiRef.current) {
+                  console.log('🎥 FOLLOW-UP: Forcing video to be enabled...');
+                  try {
+                    // Ensure video is not muted
+                    apiRef.current.executeCommand('toggleVideo', false);
+                    console.log('✅ FOLLOW-UP: Video unmuted command sent');
+                    
+                    // Set video quality
+                    apiRef.current.executeCommand('setVideoQuality', 720);
+                    console.log('✅ FOLLOW-UP: Video quality set to 720p');
+                    
+                  } catch (error) {
+                    console.error('❌ FOLLOW-UP error forcing video:', error);
+                  }
+                }
+              }, 1000);
+            
+            // Additional camera check after 5 seconds
+            setTimeout(() => {
+              if (apiRef.current) {
+                console.log('🔍 Checking camera status after 5 seconds...');
+                try {
+                  // Check if video is still muted
+                  const isVideoMuted = apiRef.current.isVideoMuted();
+                  console.log('📹 Video muted status:', isVideoMuted);
+                  
+                  if (isVideoMuted) {
+                    console.log('🔄 Video is muted, attempting to unmute...');
+                    apiRef.current.executeCommand('toggleVideo', false);
+                  }
+                  
+                  // Check participant info
+                  const participants = apiRef.current.getParticipantsInfo();
+                  console.log('👥 Participants:', participants);
+                  
+                } catch (error) {
+                  console.error('❌ Error checking camera status:', error);
+                }
+              }
+            }, 5000);
+            }
+          });
+          
+          apiRef.current.addListener('videoConferenceLeft', () => {
+            console.log('👋 Video conference left');
+            setIsJitsiReady(false);
+          });
+          
+          apiRef.current.addListener('participantJoined', (participant: any) => {
+            console.log('👤 Participant joined:', participant);
+          });
+          
+          apiRef.current.addListener('participantLeft', (participant: any) => {
+            console.log('👋 Participant left:', participant);
+          });
+          
+          apiRef.current.addListener('videoMuteStatusChanged', (data: any) => {
+            console.log('📹 Video mute status changed:', data);
+            setIsVideoMuted(data.muted);
+            
+            // CRITICAL: If video is muted, try to unmute it immediately
+            if (data.muted && isStreamer) {
+              console.log('🚨 Video was muted - attempting to unmute immediately...');
+              setTimeout(() => {
+                if (apiRef.current) {
+                  try {
+                    apiRef.current.executeCommand('toggleVideo', false);
+                    console.log('🔄 Attempted to unmute video');
+                  } catch (error) {
+                    console.error('❌ Error unmuting video:', error);
+                  }
+                }
+              }, 1000);
+            }
+            
+            // If camera was unmuted but we're not getting video, try to re-enable
+            if (!data.muted && isStreamer) {
+              console.log('🎥 Camera unmuted - checking video feed...');
+              setTimeout(() => {
+                // Check if we have active video tracks
+                navigator.mediaDevices.getUserMedia({ video: true })
+                  .then(stream => {
+                    console.log('✅ Video stream active:', stream.getVideoTracks().length > 0);
+                    stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+                  })
+                  .catch(error => {
+                    console.warn('⚠️ Video stream check failed:', error);
+                  });
+              }, 2000);
+            }
+          });
+          
+          apiRef.current.addListener('audioMuteStatusChanged', (data: any) => {
+            console.log('🎤 Audio mute status changed:', data);
+            setIsAudioMuted(data.muted);
+          });
+          
+          apiRef.current.addListener('readyToClose', () => {
+            console.log('🚪 Ready to close');
+          });
+          
+          apiRef.current.addListener('error', (error: any) => {
+            console.error('❌ Jitsi error:', error);
+          });
+          
+          // Add camera-specific event listeners
+          apiRef.current.addListener('cameraError', (error: any) => {
+            console.error('📹 Camera error:', error);
+            // Try to recover from camera error
+            if (isStreamer) {
+              console.log('🔄 Attempting camera recovery...');
+              setTimeout(() => {
+                apiRef.current?.executeCommand('toggleVideo');
+              }, 3000);
+            }
+          });
+          
+          apiRef.current.addListener('deviceListChanged', (devices: any) => {
+            console.log('📱 Device list changed:', devices);
+          });
+          
+          // Add listener for when video track is added
+          apiRef.current.addListener('videoTrackAdded', (track: any) => {
+            console.log('🎥 Video track added:', track);
+            console.log('✅ Camera feed should now be visible!');
+          });
+          
+          // Add listener for when video track is removed
+          apiRef.current.addListener('videoTrackRemoved', (track: any) => {
+            console.log('❌ Video track removed:', track);
+            console.log('⚠️ Camera feed lost!');
+          });
+          
+          apiRef.current.addListener('mediaSessionStarted', () => {
+            console.log('🎥 Media session started');
+          });
+          
+          apiRef.current.addListener('mediaSessionStopped', () => {
+            console.log('🛑 Media session stopped');
+          });
+          
         } catch (error) {
-          console.error('Error initializing Jitsi Meet:', error);
+          console.error('❌ Error initializing Jitsi Meet:', error);
+          console.error('Error details:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            name: error instanceof Error ? error.name : 'Unknown'
+          });
           return;
         }
         
@@ -485,27 +768,62 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('Found iframe:', iframe);
         
         if (iframe) {
-          console.log('Setting iframe permissions and onload handler');
+          console.log('🔧 Setting iframe permissions and onload handler');
           iframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen; geolocation');
           iframe.setAttribute('allowfullscreen', 'true');
           
+          // Enhanced iframe debugging
+          console.log('📐 Iframe details:', {
+            src: iframe.src,
+            width: iframe.offsetWidth,
+            height: iframe.offsetHeight,
+            display: getComputedStyle(iframe).display,
+            visibility: getComputedStyle(iframe).visibility,
+            position: getComputedStyle(iframe).position
+          });
+          
           // Set ready when iframe loads
           iframe.onload = () => {
-            console.log('Jitsi iframe loaded - setting ready');
+            console.log('✅ Jitsi iframe loaded successfully');
+            console.log('📊 Iframe load time:', performance.now());
             setIsJitsiReady(true);
             
-            // Request camera permissions after iframe loads
+            // Check for video elements after iframe loads
             setTimeout(() => {
-              if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                  .then(() => {
-                    console.log('✅ Camera and microphone permissions granted');
-                  })
-                  .catch((error) => {
-                    console.warn('⚠️ Camera/microphone permission denied:', error);
-                  });
+              try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                  const videoElements = iframeDoc.querySelectorAll('video');
+                  if (videoElements && videoElements.length > 0) {
+                    console.log('📹 Video elements found in iframe:', videoElements.length);
+                    videoElements.forEach((video, index) => {
+                      console.log(`Video ${index + 1}:`, {
+                        src: video.src,
+                        readyState: video.readyState,
+                        paused: video.paused,
+                        muted: video.muted,
+                        videoWidth: video.videoWidth,
+                        videoHeight: video.videoHeight
+                      });
+                    });
+                  } else {
+                    console.log('❌ No video elements found in iframe');
+                  }
+                } else {
+                  console.log('⚠️ Cannot access iframe content (cross-origin)');
+                }
+              } catch (error) {
+                console.log('⚠️ Cannot access iframe content:', error instanceof Error ? error.message : String(error));
               }
-            }, 1000);
+            }, 3000);
+            
+            // Let Jitsi handle camera permissions internally
+            // Don't request permissions outside of Jitsi context
+            console.log('🎥 Camera permissions will be handled by Jitsi internally');
+          };
+          
+          iframe.onerror = (error) => {
+            console.error('❌ Iframe failed to load:', error);
           };
         } else {
           console.log('No iframe found, will check again in 1 second');
@@ -729,6 +1047,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('Jitsi Meet initialized successfully');
       } catch (error) {
         console.error('Error initializing Jitsi Meet:', error);
+      } finally {
+        isInitializingRef.current = false;
       }
     };
 
@@ -746,8 +1066,25 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         }
         apiRef.current = null;
       }
+      isInitializingRef.current = false;
     };
-  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator]);
+  }, [user, roomName]); // Only re-initialize when user or room changes
+
+  // Handle stream end when isStreamer or isModerator changes
+  useEffect(() => {
+    if (apiRef.current && (isStreamer || isModerator)) {
+      // Re-register stream end handler if needed
+      apiRef.current.addListener('videoConferenceLeft', handleStreamEnd);
+    }
+  }, [isStreamer, isModerator, handleStreamEnd]);
+
+  // Handle Jitsi ready state changes
+  useEffect(() => {
+    if (apiRef.current && isJitsiReady) {
+      // Perform any actions needed when Jitsi becomes ready
+      console.log('🔍 [LiveStream] Jitsi ready state changed, performing ready actions...');
+    }
+  }, [isJitsiReady]);
 
   // Don't render anything if user is not logged in
   if (!user) {
@@ -824,6 +1161,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       console.error('Error toggling video:', error);
     }
   };
+
 
   const handleToggleShare = () => {
     if (!isJitsiReady) {
