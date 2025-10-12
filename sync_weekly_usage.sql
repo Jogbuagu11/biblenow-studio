@@ -1,141 +1,80 @@
--- Sync Weekly Usage for Current Week
--- This script ensures all streams from the current week are properly recorded in weekly usage
+-- Sync weekly streaming usage from livestreams table to livestream_weekly_usage table
 
--- Function to sync weekly usage for a specific user and week
-CREATE OR REPLACE FUNCTION sync_user_weekly_usage(
-    target_user_id UUID,
-    target_week_start DATE DEFAULT NULL
-)
-RETURNS TABLE(
-    stream_id UUID,
-    stream_title TEXT,
-    streamed_minutes INTEGER,
-    status TEXT,
-    week_start_date DATE
-) AS $$
+-- Function to sync weekly usage for a specific user
+CREATE OR REPLACE FUNCTION sync_user_weekly_usage(p_user_id UUID)
+RETURNS VOID AS $$
 DECLARE
-    week_start DATE;
-    stream_record RECORD;
+    current_week_start DATE;
     calculated_minutes INTEGER;
+    existing_minutes INTEGER;
 BEGIN
-    -- Use provided week or current week
-    IF target_week_start IS NULL THEN
-        week_start := DATE_TRUNC('week', CURRENT_DATE)::DATE;
-    ELSE
-        week_start := target_week_start;
-    END IF;
+    -- Get the start of the current week (Monday)
+    current_week_start := DATE_TRUNC('week', CURRENT_DATE)::DATE;
     
-    RAISE NOTICE 'Syncing weekly usage for user % for week starting %', target_user_id, week_start;
+    -- Calculate total minutes from livestreams table for this week
+    SELECT COALESCE(SUM(
+        CASE 
+            WHEN ended_at IS NOT NULL THEN 
+                EXTRACT(EPOCH FROM (ended_at - started_at)) / 60
+            WHEN is_live = true THEN 
+                EXTRACT(EPOCH FROM (NOW() - started_at)) / 60
+            ELSE 0
+        END
+    ), 0)::INTEGER INTO calculated_minutes
+    FROM public.livestreams
+    WHERE streamer_id = p_user_id
+    AND started_at >= current_week_start
+    AND started_at < current_week_start + INTERVAL '7 days';
     
-    -- Get all streams for this user from this week
-    FOR stream_record IN 
-        SELECT 
-            id,
-            title,
-            started_at,
-            ended_at,
-            status,
-            is_live
-        FROM public.livestreams
-        WHERE streamer_id = target_user_id
-        AND started_at >= week_start
-        AND started_at < week_start + INTERVAL '7 days'
-        ORDER BY started_at
-    LOOP
-        -- Calculate duration
-        IF stream_record.ended_at IS NOT NULL THEN
-            calculated_minutes := EXTRACT(EPOCH FROM (stream_record.ended_at - stream_record.started_at))::INTEGER / 60;
-        ELSE
-            -- Active stream - calculate up to now
-            calculated_minutes := EXTRACT(EPOCH FROM (NOW() - stream_record.started_at))::INTEGER / 60;
-        END IF;
-        
-        -- Only process if we have valid duration
-        IF calculated_minutes > 0 THEN
-            -- Insert or update weekly usage record
-            INSERT INTO public.livestream_weekly_usage (
-                user_id, 
-                week_start_date, 
-                streamed_minutes, 
-                stream_count,
-                updated_at
-            )
-            VALUES (
-                target_user_id, 
-                week_start, 
-                calculated_minutes, 
-                1,
-                NOW()
-            )
-            ON CONFLICT (user_id, week_start_date)
-            DO UPDATE SET
-                streamed_minutes = livestream_weekly_usage.streamed_minutes + EXCLUDED.streamed_minutes,
-                stream_count = livestream_weekly_usage.stream_count + 1,
-                updated_at = NOW();
-            
-            -- Return the processed stream info
-            stream_id := stream_record.id;
-            stream_title := stream_record.title;
-            streamed_minutes := calculated_minutes;
-            status := COALESCE(stream_record.status, 'unknown');
-            week_start_date := week_start;
-            RETURN NEXT;
-        END IF;
-    END LOOP;
+    -- Get existing minutes from weekly usage table
+    SELECT COALESCE(streamed_minutes, 0) INTO existing_minutes
+    FROM public.livestream_weekly_usage
+    WHERE user_id = p_user_id
+    AND week_start_date = current_week_start;
     
-    RAISE NOTICE 'Weekly usage sync completed for user %', target_user_id;
+    -- Update or insert the weekly usage record
+    INSERT INTO public.livestream_weekly_usage (user_id, week_start_date, streamed_minutes)
+    VALUES (p_user_id, current_week_start, calculated_minutes)
+    ON CONFLICT (user_id, week_start_date)
+    DO UPDATE SET 
+        streamed_minutes = calculated_minutes,
+        updated_at = NOW();
+    
+    RAISE NOTICE 'Synced weekly usage for user %: % minutes (was %)', 
+        p_user_id, calculated_minutes, existing_minutes;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to sync all users for current week
-CREATE OR REPLACE FUNCTION sync_all_users_weekly_usage()
-RETURNS TABLE(
-    user_id UUID,
-    streams_processed INTEGER,
-    total_minutes INTEGER
-) AS $$
+-- Function to sync weekly usage for all users
+CREATE OR REPLACE FUNCTION sync_all_weekly_usage()
+RETURNS VOID AS $$
 DECLARE
     user_record RECORD;
-    week_start DATE;
-    processed_count INTEGER;
-    total_mins INTEGER;
 BEGIN
-    week_start := DATE_TRUNC('week', CURRENT_DATE)::DATE;
-    
-    RAISE NOTICE 'Syncing weekly usage for all users for week starting %', week_start;
-    
-    -- Get all users who have streamed this week
+    -- Loop through all users who have streams this week
     FOR user_record IN 
-        SELECT DISTINCT streamer_id
+        SELECT DISTINCT streamer_id as user_id
         FROM public.livestreams
-        WHERE started_at >= week_start
-        AND started_at < week_start + INTERVAL '7 days'
+        WHERE started_at >= DATE_TRUNC('week', CURRENT_DATE)::DATE
+        AND started_at < DATE_TRUNC('week', CURRENT_DATE)::DATE + INTERVAL '7 days'
     LOOP
-        -- Sync this user's weekly usage
-        SELECT 
-            COUNT(*)::INTEGER,
-            COALESCE(SUM(streamed_minutes), 0)::INTEGER
-        INTO processed_count, total_mins
-        FROM sync_user_weekly_usage(user_record.streamer_id, week_start);
-        
-        user_id := user_record.streamer_id;
-        streams_processed := processed_count;
-        total_minutes := total_mins;
-        RETURN NEXT;
+        PERFORM sync_user_weekly_usage(user_record.user_id);
     END LOOP;
     
-    RAISE NOTICE 'Weekly usage sync completed for all users';
+    RAISE NOTICE 'Synced weekly usage for all users';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant permissions
-GRANT EXECUTE ON FUNCTION sync_user_weekly_usage(UUID, DATE) TO authenticated;
-GRANT EXECUTE ON FUNCTION sync_all_users_weekly_usage() TO authenticated;
+-- Sync the specific user's data
+SELECT sync_user_weekly_usage('29a4414e-d60f-42c1-bbfd-9166f17211a0'::UUID);
 
--- Test the sync function (replace with actual user ID)
--- SELECT * FROM sync_user_weekly_usage('your-user-id-here'::UUID);
-
--- Or sync all users
--- SELECT * FROM sync_all_users_weekly_usage();
-
-SELECT 'Weekly usage sync functions created successfully!' as status;
+-- Check the result
+SELECT 
+    user_id,
+    week_start_date,
+    streamed_minutes,
+    created_at,
+    updated_at
+FROM public.livestream_weekly_usage 
+WHERE user_id = '29a4414e-d60f-42c1-bbfd-9166f17211a0'
+ORDER BY week_start_date DESC;

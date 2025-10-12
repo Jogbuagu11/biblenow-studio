@@ -123,19 +123,28 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📧 [send-streaming-limit-email] Function called');
+    
     const { 
       user_id, 
-      email, 
-      first_name, 
       type,
       usage_percentage,
       remaining_minutes,
       reset_date 
     } = await req.json()
 
-    if (!user_id || !email || !first_name || !type || !reset_date) {
+    console.log('📧 [send-streaming-limit-email] Request data:', {
+      user_id,
+      type,
+      usage_percentage,
+      remaining_minutes,
+      reset_date
+    });
+
+    if (!user_id || !type) {
+      console.error('❌ [send-streaming-limit-email] Missing required fields: user_id and type are required');
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: user_id and type are required' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -148,6 +157,49 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Fetch user profile data from database
+    console.log('📧 [send-streaming-limit-email] Fetching user profile...');
+    const { data: userProfile, error: profileError } = await supabase
+      .from('verified_profiles')
+      .select('email, first_name, preferences')
+      .eq('id', user_id)
+      .single()
+
+    if (profileError || !userProfile) {
+      console.error('❌ [send-streaming-limit-email] User profile not found:', profileError);
+      return new Response(
+        JSON.stringify({ error: 'User profile not found' }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Check email preferences
+    const preferences = userProfile.preferences || {};
+    const shouldSendEmails = preferences.streamingLimitEmails !== false;
+
+    if (!shouldSendEmails) {
+      console.log('⚠️ [send-streaming-limit-email] User has disabled streaming limit emails');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Email sending disabled by user preference' }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const email = userProfile.email;
+    const first_name = userProfile.first_name || 'User';
+
+    console.log('📧 [send-streaming-limit-email] User profile fetched:', {
+      email,
+      first_name,
+      shouldSendEmails
+    });
+
     // Generate email content based on type
     const emailContent = type === 'warning' 
       ? generateLimitWarningContent(first_name, usage_percentage, remaining_minutes, reset_date)
@@ -159,6 +211,7 @@ serve(async (req) => {
     // Send email via Resend
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) {
+      console.error('❌ [send-streaming-limit-email] Resend API key not configured');
       return new Response(
         JSON.stringify({ error: 'Resend API key not configured' }),
         { 
@@ -168,27 +221,40 @@ serve(async (req) => {
       )
     }
 
+    console.log('📧 [send-streaming-limit-email] Sending email via Resend...');
+    
+    const emailPayload = {
+      from: 'BibleNOW Studio <no-reply@biblenow.io>',
+      to: email,
+      subject: type === 'warning' 
+        ? '⚠️ Weekly Streaming Limit Warning - BibleNOW Studio'
+        : '🚫 Weekly Streaming Limit Reached - BibleNOW Studio',
+      html: htmlContent,
+    };
+
+    console.log('📧 [send-streaming-limit-email] Email payload:', {
+      from: emailPayload.from,
+      to: emailPayload.to,
+      subject: emailPayload.subject,
+      htmlLength: emailPayload.html.length
+    });
+
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'BibleNOW Studio <no-reply@biblenow.io>',
-        to: email,
-        subject: type === 'warning' 
-          ? '⚠️ Weekly Streaming Limit Warning - BibleNOW Studio'
-          : '🚫 Weekly Streaming Limit Reached - BibleNOW Studio',
-        html: htmlContent,
-      }),
+      body: JSON.stringify(emailPayload),
     })
+
+    console.log('📧 [send-streaming-limit-email] Resend response status:', emailResponse.status);
 
     if (!emailResponse.ok) {
       const errorData = await emailResponse.text()
-      console.error('Resend API error:', errorData)
+      console.error('❌ [send-streaming-limit-email] Resend API error:', errorData)
       return new Response(
-        JSON.stringify({ error: 'Failed to send email' }),
+        JSON.stringify({ error: 'Failed to send email', details: errorData }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -196,28 +262,54 @@ serve(async (req) => {
       )
     }
 
-    // Log the email sent
-    const { error: logError } = await supabase
-      .from('studio_notifications')
-      .insert({
-        user_id,
-        type: type === 'warning' ? 'streaming_limit_warning_email' : 'streaming_limit_reached_email',
-        title: type === 'warning' ? 'Streaming Limit Warning Email Sent' : 'Streaming Limit Reached Email Sent',
-        body: type === 'warning' 
-          ? `Sent warning email for ${usage_percentage}% usage` 
-          : 'Sent limit reached notification email',
-        metadata: {
-          email_sent: true,
-          email_type: type,
-          usage_percentage,
-          remaining_minutes,
-          reset_date
-        }
-      })
+    const emailResult = await emailResponse.json();
+    console.log('✅ [send-streaming-limit-email] Email sent successfully:', emailResult);
 
-    if (logError) {
-      console.error('Error logging email notification:', logError)
-      // Don't fail the request if logging fails
+    // Log the email sent (only if user_id is a valid UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isValidUUID = uuidRegex.test(user_id);
+    
+    if (isValidUUID) {
+      console.log('📧 [send-streaming-limit-email] Logging email notification...');
+      
+      // First check if the user exists in verified_profiles to avoid foreign key constraint errors
+      const { data: userExists, error: userCheckError } = await supabase
+        .from('verified_profiles')
+        .select('id')
+        .eq('id', user_id)
+        .single()
+
+      if (userCheckError || !userExists) {
+        console.log('⚠️ [send-streaming-limit-email] Skipping database logging - user not found in verified_profiles:', user_id);
+      } else {
+        const { error: logError } = await supabase
+          .from('studio_notifications')
+          .insert({
+            user_id,
+            type: type === 'warning' ? 'streaming_limit_warning_email' : 'streaming_limit_reached_email',
+            title: type === 'warning' ? 'Streaming Limit Warning Email Sent' : 'Streaming Limit Reached Email Sent',
+            body: type === 'warning' 
+              ? `Sent warning email for ${usage_percentage}% usage` 
+              : 'Sent limit reached notification email',
+            metadata: {
+              email_sent: true,
+              email_type: type,
+              usage_percentage,
+              remaining_minutes,
+              reset_date,
+              email_result: emailResult
+            }
+          })
+
+        if (logError) {
+          console.error('❌ [send-streaming-limit-email] Error logging email notification:', logError)
+          // Don't fail the request if logging fails
+        } else {
+          console.log('✅ [send-streaming-limit-email] Email notification logged successfully');
+        }
+      }
+    } else {
+      console.log('⚠️ [send-streaming-limit-email] Skipping database logging - user_id is not a valid UUID:', user_id);
     }
 
     return new Response(
@@ -229,9 +321,14 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in send-streaming-limit-email:', error)
+    console.error('💥 [send-streaming-limit-email] Unexpected error:', error)
+    console.error('💥 [send-streaming-limit-email] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

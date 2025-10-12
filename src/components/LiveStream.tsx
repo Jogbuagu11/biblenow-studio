@@ -23,7 +23,7 @@ interface Props {
 
 const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = false }) => {
   // Get room name from URL parameters or props
-  const rawRoomName = RoomUrlService.parseRoomFromUrl() || propRoomName || 'biblenow-app/bible-study';
+  const rawRoomName = RoomUrlService.parseRoomFromUrl() || propRoomName || 'bible-study';
   // Ensure room name format is consistent for JWT token
   const roomName = rawRoomName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const { user } = useSupabaseAuthStore();

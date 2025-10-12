@@ -10,7 +10,7 @@ export interface RoomUrlConfig {
 export class RoomUrlService {
   private static readonly DEFAULT_CONFIG: RoomUrlConfig = {
     baseUrl: process.env.REACT_APP_BASE_URL || 'https://biblenowstudio.com',
-    roomPrefix: 'biblenow-app'
+    roomPrefix: '' // Removed biblenow-app prefix
   };
 
   /**
@@ -27,8 +27,8 @@ export class RoomUrlService {
     // Use streamId if available, otherwise use clean title
     const roomIdentifier = streamId || cleanTitle;
     
-    // Return in Flutter-compatible format
-    return `${this.DEFAULT_CONFIG.roomPrefix}/${roomIdentifier}`;
+    // Return room name without prefix
+    return this.DEFAULT_CONFIG.roomPrefix ? `${this.DEFAULT_CONFIG.roomPrefix}/${roomIdentifier}` : roomIdentifier;
   }
 
   /**
@@ -62,8 +62,8 @@ export class RoomUrlService {
    * Validate that a room name follows the expected format
    */
   static validateRoomName(roomName: string): boolean {
-    // Should match pattern: biblenow-app/room-identifier
-    const pattern = /^biblenow-app\/[a-z0-9-]+$/;
+    // Should match pattern: room-identifier (no prefix)
+    const pattern = /^[a-z0-9-]+$/;
     return pattern.test(roomName);
   }
 
@@ -71,8 +71,14 @@ export class RoomUrlService {
    * Extract the room identifier from a full room name
    */
   static extractRoomIdentifier(roomName: string): string | null {
-    const match = roomName.match(/^biblenow-app\/(.+)$/);
-    return match ? match[1] : null;
+    // For backward compatibility, check if it has the old prefix format
+    const oldFormatMatch = roomName.match(/^biblenow-app\/(.+)$/);
+    if (oldFormatMatch) {
+      return oldFormatMatch[1];
+    }
+    
+    // For new format without prefix, return the room name as-is
+    return roomName;
   }
 }
 
