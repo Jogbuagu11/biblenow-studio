@@ -1,41 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Layout from '../components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { useThemeStore } from '../stores';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
-import { databaseService } from '../services/databaseService';
 import EmailPreferences from '../components/EmailPreferences';
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
   const { user, isLoading: isAuthLoading } = useSupabaseAuthStore();
-  const [streamingLimitEmails, setStreamingLimitEmails] = useState(true);
-  const [isPageLoading, setIsPageLoading] = useState(true);
 
-  // Load email preferences on component mount
-  useEffect(() => {
-    const loadEmailPreferences = async () => {
-      if (!user?.uid) {
-        setIsPageLoading(false);
-        return;
-      }
-      
-      try {
-        const preferences = await databaseService.getEmailPreferences(user.uid);
-        setStreamingLimitEmails(preferences.streamingLimitEmails);
-      } catch (error) {
-        console.error('Error loading email preferences:', error);
-      } finally {
-        setIsPageLoading(false);
-      }
-    };
-
-    loadEmailPreferences();
-  }, [user?.uid]);
-
-  // Removed unused handleStreamingLimitEmailsToggle function
-
-  if (isPageLoading || isAuthLoading) {
+  if (isAuthLoading) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto space-y-6">
