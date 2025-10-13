@@ -1075,7 +1075,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
       }
       isInitializingRef.current = false;
     };
-  }, [user, roomName]); // Only re-initialize when user or room changes
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isModerator, isStreamer]); // Include all dependencies
 
   // Handle stream end when isStreamer or isModerator changes
   useEffect(() => {

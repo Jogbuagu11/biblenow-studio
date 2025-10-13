@@ -1,5 +1,5 @@
 // Test the send-streaming-limit-email function directly
-// This will help us verify the email system is working
+// Run this in your browser console or Node.js
 
 const testEmailFunction = async () => {
   try {
@@ -27,6 +27,7 @@ const testEmailFunction = async () => {
 
     if (response.ok) {
       console.log('✅ Email function test successful!');
+      console.log('📬 Check your email inbox for the streaming limit notification');
     } else {
       console.log('❌ Email function test failed:', result);
     }
