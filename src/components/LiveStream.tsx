@@ -316,10 +316,10 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
           
-          // Generate JWT token for authenticated users (required)
+          // Try to generate JWT token (optional - server may have JWT disabled)
           if (user?.email) {
             try {
-              console.log('Generating JWT token for room:', roomName, 'moderator:', moderatorStatus);
+              console.log('Attempting to generate JWT token for room:', roomName, 'moderator:', moderatorStatus);
               const jwtAuthService = await import('../services/jwtAuthService');
               jwtToken = await jwtAuthService.default.generateJitsiToken(
                 {
@@ -335,31 +335,17 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 console.log('✅ JWT token generated successfully');
                 console.log('Token length:', jwtToken.length, 'characters');
               } else {
-                console.error('❌ JWT token generation failed - authentication required');
-                setError('Authentication failed. Please try logging in again.');
-                // Redirect to login after a delay
-                setTimeout(() => {
-                  window.location.href = '/login';
-                }, 3000);
-                return;
+                console.log('⚠️ JWT token generation failed - continuing without JWT (server may have JWT disabled)');
+                jwtToken = null;
               }
             } catch (e) {
-              console.error('❌ JWT token generation error:', e instanceof Error ? e.message : String(e));
-              setError('Authentication error. Please try logging in again.');
-              // Redirect to login after a delay
-              setTimeout(() => {
-                window.location.href = '/login';
-              }, 3000);
-              return;
+              console.log('⚠️ JWT token generation error - continuing without JWT:', e instanceof Error ? e.message : String(e));
+              console.log('   This is normal if JWT is disabled on the Jitsi server');
+              jwtToken = null;
             }
           } else {
-            console.error('No user email available - authentication required');
-            setError('Authentication required. Please log in to join the livestream.');
-            // Redirect to login after a delay
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 3000);
-            return;
+            console.log('No user email available - continuing without JWT authentication');
+            jwtToken = null;
           }
           
           // Log the final JWT token status
@@ -407,14 +393,14 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
-        jwt: jwtToken, // JWT token is required for authentication
+        ...(jwtToken && { jwt: jwtToken }), // Only include JWT if token is available
         userInfo: {
           displayName: user?.displayName || "BibleNOW User",
           email: user?.email || "user@biblenowstudio.com"
         },
         configOverwrite: {
           // Authentication settings
-          authenticationRequired: false, // Disable auth dialog since we have JWT
+          authenticationRequired: false, // Disable auth dialog
           passwordRequired: false, // Disable password requirement
           
           // Camera and microphone settings
@@ -462,7 +448,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('🚀 Initializing Jitsi Meet with configuration:');
         console.log('   Domain:', jitsiConfig.domain);
         console.log('   Room:', options.roomName);
-        console.log('   JWT Token:', options.jwt ? '✅ Present' : '❌ Missing');
+        console.log('   JWT Token:', jwtToken ? '✅ Present' : '⚠️ Not Available (JWT may be disabled on server)');
         console.log('   Authentication Required:', options.configOverwrite.authenticationRequired);
         console.log('   User:', options.userInfo.displayName, `(${options.userInfo.email})`);
         console.log('   Moderator Status:', isModerator);
@@ -475,9 +461,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           return;
         }
         
-        // Set ready immediately after instance creation
-        console.log('Setting Jitsi ready immediately after instance creation');
-        setIsJitsiReady(true);
+        // Don't set ready immediately - wait for actual events
+        console.log('Jitsi instance created, waiting for ready events...');
 
         // Ensure iframe has required permissions
         console.log('Looking for Jitsi iframe...');
@@ -628,10 +613,12 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         // Fallback: Set ready after a delay if no events fire
         setTimeout(() => {
           if (!isJitsiReady) {
-            console.log('Fallback: Setting Jitsi ready after timeout');
+            console.log('⚠️ Fallback: Setting Jitsi ready after timeout - this may indicate an issue');
+            console.log('   Check console for JWT token generation errors');
+            console.log('   Verify environment variables are set correctly');
             setIsJitsiReady(true);
           }
-        }, 5000);
+        }, 15000); // 15 second timeout for production
 
         // Minimal listeners per docs (no forced permission handling)
 
