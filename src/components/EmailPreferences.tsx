@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LivestreamNotificationService } from '../services/livestreamNotificationService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
-import Button from './ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/Card';
 import Switch from './ui/Switch';
 import Label from './ui/Label';
 import { useToast } from '../hooks/use-toast';
 
-interface EmailPreferences {
+interface EmailPreferencesData {
   livestreamNotifications: boolean;
   streamingLimitEmails: boolean;
 }
@@ -15,20 +14,14 @@ interface EmailPreferences {
 const EmailPreferences: React.FC = () => {
   const { user } = useSupabaseAuthStore();
   const { toast } = useToast();
-  const [preferences, setPreferences] = useState<EmailPreferences>({
+  const [preferences, setPreferences] = useState<EmailPreferencesData>({
     livestreamNotifications: true,
     streamingLimitEmails: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-  }, [user]);
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -45,9 +38,15 @@ const EmailPreferences: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
-  const handlePreferenceChange = (key: keyof EmailPreferences, value: boolean) => {
+  useEffect(() => {
+    if (user) {
+      loadPreferences();
+    }
+  }, [user, loadPreferences]);
+
+  const handlePreferenceChange = (key: keyof EmailPreferencesData, value: boolean) => {
     if (!user) return;
 
     const newPreferences = { ...preferences, [key]: value };
@@ -57,7 +56,7 @@ const EmailPreferences: React.FC = () => {
     updatePreferencesAsync(key, value, newPreferences);
   };
 
-  const updatePreferencesAsync = async (key: keyof EmailPreferences, value: boolean, newPreferences: EmailPreferences) => {
+  const updatePreferencesAsync = async (key: keyof EmailPreferencesData, value: boolean, newPreferences: EmailPreferencesData) => {
     try {
       setSaving(true);
       await LivestreamNotificationService.updateEmailPreferences(user!.uid, {

@@ -10,7 +10,6 @@ const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
   const { user, isLoading: isAuthLoading } = useSupabaseAuthStore();
   const [streamingLimitEmails, setStreamingLimitEmails] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Load email preferences on component mount
@@ -34,24 +33,7 @@ const Settings: React.FC = () => {
     loadEmailPreferences();
   }, [user?.uid]);
 
-  const handleStreamingLimitEmailsToggle = async () => {
-    if (!user?.uid) return;
-    
-    setIsLoading(true);
-    try {
-      const newValue = !streamingLimitEmails;
-      await databaseService.updateEmailPreferences(user.uid, {
-        streamingLimitEmails: newValue
-      });
-      setStreamingLimitEmails(newValue);
-    } catch (error) {
-      console.error('Error updating email preferences:', error);
-      // Revert the toggle if update failed
-      setStreamingLimitEmails(!streamingLimitEmails);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Removed unused handleStreamingLimitEmailsToggle function
 
   if (isPageLoading || isAuthLoading) {
     return (
