@@ -488,6 +488,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('Setting iframe permissions and onload handler');
           iframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen; geolocation');
           iframe.setAttribute('allowfullscreen', 'true');
+          iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
           
           // Set ready when iframe loads
           iframe.onload = () => {
@@ -516,6 +517,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
             if (delayedIframe) {
               delayedIframe.setAttribute('allow', 'camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; fullscreen; geolocation');
               delayedIframe.setAttribute('allowfullscreen', 'true');
+              delayedIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
               delayedIframe.onload = () => {
                 console.log('Delayed Jitsi iframe loaded - setting ready');
                 setIsJitsiReady(true);
@@ -545,6 +547,18 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current.on('authenticationRequired', () => {
           console.log('Jitsi authentication required - JWT should handle this automatically');
           // The JWT token should automatically authenticate
+        });
+
+        // Add error handling
+        apiRef.current.on('error', (error: any) => {
+          console.error('Jitsi error:', error);
+          setError(`Jitsi error: ${error.message || 'Unknown error'}`);
+        });
+
+        // Add conference failed handler
+        apiRef.current.on('conferenceFailed', (error: any) => {
+          console.error('Conference failed:', error);
+          setError(`Conference failed: ${error.message || 'Unknown error'}`);
         });
 
         apiRef.current.on('passwordRequired', () => {
@@ -843,20 +857,29 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   };
 
   const handleHangup = () => {
+    console.log('🔄 End stream button clicked');
+    console.log('📊 Jitsi ready status:', isJitsiReady);
+    console.log('📊 API ref exists:', !!apiRef.current);
+    console.log('📊 API has executeCommand:', !!(apiRef.current && apiRef.current.executeCommand));
+    
+    // Allow ending stream even if Jitsi isn't "ready" - we can still end the stream in the database
     if (!isJitsiReady) {
-      console.log('Jitsi not ready yet, waiting...');
-      return;
+      console.log('⚠️ Jitsi not ready, but proceeding with stream end anyway...');
     }
     
     try { 
       if (apiRef.current && apiRef.current.executeCommand) {
+        console.log('📞 Executing Jitsi hangup command');
         apiRef.current.executeCommand('hangup'); 
       } else {
-        console.error('Jitsi API not ready for hangup');
+        console.log('⚠️ Jitsi API not available, ending stream via database only');
       }
     } catch (error) {
-      console.error('Error hanging up:', error);
+      console.error('❌ Error during hangup:', error);
     }
+    
+    // Always call handleStreamEnd to update database, regardless of Jitsi state
+    console.log('🗄️ Ending stream in database...');
     handleStreamEnd();
   };
 
@@ -908,12 +931,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
 
 
 
-        {/* Top-left Branding Overlay */}
-        <div className="absolute top-3 left-3 z-50 pointer-events-none">
-          <div className="bg-black rounded-md p-2 shadow-lg">
-            <img src="/logo172.png" alt="BibleNOW" className="h-8 md:h-10" />
-          </div>
-        </div>
 
         {/* Gift Burst Overlay */}
         {giftOverlay && (

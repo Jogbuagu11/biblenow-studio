@@ -190,14 +190,20 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // Simple room name for Jitsi
+      // Generate a clean, meaningful room name for Jitsi
       const cleanRoomName = formData.title
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'bible-study';
+        .trim()
+        .replace(/[^a-z0-9\s]/g, '') // Remove special characters but keep spaces
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single
+        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+        .substring(0, 50); // Limit length to prevent issues
       
-      const jitsiRoomName = cleanRoomName;
+      // Ensure we have a valid room name
+      const jitsiRoomName = cleanRoomName && cleanRoomName.length > 0 
+        ? cleanRoomName 
+        : `bible-study-${Date.now().toString().slice(-6)}`;
       
       const streamData = {
         title: formData.title,

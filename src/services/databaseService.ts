@@ -130,6 +130,29 @@ class DatabaseService {
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // Send notifications to followers after successful stream creation
+    try {
+      const { LivestreamNotificationService } = await import('./livestreamNotificationService');
+      
+      // Generate stream URL
+      const streamUrl = `${window.location.origin}/live-stream?room=${encodeURIComponent(data.room_name || '')}&title=${encodeURIComponent(data.title)}`;
+      
+      // Send notifications to followers
+      await LivestreamNotificationService.notifyFollowersOfLivestream({
+        streamer_id: user.uid,
+        stream_id: data.id,
+        stream_title: data.title,
+        stream_description: data.description,
+        stream_url: streamUrl
+      });
+      
+      console.log('Follower notifications sent successfully');
+    } catch (notificationError) {
+      // Don't fail the stream creation if notifications fail
+      console.error('Failed to send follower notifications:', notificationError);
+    }
+
     return data;
   }
 

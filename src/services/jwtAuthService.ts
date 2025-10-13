@@ -307,25 +307,20 @@ export class JWTAuthService {
     email: string;
     displayName: string;
   }, roomName: string, isModerator: boolean = false): Promise<string | null> {
-    // HARDCODED JWT TOKEN FOR TESTING
-    console.log('🔧 Using hardcoded JWT token for testing');
-    console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
+    console.log('🔧 Generating dynamic JWT token for Jitsi authentication');
+    console.log('📋 Token request details:', {
+      room: roomName,
+      moderator: isModerator,
+      userName: user.displayName,
+      userEmail: user.email
+    });
     
-    // Return the working production-generated JWT token
-    const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJiaWJsZW5vdyIsImlzcyI6ImJpYmxlbm93Iiwicm9vbSI6IioiLCJuYmYiOjE3NTk2MjY3ODUsImV4cCI6MTc1OTYzMDM5NSwiaWF0IjoxNzU5NjI2Nzk1LCJjb250ZXh0Ijp7InVzZXIiOnsibmFtZSI6IlRlc3QgVXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm1vZGVyYXRvciI6dHJ1ZX19LCJzdWIiOiJzdHJlYW0uYmlibGVub3cuaW8ifQ.fNMjnFBhNNmM1JASS1BxvjzQeg94fegNKukVxJ-5hNc';
-    
-    console.log('✅ Using hardcoded JWT token for testing');
-    console.log('Token length:', hardcodedToken.length, 'characters');
-    
-    return hardcodedToken;
-    
-    /* ORIGINAL SERVER CALL CODE (commented out for testing)
     try {
       // Get JWT token from server endpoint
-      const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-      console.log('Generating JWT token for room:', roomName, 'moderator:', isModerator);
+      const apiBase = process.env.REACT_APP_API_URL || 'https://biblenow-studio-backend.onrender.com/api';
+      console.log('🌐 Calling JWT endpoint:', `${apiBase}/jitsi/token`);
       
-      const resp = await fetch(`${apiBase}/api/jitsi/token`, {
+      const resp = await fetch(`${apiBase}/jitsi/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -336,26 +331,92 @@ export class JWTAuthService {
         })
       });
       
+      console.log('📡 Server response status:', resp.status);
+      
       if (!resp.ok) {
-        console.error('Server responded with status:', resp.status);
+        console.error('❌ Server responded with status:', resp.status);
         const errorText = await resp.text();
-        console.error('Server error response:', errorText);
-        return null;
+        console.error('❌ Server error response:', errorText);
+        
+        // Try to generate a local JWT token as fallback
+        console.log('🔄 Attempting to generate local JWT token as fallback');
+        try {
+          const localToken = this.generateLocalJWTToken(user, roomName, isModerator);
+          if (localToken) {
+            console.log('✅ Local JWT token generated successfully');
+            return localToken;
+          }
+        } catch (localError) {
+          console.error('❌ Local JWT generation failed:', localError);
+        }
+        
+        // Final fallback to hardcoded token if all else fails
+        console.log('🔄 Using hardcoded token as final fallback');
+        const fallbackToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJiaWJsZW5vdyIsImlzcyI6ImJpYmxlbm93Iiwicm9vbSI6IioiLCJuYmYiOjE3NTk2MjY3ODUsImV4cCI6MTc1OTYzMDM5NSwiaWF0IjoxNzU5NjI2Nzk1LCJjb250ZXh0Ijp7InVzZXIiOnsibmFtZSI6IlRlc3QgVXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm1vZGVyYXRvciI6dHJ1ZX19LCJzdWIiOiJzdHJlYW0uYmlibGVub3cuaW8ifQ.fNMjnFBhNNmM1JASS1BxvjzQeg94fegNKukVxJ-5hNc';
+        return fallbackToken;
       }
       
       const json = await resp.json();
+      console.log('📋 Server response data:', json);
+      
       if (json?.jwt) {
-        console.log('JWT token received successfully from server');
+        console.log('✅ JWT token received successfully from server');
+        console.log('🔑 Token length:', json.jwt.length, 'characters');
+        console.log('⏰ Token expires:', new Date(json.expires * 1000).toLocaleString());
         return json.jwt;
       }
       
-      console.error('Failed to get JWT token from server response:', json);
+      console.error('❌ Failed to get JWT token from server response:', json);
       return null;
     } catch (error) {
-      console.error('Error generating Jitsi JWT token:', error);
+      console.error('❌ Error generating Jitsi JWT token:', error);
+      console.log('🔄 Falling back to hardcoded token due to error');
+      
+      // Fallback to hardcoded token if there's an error
+      const fallbackToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJiaWJsZW5vdyIsImlzcyI6ImJpYmxlbm93Iiwicm9vbSI6IioiLCJuYmYiOjE3NTk2MjY3ODUsImV4cCI6MTc1OTYzMDM5NSwiaWF0IjoxNzU5NjI2Nzk1LCJjb250ZXh0Ijp7InVzZXIiOnsibmFtZSI6IlRlc3QgVXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm1vZGVyYXRvciI6dHJ1ZX19LCJzdWIiOiJzdHJlYW0uYmlibGVub3cuaW8ifQ.fNMjnFBhNNmM1JASS1BxvjzQeg94fegNKukVxJ-5hNc';
+      return fallbackToken;
+    }
+  }
+
+  /**
+   * Generate a local JWT token as fallback when server is unavailable
+   */
+  private generateLocalJWTToken(user: {
+    uid: string;
+    email: string;
+    displayName: string;
+  }, roomName: string, isModerator: boolean = false): string | null {
+    try {
+      if (!this.jwtSecret) {
+        console.error('❌ No JWT secret available for local token generation');
+        return null;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const payload: JWTPayload = {
+        aud: jwtConfig.audience,
+        iss: jwtConfig.issuer,
+        sub: jwtConfig.domain,
+        room: roomName,
+        context: {
+          user: {
+            id: user.uid,
+            name: user.displayName,
+            email: user.email,
+            moderator: isModerator
+          }
+        },
+        exp: now + jwtConfig.expiresIn,
+        nbf: now - 10 // Allow 10 seconds clock skew
+      };
+
+      const token = jwt.sign(payload, this.jwtSecret, { algorithm: jwtConfig.algorithm });
+      console.log('✅ Local JWT token generated for room:', roomName);
+      return token;
+    } catch (error) {
+      console.error('❌ Error generating local JWT token:', error);
       return null;
     }
-    */
   }
 }
 

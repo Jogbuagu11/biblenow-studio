@@ -1,7 +1,7 @@
 // JWT Configuration for self-hosted Jitsi authentication
 export const jwtConfig = {
   // JWT Secret for signing tokens (frontend should not sign; this is for verification only if used)
-  secret: process.env.REACT_APP_JITSI_JWT_SECRET || null,
+  secret: process.env.REACT_APP_JITSI_JWT_SECRET || process.env.JWT_APP_SECRET || null,
   // Token expiration time (in seconds)
   expiresIn: 7200 as const, // 2 hours (7200 seconds)
   // Algorithm to use for signing

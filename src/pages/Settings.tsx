@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { useThemeStore } from '../stores';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
+import EmailPreferences from '../components/EmailPreferences';
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useThemeStore();
@@ -99,37 +100,8 @@ const Settings: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Email Notifications</CardTitle>
-            <CardDescription>Configure your email notification preferences.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Weekly Streaming Limit Emails</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Receive email notifications when you reach 75% or 100% of your weekly streaming limit.
-                  </p>
-                </div>
-                <button 
-                  onClick={handleStreamingLimitEmailsToggle}
-                  disabled={isLoading}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    streamingLimitEmails ? 'bg-yellow-500' : 'bg-gray-200'
-                  } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      streamingLimitEmails ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Email Preferences Component */}
+        <EmailPreferences />
 
         <Card>
           <CardHeader>
