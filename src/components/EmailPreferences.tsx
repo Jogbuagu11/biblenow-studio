@@ -38,13 +38,13 @@ const EmailPreferences: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
       loadPreferences();
     }
-  }, [user, loadPreferences]);
+  }, [user]);
 
   const handlePreferenceChange = (key: keyof EmailPreferencesData, value: boolean) => {
     if (!user) return;

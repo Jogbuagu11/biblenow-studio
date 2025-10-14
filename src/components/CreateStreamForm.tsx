@@ -10,6 +10,7 @@ import Checkbox from './ui/Checkbox';
 import Calendar from './ui/Calendar';
 import ThumbnailUpload from './ThumbnailUpload';
 import type { ThumbnailUploadResult } from '../services/thumbnailService';
+import { createRoomNameWithType } from '../utils/roomUtils';
 
 interface CreateStreamFormProps {
   onSuccess?: () => void;
@@ -169,14 +170,8 @@ const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
       const [hours, minutes] = formState.time.split(':');
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
-      // Create room name
-      const cleanRoomName = formState.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'scheduled_stream';
-      
-      const platformPrefix = (formState.platform || 'livestream').toLowerCase();
-      const baseRoomName = `${platformPrefix}-${cleanRoomName}`;
+      // Create room name with type + title
+      const baseRoomName = createRoomNameWithType(formState.title, formState.platform);
       
       const streamData = {
         title: formState.title,

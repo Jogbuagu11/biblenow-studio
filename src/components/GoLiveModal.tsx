@@ -18,6 +18,7 @@ import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { thumbnailService } from '../services/thumbnailService';
 import { validateUserIdFormat } from '../utils/clearCache';
+import { createRoomNameWithType } from '../utils/roomUtils';
 
 interface GoLiveModalProps {
   open: boolean;
@@ -190,20 +191,8 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
     
     try {
       // Create stream using Zustand store
-      // Generate a clean, meaningful room name for Jitsi
-      const cleanRoomName = formData.title
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s]/g, '') // Remove special characters but keep spaces
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
-        .substring(0, 50); // Limit length to prevent issues
-      
-      // Ensure we have a valid room name
-      const jitsiRoomName = cleanRoomName && cleanRoomName.length > 0 
-        ? cleanRoomName 
-        : `bible-study-${Date.now().toString().slice(-6)}`;
+      // Generate a clean, meaningful room name for Jitsi with room type + title
+      const jitsiRoomName = createRoomNameWithType(formData.title, formData.platform);
       
       const streamData = {
         title: formData.title,

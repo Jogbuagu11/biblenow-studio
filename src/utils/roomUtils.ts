@@ -1,4 +1,4 @@
-export function toRoomSlug(input: string): string {
+export function toRoomSlug(input: string, roomType?: string): string {
   const raw = (input || 'bible-study').toString().trim();
   // If legacy JAAS style like "vpaas-magic-cookie-.../room", take the last segment
   const lastSegment = raw.includes('/') ? raw.split('/').filter(Boolean).pop()! : raw;
@@ -11,7 +11,10 @@ export function toRoomSlug(input: string): string {
     .replace(/-+/g, '-') // Replace multiple hyphens with single
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
     .substring(0, 30); // Limit length
-  return `stream-${slug || 'bible-study'}`;
+  
+  // If roomType is provided, use it as prefix, otherwise use 'stream'
+  const prefix = roomType || 'stream';
+  return `${prefix}-${slug || 'bible-study'}`;
 }
 
 export function sanitizeRoomName(input: string): string {
@@ -28,4 +31,25 @@ export function sanitizeRoomName(input: string): string {
     .replace(/-+/g, '-') // Replace multiple hyphens with single
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
     .substring(0, 40) || 'bible-study'; // Limit length and provide fallback
+}
+
+/**
+ * Creates a room name with type prefix and sanitized title
+ * @param title - The stream title
+ * @param roomType - The room type (platform) like 'prayer', 'worship', 'study', etc.
+ * @returns Formatted room name like 'prayer-love-the-lord-your-god'
+ */
+export function createRoomNameWithType(title: string, roomType: string = 'livestream'): string {
+  const cleanTitle = title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters but keep spaces
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+    .substring(0, 40); // Limit title length
+  
+  return cleanTitle && cleanTitle.length > 0 
+    ? `${roomType}-${cleanTitle}`
+    : `${roomType}-${Date.now().toString().slice(-6)}`;
 } 

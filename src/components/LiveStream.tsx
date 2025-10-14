@@ -36,6 +36,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   const [isJitsiReady, setIsJitsiReady] = useState(false);
   const [moderators, setModerators] = useState<string[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [viewers, setViewers] = useState<any[]>([]);
   const [isModerator, setIsModerator] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   
@@ -101,11 +102,23 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   }, [user, isEnding]);
 
   // Appoint moderator function (only for streamer/host)
-  const appointModerator = useCallback((participantId: string) => {
+  const appointModerator = useCallback(async (participantId: string) => {
     // Only the streamer/host can appoint moderators, not other moderators
-    if (apiRef.current && isStreamer) {
+    if (isStreamer) {
       try {
-        apiRef.current.executeCommand('setModerator', participantId);
+        // Add to moderators list in state
+        setModerators(prev => {
+          if (!prev.includes(participantId)) {
+            return [...prev, participantId];
+          }
+          return prev;
+        });
+        
+        // Also try Jitsi API command if available
+        if (apiRef.current) {
+          apiRef.current.executeCommand('setModerator', participantId);
+        }
+        
         console.log('Appointed moderator:', participantId);
       } catch (error) {
         console.error('Error appointing moderator:', error);
@@ -116,16 +129,299 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   }, [isStreamer]);
 
   // Kick participant function
-  const kickParticipant = useCallback((participantId: string) => {
-    if (apiRef.current && isModerator) {
+  const kickParticipant = useCallback(async (participantId: string) => {
+    if (isModerator) {
       try {
-        apiRef.current.executeCommand('kickParticipant', participantId);
+        // Mark viewer as inactive in database
+        try {
+          const { supabase } = await import('../config/supabase');
+          
+          // Get current stream ID
+          const urlParams = new URLSearchParams(window.location.search);
+          const roomParam = urlParams.get('room');
+          
+          if (roomParam) {
+            const { data: streamData } = await supabase
+              .from('livestreams')
+              .select('id')
+              .eq('room_name', roomParam)
+              .eq('is_live', true)
+              .single();
+            
+            if (streamData) {
+              // Update viewer record to mark as left
+              await supabase
+                .from('livestream_viewers')
+                .update({
+                  left_at: new Date().toISOString(),
+                  is_active: false
+                })
+                .eq('livestream_id', streamData.id)
+                .eq('user_id', participantId);
+            }
+          }
+        } catch (dbError) {
+          console.error('Error updating database for kicked participant:', dbError);
+        }
+        
+        // Remove from viewers list
+        setViewers(prev => prev.filter(v => v.user_id !== participantId));
+        
+        // Remove from moderators if they were a moderator
+        setModerators(prev => prev.filter(id => id !== participantId));
+        
+        // Also try Jitsi API command if available
+        if (apiRef.current) {
+          apiRef.current.executeCommand('kickParticipant', participantId);
+        }
+        
         console.log('Kicked participant:', participantId);
       } catch (error) {
         console.error('Error kicking participant:', error);
       }
+    } else {
+      console.warn('Only moderators can kick participants');
     }
   }, [isModerator]);
+
+  // Track viewer in database
+  const trackViewerJoin = useCallback(async (userId: string, livestreamId?: string) => {
+    if (!user) return;
+    
+    try {
+      const { supabase } = await import('../config/supabase');
+      
+      // If no livestreamId provided, try to get current stream
+      let streamId = livestreamId;
+      if (!streamId) {
+        // Try to get current stream from URL or state
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomParam = urlParams.get('room');
+        if (roomParam) {
+          // Query for active stream with this room name
+          const { data: streamData } = await supabase
+            .from('livestreams')
+            .select('id')
+            .eq('room_name', roomParam)
+            .eq('is_live', true)
+            .single();
+          
+          if (streamData) {
+            streamId = streamData.id;
+          }
+        }
+      }
+      
+      if (streamId) {
+        // Insert or update viewer record
+        const { error } = await supabase
+          .from('livestream_viewers')
+          .upsert({
+            livestream_id: streamId,
+            user_id: userId,
+            joined_at: new Date().toISOString(),
+            is_active: true,
+            left_at: null
+          }, {
+            onConflict: 'livestream_id,user_id'
+          });
+        
+        if (error) {
+          console.error('Error tracking viewer join:', error);
+        } else {
+          console.log('Viewer join tracked in database');
+        }
+      }
+    } catch (error) {
+      console.error('Error in trackViewerJoin:', error);
+    }
+  }, [user]);
+
+  // Track viewer leaving
+  const trackViewerLeave = useCallback(async (userId: string, livestreamId?: string) => {
+    if (!user) return;
+    
+    try {
+      const { supabase } = await import('../config/supabase');
+      
+      // If no livestreamId provided, try to get current stream
+      let streamId = livestreamId;
+      if (!streamId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomParam = urlParams.get('room');
+        if (roomParam) {
+          const { data: streamData } = await supabase
+            .from('livestreams')
+            .select('id')
+            .eq('room_name', roomParam)
+            .eq('is_live', true)
+            .single();
+          
+          if (streamData) {
+            streamId = streamData.id;
+          }
+        }
+      }
+      
+      if (streamId) {
+        // Update viewer record to mark as left
+        const { error } = await supabase
+          .from('livestream_viewers')
+          .update({
+            left_at: new Date().toISOString(),
+            is_active: false
+          })
+          .eq('livestream_id', streamId)
+          .eq('user_id', userId);
+        
+        if (error) {
+          console.error('Error tracking viewer leave:', error);
+        } else {
+          console.log('Viewer leave tracked in database');
+        }
+      }
+    } catch (error) {
+      console.error('Error in trackViewerLeave:', error);
+    }
+  }, [user]);
+
+  // Fetch current viewers from database
+  const fetchViewers = useCallback(async () => {
+    try {
+      const { supabase } = await import('../config/supabase');
+      
+      // Get current stream ID
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      
+      console.log('Fetching viewers for room:', roomParam);
+      
+      if (roomParam) {
+        // First, try to find the stream
+        const { data: streamData, error: streamError } = await supabase
+          .from('livestreams')
+          .select('id, room_name, is_live')
+          .eq('room_name', roomParam)
+          .eq('is_live', true)
+          .single();
+        
+        console.log('Stream query result:', { streamData, streamError });
+        
+        if (streamError) {
+          console.error('Error finding stream:', streamError);
+          return;
+        }
+        
+        if (streamData) {
+          console.log('Found stream with ID:', streamData.id);
+          
+          // Get active viewers (basic data first, then fetch profiles separately)
+          const { data: viewersData, error: viewersError } = await supabase
+            .from('livestream_viewers')
+            .select('*')
+            .eq('livestream_id', streamData.id)
+            .eq('is_active', true)
+            .order('joined_at', { ascending: true });
+          
+          // If we have viewers, fetch their profile information
+          if (viewersData && viewersData.length > 0) {
+            const userIds = viewersData.map(v => v.user_id).filter(Boolean);
+            console.log('Viewer user IDs:', userIds);
+            
+            // Try to get profiles from verified_profiles first
+            const { data: verifiedProfiles, error: verifiedError } = await supabase
+              .from('verified_profiles')
+              .select('id, first_name, last_name, profile_photo_url')
+              .in('id', userIds);
+            
+            console.log('Verified profiles query result:', { verifiedProfiles, verifiedError });
+            
+            // If no verified profiles found, try profiles table
+            let profiles = verifiedProfiles;
+            if (!profiles || profiles.length === 0) {
+              console.log('No verified profiles found, trying profiles table...');
+              const { data: regularProfiles, error: regularError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, profile_photo_url')
+                .in('id', userIds);
+              
+              console.log('Profiles table query result:', { regularProfiles, regularError });
+              profiles = regularProfiles;
+            }
+            
+            // Remove the user_id fallback since we're using id to id relationship
+            
+            // Merge viewer data with profile data
+            const viewersWithProfiles = viewersData.map(viewer => {
+              let profile = null;
+              
+              // Find profile by id (user_id in livestream_viewers matches id in profiles)
+              if (profiles) {
+                profile = profiles.find((p: any) => p.id === viewer.user_id);
+              }
+              
+              console.log(`Profile for viewer ${viewer.user_id}:`, profile);
+              
+              return {
+                ...viewer,
+                profile
+              };
+            });
+            
+            console.log('Final viewers with profiles:', viewersWithProfiles);
+            setViewers(viewersWithProfiles);
+          } else {
+            setViewers([]);
+          }
+          
+          console.log('Viewers query result:', { viewersData, viewersError });
+          
+          if (viewersError) {
+            console.error('Error fetching viewers:', viewersError);
+          } else {
+            console.log('Successfully fetched viewers:', viewersData);
+            setViewers(viewersData || []);
+          }
+        } else {
+          console.log('No active stream found for room:', roomParam);
+        }
+      } else {
+        console.log('No room parameter found in URL');
+      }
+    } catch (error) {
+      console.error('Error in fetchViewers:', error);
+    }
+  }, []);
+
+  // Refresh participants function (now fetches from database)
+  const refreshParticipants = useCallback(() => {
+    fetchViewers();
+  }, [fetchViewers]);
+
+  // Track viewer leaving when component unmounts
+  useEffect(() => {
+    return () => {
+      // Track viewer leaving when component unmounts
+      if (user?.uid) {
+        trackViewerLeave(user.uid);
+      }
+    };
+  }, [user?.uid, trackViewerLeave]);
+
+  // Periodically refresh viewers list
+  useEffect(() => {
+    if (isJitsiReady) {
+      // Initial fetch
+      fetchViewers();
+      
+      // Set up periodic refresh every 10 seconds
+      const interval = setInterval(() => {
+        fetchViewers();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isJitsiReady, fetchViewers]);
 
   // Fetch stream data and user profile
   useEffect(() => {
@@ -249,6 +545,31 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     };
   }, [roomName]);
 
+  // Function to wait for Jitsi script to load
+  const waitForJitsiScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (window.JitsiMeetExternalAPI) {
+        resolve();
+        return;
+      }
+      
+      // Wait up to 10 seconds for script to load
+      let attempts = 0;
+      const maxAttempts = 100; // 10 seconds with 100ms intervals
+      
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.JitsiMeetExternalAPI) {
+          clearInterval(checkInterval);
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          reject(new Error('JitsiMeetExternalAPI script failed to load within 10 seconds'));
+        }
+      }, 100);
+    });
+  };
+
   // Initialize Jitsi
   useEffect(() => {
     const initializeJitsi = async () => {
@@ -263,7 +584,17 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         containerRef.current.innerHTML = '';
       }
 
-      // Get JWT token for custom Jitsi server - required for all users
+      // Wait for Jitsi script to load
+      try {
+        console.log('Waiting for Jitsi script to load...');
+        await waitForJitsiScript();
+        console.log('Jitsi script loaded successfully');
+      } catch (error) {
+        console.error('Failed to load Jitsi script:', error);
+        return;
+      }
+
+      // JWT is disabled on server - proceed without JWT authentication
       let jwtToken: string | null = null;
       let iframeRoomPath = roomName; // Default to roomName
       
@@ -316,68 +647,16 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
           
-          // Try to generate JWT token (optional - server may have JWT disabled)
-          if (user?.email) {
-            try {
-              console.log('Attempting to generate JWT token for room:', roomName, 'moderator:', moderatorStatus);
-              const jwtAuthService = await import('../services/jwtAuthService');
-              jwtToken = await jwtAuthService.default.generateJitsiToken(
-                {
-                  uid: user.uid,
-                  email: user.email,
-                  displayName: user.displayName || 'BibleNOW User'
-                },
-                roomName,
-                moderatorStatus
-              );
-              
-              if (jwtToken) {
-                console.log('✅ JWT token generated successfully');
-                console.log('Token length:', jwtToken.length, 'characters');
-              } else {
-                console.log('⚠️ JWT token generation failed - continuing without JWT (server may have JWT disabled)');
-                jwtToken = null;
-              }
-            } catch (e) {
-              console.log('⚠️ JWT token generation error - continuing without JWT:', e instanceof Error ? e.message : String(e));
-              console.log('   This is normal if JWT is disabled on the Jitsi server');
-              jwtToken = null;
-            }
-          } else {
-            console.log('No user email available - continuing without JWT authentication');
-            jwtToken = null;
-          }
+          // JWT is disabled on server - skip JWT token generation
+          console.log('JWT authentication is disabled on server - proceeding without JWT token');
+          jwtToken = null;
           
           // Log the final JWT token status
           console.log('Final JWT token status:', jwtToken ? 'AVAILABLE' : 'NOT AVAILABLE');
           
-          // Ensure JWT token is properly set
-          if (!jwtToken) {
-            console.log('No JWT token available, proceeding without authentication');
-          } else {
-            // Decode JWT to verify room name matches
-            try {
-              const tokenParts = jwtToken.split('.');
-              if (tokenParts.length === 3) {
-                const payloadBase64 = tokenParts[1];
-                const payloadJson = Buffer.from(payloadBase64, 'base64').toString();
-                const jwtPayload = JSON.parse(payloadJson);
-                
-                // Verify room name in JWT matches the room name we're using
-                if (jwtPayload.room && jwtPayload.room !== roomName) {
-                  console.warn('Room name mismatch - JWT room:', jwtPayload.room, 'URL room:', roomName);
-                  // Use the room name from JWT to ensure consistency
-                  iframeRoomPath = jwtPayload.room;
-                } else {
-                  console.log('Room names match - JWT room:', jwtPayload.room, 'URL room:', roomName);
-                  iframeRoomPath = roomName;
-                }
-              }
-            } catch (error) {
-              console.error('Error decoding JWT for room verification:', error);
-              iframeRoomPath = roomName;
-            }
-          }
+          // No JWT token needed - use room name directly
+          console.log('No JWT authentication - using room name directly:', roomName);
+          iframeRoomPath = roomName;
         } catch (error) {
           console.error('Error checking user verification status:', error);
           // Continue without user verification
@@ -393,7 +672,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
-        ...(jwtToken && { jwt: jwtToken }), // Only include JWT if token is available
+        // JWT authentication is disabled - no JWT token needed
         userInfo: {
           displayName: user?.displayName || "BibleNOW User",
           email: user?.email || "user@biblenowstudio.com"
@@ -448,11 +727,18 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('🚀 Initializing Jitsi Meet with configuration:');
         console.log('   Domain:', jitsiConfig.domain);
         console.log('   Room:', options.roomName);
-        console.log('   JWT Token:', jwtToken ? '✅ Present' : '⚠️ Not Available (JWT may be disabled on server)');
+        console.log('   JWT Token:', '❌ Disabled (JWT authentication is turned off)');
         console.log('   Authentication Required:', options.configOverwrite.authenticationRequired);
         console.log('   User:', options.userInfo.displayName, `(${options.userInfo.email})`);
         console.log('   Moderator Status:', isModerator);
         try {
+          // Verify JitsiMeetExternalAPI is available before creating instance
+          if (typeof window.JitsiMeetExternalAPI !== 'function') {
+            console.error('JitsiMeetExternalAPI is not available. Script may not be loaded properly.');
+            console.log('Available window properties:', Object.keys(window).filter(key => key.includes('Jitsi')));
+            return;
+          }
+          
           // Create Jitsi instance with domain and options, similar to working example
           apiRef.current = new window.JitsiMeetExternalAPI(jitsiConfig.domain, options);
           console.log('Jitsi instance created successfully with domain:', jitsiConfig.domain);
@@ -521,11 +807,49 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current.on('apiReady', () => {
           console.log('Jitsi API is ready');
           setIsJitsiReady(true);
+          
+          // Set streamer as moderator
+          if (isStreamer && user?.uid) {
+            setModerators(prev => {
+              if (!prev.includes(user.uid)) {
+                return [...prev, user.uid];
+              }
+              return prev;
+            });
+            setIsModerator(true);
+          }
+          
+          // Track current user joining the stream
+          if (user?.uid) {
+            trackViewerJoin(user.uid);
+          }
+          
+          // Fetch current viewers from database
+          fetchViewers();
         });
 
         apiRef.current.on('videoConferenceJoined', () => {
           console.log('User joined video conference');
           setIsJitsiReady(true);
+          
+          // Set streamer as moderator
+          if (isStreamer && user?.uid) {
+            setModerators(prev => {
+              if (!prev.includes(user.uid)) {
+                return [...prev, user.uid];
+              }
+              return prev;
+            });
+            setIsModerator(true);
+          }
+          
+          // Track current user joining the stream
+          if (user?.uid) {
+            trackViewerJoin(user.uid);
+          }
+          
+          // Fetch current viewers from database
+          fetchViewers();
         });
 
         // Add authentication event handlers
@@ -600,14 +924,20 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('Jitsi connection restored');
         });
 
-        // Additional events to track when Jitsi is ready
-        apiRef.current.on('participantJoined', () => {
-          console.log('Participant joined - Jitsi should be ready');
+        // Handle participant events (for Jitsi participants, but we track viewers in database)
+        apiRef.current.on('participantJoined', (participant: any) => {
+          console.log('Participant joined:', participant);
           setIsJitsiReady(true);
+          
+          // Refresh viewers from database when someone joins
+          fetchViewers();
         });
 
-        apiRef.current.on('participantLeft', () => {
-          console.log('Participant left');
+        apiRef.current.on('participantLeft', (participant: any) => {
+          console.log('Participant left:', participant);
+          
+          // Refresh viewers from database when someone leaves
+          fetchViewers();
         });
 
         // Fallback: Set ready after a delay if no events fire
@@ -704,18 +1034,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('Connection restored');
         });
 
-        // Handle participant events
-        apiRef.current.on('participantJoined', (participant: any) => {
-          console.log('Participant joined:', participant);
-          setParticipants(prev => [...prev, participant]);
-        });
-
-        apiRef.current.on('participantLeft', (participant: any) => {
-          console.log('Participant left:', participant);
-          setParticipants(prev => prev.filter(p => p.id !== participant.id));
-          // Remove from moderators if they leave
-          setModerators(prev => prev.filter(id => id !== participant.id));
-        });
+        // Handle participant events (consolidated with above)
+        // Note: participantJoined and participantLeft are already handled above
 
         // Handle moderator events
         apiRef.current.on('moderatorChanged', (event: any) => {
@@ -1173,8 +1493,15 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         <div className="w-80 border-l border-gray-700 flex flex-col h-full bg-gray-900">
           
           {/* Participants Header */}
-          <div className="p-4 border-b border-yellow-500 bg-gray-800">
-            <h3 className="text-white font-semibold">Participants ({participants.length + 1})</h3>
+          <div className="p-4 border-b border-yellow-500 bg-gray-800 flex items-center justify-between">
+            <h3 className="text-white font-semibold">Viewers ({viewers.length + 1})</h3>
+            <button
+              onClick={refreshParticipants}
+              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+              title="Refresh viewers list"
+            >
+              🔄
+            </button>
           </div>
 
           {/* Participants List */}
@@ -1206,57 +1533,78 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
               </div>
             </div>
 
-            {/* Other Participants */}
-            {participants.map((participant) => (
-              <div key={participant.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
-                    <span className="text-white font-semibold">
-                      {participant.displayName?.charAt(0) || 'U'}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-white font-medium">
-                        {participant.displayName || 'Unknown User'}
-                      </span>
-                      {moderators.includes(participant.id) && (
-                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Moderator</span>
-                      )}
-                    </div>
-                    <span className="text-gray-400 text-sm">Viewer</span>
-                  </div>
-                </div>
-                
-                {/* Moderator Controls */}
-                {isModerator && participant.id !== user?.uid && (
-                  <div className="flex space-x-2">
-                    {/* Only streamer can appoint moderators */}
-                    {isStreamer && (
-                      <button
-                        onClick={() => appointModerator(participant.id)}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-                        title="Make Moderator"
-                      >
-                        👑
-                      </button>
+            {/* Other Viewers */}
+            {viewers.map((viewer) => {
+              // Get profile from the merged data
+              const profile = viewer.profile;
+              console.log('Rendering viewer:', viewer.user_id, 'with profile:', profile);
+              
+              const displayName = profile 
+                ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Anonymous User'
+                : `User ${viewer.user_id?.slice(-6) || 'Unknown'}`;
+              const avatar = profile?.profile_photo_url;
+              
+              console.log('Display name:', displayName, 'Avatar:', avatar);
+              
+              return (
+                <div key={viewer.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    {avatar ? (
+                      <img 
+                        src={avatar} 
+                        alt={displayName}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                        <span className="text-white font-semibold">
+                          {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
+                        </span>
+                      </div>
                     )}
-                    {/* Moderators can kick participants */}
-                    <button
-                      onClick={() => kickParticipant(participant.id)}
-                      className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                      title="Kick Participant"
-                    >
-                      🚫
-                    </button>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-white font-medium">
+                          {displayName || 'Anonymous User'}
+                        </span>
+                        {moderators.includes(viewer.user_id) && (
+                          <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Moderator</span>
+                        )}
+                      </div>
+                      <span className="text-gray-400 text-sm">Viewer</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                  
+                  {/* Moderator Controls */}
+                  {isModerator && viewer.user_id !== user?.uid && (
+                    <div className="flex space-x-2">
+                      {/* Only streamer can appoint moderators */}
+                      {isStreamer && (
+                        <button
+                          onClick={() => appointModerator(viewer.user_id)}
+                          className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                          title="Make Moderator"
+                        >
+                          👑
+                        </button>
+                      )}
+                      {/* Moderators can kick participants */}
+                      <button
+                        onClick={() => kickParticipant(viewer.user_id)}
+                        className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                        title="Kick Participant"
+                      >
+                        🚫
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-            {participants.length === 0 && (
+            {viewers.length === 0 && (
               <div className="text-center text-gray-400 py-8">
-                <p>No other participants yet.</p>
+                <p>No other viewers yet.</p>
               </div>
             )}
           </div>

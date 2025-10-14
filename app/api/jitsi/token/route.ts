@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
            const payload: any = {
              aud: JITSI_AUD,
              iss: JITSI_ISS,
-             room: "*", // Use wildcard for room access
+             room: roomName, // Use specific room name instead of wildcard
              nbf: now - 10, // 10 seconds before now
              exp: now + 7200, // 2 hours from now
              iat: now,
