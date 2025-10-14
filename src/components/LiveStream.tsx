@@ -35,7 +35,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isJitsiReady, setIsJitsiReady] = useState(false);
   const [moderators, setModerators] = useState<string[]>([]);
-  const [participants, setParticipants] = useState<any[]>([]);
   const [viewers, setViewers] = useState<any[]>([]);
   const [isModerator, setIsModerator] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -1068,7 +1067,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current = null;
       }
     };
-  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator]);
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator, fetchViewers, trackViewerJoin]);
 
   // Don't render anything if user is not logged in
   if (!user) {
