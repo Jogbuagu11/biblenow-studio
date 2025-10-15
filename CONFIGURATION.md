@@ -44,6 +44,12 @@ REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
 REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 ```
 
+### Google OAuth Configuration (for Supabase)
+```
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=your-google-oauth-client-secret
+```
+
 ## Setup Instructions
 
 1. **Firebase Setup (for authentication and analytics):**
@@ -60,6 +66,14 @@ REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 
 3. **JAAS Setup:**
    - Sign up for JAAS at https://jaas.8x8.vc
+
+4. **Google OAuth Setup (for Google Login):**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project or select an existing one
+   - Enable the Google+ API (or Google Identity API)
+   - Go to "Credentials" and create OAuth 2.0 Client ID
+   - Set authorized redirect URIs to include your Supabase auth callback URL
+   - Copy the Client ID and Client Secret to your `.env` file
    - Get your App ID and JWT Secret from the dashboard
    - Update the JAAS configuration in your `.env` file
 

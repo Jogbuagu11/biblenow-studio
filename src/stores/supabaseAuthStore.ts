@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import jwtAuthService from '../services/jwtAuthService';
 import { validateUserIdFormat } from '../utils/clearCache';
+import { supabase } from '../config/supabase';
 
 export interface SupabaseUser {
   uid: string; // Supabase UUID
@@ -24,10 +25,12 @@ interface SupabaseAuthState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<SupabaseUser>) => Promise<void>;
   clearError: () => void;
   initialize: () => void;
+  handleOAuthCallback: () => Promise<void>;
 }
 
 export const useSupabaseAuthStore = create<SupabaseAuthState>()(
@@ -107,6 +110,30 @@ export const useSupabaseAuthStore = create<SupabaseAuthState>()(
         }
       },
 
+      loginWithGoogle: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/dashboard`
+            }
+          });
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          // The OAuth flow will redirect the user, so we don't need to set user state here
+          // The user state will be set when they return from the OAuth flow
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Google login failed', 
+            isLoading: false 
+          });
+        }
+      },
+
       logout: async () => {
         set({ isLoading: true });
         try {
@@ -172,7 +199,75 @@ export const useSupabaseAuthStore = create<SupabaseAuthState>()(
         };
         
         clearOldAuth();
+        
+        // Set up auth state listener for OAuth callbacks
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            const user: SupabaseUser = {
+              uid: session.user.id,
+              email: session.user.email || '',
+              displayName: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+              photoURL: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+              role: 'moderator' // All OAuth users are moderators
+            };
+            
+            set({ 
+              user, 
+              isAuthenticated: true, 
+              isLoading: false,
+              error: null 
+            });
+          } else if (event === 'SIGNED_OUT') {
+            set({ 
+              user: null, 
+              isAuthenticated: false, 
+              isLoading: false,
+              error: null 
+            });
+          }
+        });
+        
         set({ isInitialized: true });
+      },
+
+      handleOAuthCallback: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            throw new Error(error.message);
+          }
+          
+          if (data.session?.user) {
+            const user: SupabaseUser = {
+              uid: data.session.user.id,
+              email: data.session.user.email || '',
+              displayName: data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name || '',
+              photoURL: data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture,
+              role: 'moderator'
+            };
+            
+            set({ 
+              user, 
+              isAuthenticated: true, 
+              isLoading: false,
+              error: null 
+            });
+          } else {
+            set({ 
+              user: null, 
+              isAuthenticated: false, 
+              isLoading: false,
+              error: 'No active session found' 
+            });
+          }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'OAuth callback failed', 
+            isLoading: false 
+          });
+        }
       },
     }),
     {
