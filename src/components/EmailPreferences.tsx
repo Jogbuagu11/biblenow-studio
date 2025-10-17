@@ -1,52 +1,53 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { LivestreamNotificationService } from '../services/livestreamNotificationService';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { StudioEmailPreferencesService, StudioEmailPreferences } from '../services/studioEmailPreferencesService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/Card';
 import Switch from './ui/Switch';
 import Label from './ui/Label';
 import { useToast } from '../hooks/use-toast';
 
-interface EmailPreferencesData {
-  livestreamNotifications: boolean;
-  streamingLimitEmails: boolean;
-}
-
 const EmailPreferences: React.FC = () => {
   const { user } = useSupabaseAuthStore();
   const { toast } = useToast();
-  const [preferences, setPreferences] = useState<EmailPreferencesData>({
+  const [preferences, setPreferences] = useState<StudioEmailPreferences>({
     livestreamNotifications: true,
-    streamingLimitEmails: true
+    streamingLimitEmails: true,
+    weeklyDigest: false,
+    marketingEmails: false,
+    systemNotifications: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const loadPreferences = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      const prefs = await LivestreamNotificationService.getEmailPreferences(user.uid);
-      setPreferences(prefs);
-    } catch (error) {
-      console.error('Error loading email preferences:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load email preferences",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Load preferences using the correct service
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        console.log('🔍 EmailPreferences: Loading preferences using StudioEmailPreferencesService');
+        const prefs = await StudioEmailPreferencesService.getEmailPreferences(user.uid);
+        console.log('✅ EmailPreferences: Received preferences:', prefs);
+        setPreferences(prefs);
+      } catch (error) {
+        console.error('❌ EmailPreferences: Error loading preferences:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load email preferences",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPreferences();
   }, [user, toast]);
 
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-  }, [user, loadPreferences]);
-
-  const handlePreferenceChange = (key: keyof EmailPreferencesData, value: boolean) => {
+  const handlePreferenceChange = (key: keyof StudioEmailPreferences, value: boolean) => {
     if (!user) return;
 
     const newPreferences = { ...preferences, [key]: value };
@@ -56,10 +57,12 @@ const EmailPreferences: React.FC = () => {
     updatePreferencesAsync(key, value, newPreferences);
   };
 
-  const updatePreferencesAsync = async (key: keyof EmailPreferencesData, value: boolean, newPreferences: EmailPreferencesData) => {
+  const updatePreferencesAsync = async (key: keyof StudioEmailPreferences, value: boolean, newPreferences: StudioEmailPreferences) => {
     try {
       setSaving(true);
-      await LivestreamNotificationService.updateEmailPreferences(user!.uid, {
+      console.log('🔍 EmailPreferences: Updating preference:', key, 'to', value);
+      
+      await StudioEmailPreferencesService.updateEmailPreferences(user!.uid, {
         [key]: value
       });
       
@@ -136,6 +139,57 @@ const EmailPreferences: React.FC = () => {
           <Switch
             checked={preferences.streamingLimitEmails}
             onCheckedChange={(checked: boolean) => handlePreferenceChange('streamingLimitEmails', checked)}
+            disabled={saving}
+          />
+        </div>
+
+        {/* Weekly Digest */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label className="text-base font-medium text-gray-900 dark:text-white">
+              Weekly Digest
+            </Label>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Receive a weekly summary of your streaming activity and platform updates
+            </p>
+          </div>
+          <Switch
+            checked={preferences.weeklyDigest}
+            onCheckedChange={(checked: boolean) => handlePreferenceChange('weeklyDigest', checked)}
+            disabled={saving}
+          />
+        </div>
+
+        {/* Marketing Emails */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label className="text-base font-medium text-gray-900 dark:text-white">
+              Marketing Emails
+            </Label>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Receive promotional emails about new features and special offers
+            </p>
+          </div>
+          <Switch
+            checked={preferences.marketingEmails}
+            onCheckedChange={(checked: boolean) => handlePreferenceChange('marketingEmails', checked)}
+            disabled={saving}
+          />
+        </div>
+
+        {/* System Notifications */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label className="text-base font-medium text-gray-900 dark:text-white">
+              System Notifications
+            </Label>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Important account and security notifications
+            </p>
+          </div>
+          <Switch
+            checked={preferences.systemNotifications}
+            onCheckedChange={(checked: boolean) => handlePreferenceChange('systemNotifications', checked)}
             disabled={saving}
           />
         </div>
