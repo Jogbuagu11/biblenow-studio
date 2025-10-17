@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudioEmailPreferencesService, StudioEmailPreferences } from '../services/studioEmailPreferencesService';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/Card';
