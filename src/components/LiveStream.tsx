@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Send, MessageCircle, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Users } from 'lucide-react';
+import { Send, MessageCircle, Maximize2, Minimize2, CheckCircle, Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Users, Square, Circle } from 'lucide-react';
 import { useSupabaseAuthStore } from '../stores/supabaseAuthStore';
 import { databaseService } from '../services/databaseService';
 import { supabaseChatService, ChatMessage } from '../services/supabaseChatService';
@@ -34,6 +34,9 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isJitsiReady, setIsJitsiReady] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingStatus, setRecordingStatus] = useState<'idle' | 'starting' | 'recording' | 'stopping' | 'error'>('idle');
+  const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [moderators, setModerators] = useState<string[]>([]);
   const [viewers, setViewers] = useState<any[]>([]);
   const [isModerator, setIsModerator] = useState(false);
@@ -574,7 +577,17 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     const initializeJitsi = async () => {
       // Clean up any existing instance
       if (apiRef.current) {
-        apiRef.current.dispose();
+        console.log('Cleaning up existing Jitsi instance');
+        try {
+          // Clear recording sync interval if it exists
+          if ((apiRef.current as any)._recordingSyncInterval) {
+            clearInterval((apiRef.current as any)._recordingSyncInterval);
+            console.log('📊 Cleared recording sync interval');
+          }
+          apiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Jitsi instance:', error);
+        }
         apiRef.current = null;
       }
 
@@ -694,6 +707,13 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
             hideGuestDialOut: true
           },
           
+          // Recording settings for self-hosted Jitsi with Jibri
+          recording: {
+            enabled: true,
+            mode: 'file', // or 'stream' or 'both'
+            service: 'jibri'
+          },
+          
           // Other settings
           guestDialOutEnabled: false,
           enableClosePage: false,
@@ -717,7 +737,16 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           PROVIDER_NAME: 'BibleNOW Studio',
           PRIMARY_COLOR: '#D97706',
           BRAND_COLOR: '#D97706',
-          TOOLBAR_ALWAYS_VISIBLE: true
+          TOOLBAR_ALWAYS_VISIBLE: true,
+          
+          // Enable recording button in toolbar
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+            'fodeviceselection', 'hangup', 'chat', 'recording',
+            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+            'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts',
+            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone-else'
+          ]
         }
       };
 
@@ -806,6 +835,49 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current.on('apiReady', () => {
           console.log('Jitsi API is ready');
           setIsJitsiReady(true);
+          
+          // Check if recording is supported
+          setTimeout(() => {
+            try {
+              if (apiRef.current && typeof apiRef.current.getAvailableCommands === 'function') {
+                const commands = apiRef.current.getAvailableCommands();
+                const supportsRecording = commands?.includes('toggleRecording');
+                console.log('📊 Recording support check:', {
+                  availableCommands: commands,
+                  supportsRecording
+                });
+                setRecordingSupported(supportsRecording);
+                
+                // If recording is supported, start periodic state sync
+                if (supportsRecording) {
+                  console.log('📊 Starting periodic recording state sync');
+                  const syncInterval = setInterval(() => {
+                    if (apiRef.current && typeof apiRef.current.getRecordingState === 'function') {
+                      try {
+                        const recordingState = apiRef.current.getRecordingState();
+                        if (recordingState !== isRecording) {
+                          console.log('📊 Recording state changed via native button:', recordingState);
+                          setIsRecording(recordingState);
+                          setRecordingStatus(recordingState ? 'recording' : 'idle');
+                        }
+                      } catch (error) {
+                        console.log('📊 Error syncing recording state:', error);
+                      }
+                    }
+                  }, 2000); // Check every 2 seconds
+                  
+                  // Store interval ID for cleanup
+                  (apiRef.current as any)._recordingSyncInterval = syncInterval;
+                }
+              } else {
+                console.log('📊 Could not check recording support - getAvailableCommands not available');
+                setRecordingSupported(false);
+              }
+            } catch (error) {
+              console.log('📊 Error checking recording support:', error);
+              setRecordingSupported(false);
+            }
+          }, 2000); // Wait 2 seconds for API to be fully ready
           
           // Set streamer as moderator
           if (isStreamer && user?.uid) {
@@ -937,6 +1009,98 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           
           // Refresh viewers from database when someone leaves
           fetchViewers();
+        });
+
+        // Recording event handlers
+        apiRef.current.on('recordingStatusChanged', (event: any) => {
+          console.log('🎬 Recording status changed event received');
+          console.log('📊 Event details:', {
+            event,
+            on: event?.on,
+            mode: event?.mode,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (event.on) {
+            console.log('✅ Recording started successfully');
+            setIsRecording(true);
+            setRecordingStatus('recording');
+          } else {
+            console.log('⏹️ Recording stopped successfully');
+            setIsRecording(false);
+            setRecordingStatus('idle');
+          }
+        });
+
+        // Listen for native recording button clicks
+        apiRef.current.on('recordingButtonClicked', (event: any) => {
+          console.log('🎬 Native recording button clicked');
+          console.log('📊 Event details:', event);
+          // The native button will handle the recording state, we just need to sync our UI
+        });
+
+        // Listen for toolbar button events
+        apiRef.current.on('toolbarButtonClicked', (event: any) => {
+          console.log('🔧 Toolbar button clicked:', event);
+          if (event.buttonName === 'recording') {
+            console.log('🎬 Native recording button clicked via toolbar');
+            // Sync our state with the native button
+            setTimeout(() => {
+              if (apiRef.current && typeof apiRef.current.getRecordingState === 'function') {
+                try {
+                  const recordingState = apiRef.current.getRecordingState();
+                  console.log('📊 Current recording state from native button:', recordingState);
+                  setIsRecording(recordingState);
+                  setRecordingStatus(recordingState ? 'recording' : 'idle');
+                } catch (error) {
+                  console.log('📊 Could not get recording state:', error);
+                }
+              }
+            }, 1000); // Wait a bit for the state to update
+          }
+        });
+
+        apiRef.current.on('recordingError', (error: any) => {
+          console.error('💥 Recording error event received');
+          console.error('📊 Error details:', {
+            error,
+            message: error?.message,
+            code: error?.code,
+            timestamp: new Date().toISOString()
+          });
+          setRecordingStatus('error');
+          setIsRecording(false);
+          setError(`Recording error: ${error.message || 'Unknown recording error'}`);
+        });
+
+        // Additional recording events for better error handling
+        apiRef.current.on('recordingLinkAvailable', (event: any) => {
+          console.log('🔗 Recording link available event');
+          console.log('📊 Link details:', {
+            event,
+            link: event?.link,
+            timestamp: new Date().toISOString()
+          });
+        });
+
+        apiRef.current.on('recordingLinkReady', (event: any) => {
+          console.log('🔗 Recording link ready event');
+          console.log('📊 Link details:', {
+            event,
+            link: event?.link,
+            timestamp: new Date().toISOString()
+          });
+        });
+
+        // Add more recording-related events for debugging
+        apiRef.current.on('recordingStarted', (event: any) => {
+          console.log('🎬 Recording started event (alternative)');
+          console.log('📊 Event details:', event);
+        });
+
+        apiRef.current.on('recordingStopped', (event: any) => {
+          console.log('⏹️ Recording stopped event (alternative)');
+          console.log('📊 Event details:', event);
         });
 
         // Fallback: Set ready after a delay if no events fire
@@ -1162,6 +1326,169 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     }
   };
 
+  const debugRecordingState = () => {
+    console.log('🔍 === RECORDING DEBUG INFO ===');
+    console.log('📊 Current state:', {
+      recordingStatus,
+      isRecording,
+      isJitsiReady,
+      isModerator,
+      isStreamer,
+      hasApiRef: !!apiRef.current,
+      hasExecuteCommand: !!(apiRef.current && apiRef.current.executeCommand)
+    });
+    
+    if (apiRef.current) {
+      console.log('📊 Jitsi API methods available:', {
+        executeCommand: typeof apiRef.current.executeCommand,
+        getRecordingState: typeof apiRef.current.getRecordingState,
+        isRecording: typeof apiRef.current.isRecording
+      });
+      
+      // Check if recording is supported
+      try {
+        if (typeof apiRef.current.getRecordingState === 'function') {
+          const jitsiRecordingState = apiRef.current.getRecordingState();
+          console.log('📊 Jitsi recording state:', jitsiRecordingState);
+        }
+        
+        // Check available commands
+        if (typeof apiRef.current.getAvailableCommands === 'function') {
+          const commands = apiRef.current.getAvailableCommands();
+          console.log('📊 Available Jitsi commands:', commands);
+          console.log('📊 Recording supported:', commands?.includes('toggleRecording'));
+        }
+        
+        // Check if recording is enabled in config
+        if (apiRef.current.getConfig) {
+          const config = apiRef.current.getConfig();
+          console.log('📊 Jitsi config (recording related):', {
+            recordingEnabled: config?.recording?.enabled,
+            recordingMode: config?.recording?.mode,
+            recordingService: config?.recording?.service
+          });
+        }
+      } catch (error) {
+        console.log('📊 Could not get Jitsi recording info:', error);
+      }
+    }
+    console.log('🔍 === END DEBUG INFO ===');
+  };
+
+  const resetRecordingState = () => {
+    console.log('🔄 Resetting recording state...');
+    console.log('📊 Current recording status:', recordingStatus);
+    console.log('📊 Current isRecording:', isRecording);
+    setRecordingStatus('idle');
+    setIsRecording(false);
+    setError(null);
+    console.log('✅ Recording state reset to idle');
+  };
+
+  const handleToggleRecording = () => {
+    console.log('🎬 Recording button clicked');
+    console.log('📊 Current state:', {
+      isJitsiReady,
+      isModerator,
+      isStreamer,
+      recordingStatus,
+      isRecording,
+      hasApiRef: !!apiRef.current,
+      hasExecuteCommand: !!(apiRef.current && apiRef.current.executeCommand),
+      recordingSupported
+    });
+
+    if (!isJitsiReady) {
+      console.log('❌ Jitsi not ready yet, waiting...');
+      return;
+    }
+    
+    if (!isModerator && !isStreamer) {
+      console.log('❌ Only moderators and streamers can start/stop recording');
+      setError('Only moderators and streamers can control recording');
+      return;
+    }
+    
+    // Prevent multiple simultaneous recording operations
+    if (recordingStatus === 'starting' || recordingStatus === 'stopping') {
+      console.log('⚠️ Recording operation already in progress...');
+      return;
+    }
+    
+    try { 
+      if (apiRef.current && apiRef.current.executeCommand) {
+        if (isRecording) {
+          console.log('🛑 Attempting to stop recording...');
+          setRecordingStatus('stopping');
+          apiRef.current.executeCommand('toggleRecording');
+          console.log('✅ toggleRecording command sent for stopping');
+          
+          // Set timeout for stopping recording
+          setTimeout(() => {
+            setRecordingStatus(currentStatus => {
+              if (currentStatus === 'stopping') {
+                console.warn('⏰ Recording stop timeout (10s) - resetting status');
+                setIsRecording(false);
+                return 'idle';
+              }
+              return currentStatus;
+            });
+          }, 10000); // 10 second timeout
+        } else {
+          console.log('▶️ Attempting to start recording...');
+          setRecordingStatus('starting');
+          apiRef.current.executeCommand('toggleRecording');
+          console.log('✅ toggleRecording command sent for starting');
+          
+          // Set timeout for starting recording
+          setTimeout(() => {
+            setRecordingStatus(currentStatus => {
+              if (currentStatus === 'starting') {
+                console.warn('⏰ Recording start timeout (15s) - resetting status');
+                setIsRecording(false);
+                setError('Recording start timed out. Please try again.');
+                return 'idle';
+              }
+              return currentStatus;
+            });
+          }, 15000); // 15 second timeout
+        }
+      } else {
+        console.error('❌ Jitsi API not ready for recording');
+        console.error('📊 API Ref exists:', !!apiRef.current);
+        console.error('📊 ExecuteCommand exists:', !!(apiRef.current && apiRef.current.executeCommand));
+        setRecordingStatus('error');
+        setError('Jitsi API not ready for recording');
+      }
+    } catch (error) {
+      console.error('💥 Error toggling recording:', error);
+      console.error('📊 Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
+      setRecordingStatus('error');
+      setError(`Recording error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Function to trigger native recording button programmatically
+  const triggerNativeRecording = () => {
+    console.log('🎬 Triggering native recording button');
+    if (apiRef.current && apiRef.current.executeCommand) {
+      try {
+        apiRef.current.executeCommand('toggleRecording');
+        console.log('✅ Native recording button triggered');
+      } catch (error) {
+        console.error('❌ Error triggering native recording:', error);
+        setError('Failed to trigger native recording button');
+      }
+    } else {
+      console.error('❌ Cannot trigger native recording - API not ready');
+      setError('Cannot trigger native recording - API not ready');
+    }
+  };
+
   const handleHangup = () => {
     console.log('🔄 End stream button clicked');
     console.log('📊 Jitsi ready status:', isJitsiReady);
@@ -1277,13 +1604,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 {/* Stream Info */}
                 <div>
                   <h1 className="text-white text-xl font-bold">{streamData.title}</h1>
-                  <div className="flex flex-col">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-gray-300 text-lg font-medium">{streamData.hostName}</span>
-                      <CheckCircle className="w-5 h-5 text-amber-400" strokeWidth={1.5} />
-                    </div>
-                    <span className="text-gray-300 text-sm">{formatViewerCount(streamData.viewerCount)} watching</span>
-                  </div>
+                  <span className="text-gray-300 text-sm">{formatViewerCount(streamData.viewerCount)} watching</span>
                 </div>
               </div>
 
@@ -1310,11 +1631,111 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                 >
                   <ScreenShare className="w-6 h-6" />
                 </button>
+                {(isStreamer || isModerator) && recordingSupported !== false && (
+                  <div className="relative">
+                    {/* Show custom recording button only if native recording is not supported or not working */}
+                    {recordingSupported !== true && (
+                      <button 
+                        onClick={handleToggleRecording} 
+                        title={
+                          recordingStatus === 'starting' || recordingStatus === 'stopping'
+                            ? 'Recording in progress... (Click to reset if stuck)'
+                            : isRecording 
+                            ? 'Stop recording' 
+                            : 'Start recording'
+                        } 
+                        className={`p-3 rounded-xl transition-all ${
+                          isRecording 
+                            ? 'bg-red-600 text-white hover:bg-red-700' 
+                            : recordingStatus === 'starting' || recordingStatus === 'stopping'
+                            ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                            : recordingStatus === 'error'
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+                        }`}
+                        disabled={false}
+                      >
+                        {recordingStatus === 'starting' || recordingStatus === 'stopping' ? (
+                          <div className="w-6 h-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : isRecording ? (
+                          <Square className="w-6 h-6" />
+                        ) : (
+                          <Circle className="w-6 h-6" />
+                        )}
+                      </button>
+                    )}
+                    
+                    {/* Show recording status indicator when native recording is supported */}
+                    {recordingSupported === true && (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={triggerNativeRecording}
+                          title="Click to trigger native recording button"
+                          className={`p-3 rounded-xl transition-all hover:bg-opacity-80 ${
+                            isRecording 
+                              ? 'bg-red-600 text-white' 
+                              : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+                          }`}
+                        >
+                          {isRecording ? (
+                            <Square className="w-6 h-6" />
+                          ) : (
+                            <Circle className="w-6 h-6" />
+                          )}
+                        </button>
+                        <span className="text-white text-sm font-medium">
+                          {isRecording ? 'Recording...' : 'Click to record'}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Reset button for stuck states */}
+                    {(recordingStatus === 'starting' || recordingStatus === 'stopping' || recordingStatus === 'error') && (
+                      <button
+                        onClick={resetRecordingState}
+                        title="Reset recording state"
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                    
+                    {/* Debug button - always visible for moderators/streamers */}
+                    <button
+                      onClick={debugRecordingState}
+                      title="Debug recording state"
+                      className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 text-white rounded-full text-xs hover:bg-blue-600 transition-colors"
+                    >
+                        ?
+                    </button>
+                  </div>
+                )}
+                
+                {/* Show message when recording is not supported */}
+                {(isStreamer || isModerator) && recordingSupported === false && (
+                  <div className="p-3 bg-gray-600 text-white rounded-xl text-sm" title="Recording not supported on this Jitsi instance">
+                    📹 No Recording
+                  </div>
+                )}
+                
                 <button onClick={() => setShowChat(!showChat)} title={showChat ? 'Hide chat' : 'Show chat'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
                   <MessageCircle className="w-6 h-6" />
                 </button>
                 <button onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? 'Hide participants' : 'Show participants'} className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all">
                   <Users className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={() => {
+                    if (apiRef.current && apiRef.current.executeCommand) {
+                      apiRef.current.executeCommand('toggleTileView');
+                    }
+                  }}
+                  title="Toggle grid view"
+                  className="p-3 bg-black bg-opacity-50 text-white rounded-xl hover:bg-opacity-70 transition-all"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
                 </button>
                 {isStreamer && (
                   <button 
@@ -1326,21 +1747,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
                   </button>
                 )}
               </div>
-              
-              {/* Follow/Unfollow Button */}
-              <button 
-                onClick={handleFollowClick}
-                disabled={isFollowLoading}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                  isFollowLoading 
-                    ? 'bg-gray-500 text-white cursor-not-allowed' 
-                    : isFollowing 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                    : 'bg-yellow-500 hover:bg-yellow-600 text-black'
-                }`}
-              >
-                {isFollowLoading ? 'Loading...' : isFollowing ? 'Unfollow' : 'Follow'}
-              </button>
             </div>
           </div>
         </div>

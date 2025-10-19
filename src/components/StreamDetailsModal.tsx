@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/Dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/AlertDialog';
 import Button from './ui/Button';
 import { StreamInfo } from '../stores/livestreamStore';
 import { format } from 'date-fns';
 import { useLivestreamStore } from '../stores/livestreamStore';
+import { shekelGiftsService, StreamShekelSummary } from '../services/shekelGiftsService';
 
 interface StreamDetailsModalProps {
   stream: StreamInfo | null;
@@ -15,6 +16,30 @@ interface StreamDetailsModalProps {
 const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, onOpenChange }) => {
   const { deleteStream } = useLivestreamStore();
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [shekelSummary, setShekelSummary] = useState<StreamShekelSummary | null>(null);
+  const [isLoadingShekel, setIsLoadingShekel] = useState(false);
+
+  // Fetch shekel gifts data when modal opens
+  useEffect(() => {
+    const fetchShekelData = async () => {
+      if (!stream || !open) return;
+      
+      console.log('🔍 StreamDetailsModal: Fetching shekel data for stream:', stream.id, stream.title);
+      setIsLoadingShekel(true);
+      try {
+        const summary = await shekelGiftsService.getStreamShekelSummary(stream.id);
+        console.log('✅ StreamDetailsModal: Received shekel summary:', summary);
+        setShekelSummary(summary);
+      } catch (error) {
+        console.error('❌ StreamDetailsModal: Error fetching shekel gifts:', error);
+        setShekelSummary(null);
+      } finally {
+        setIsLoadingShekel(false);
+      }
+    };
+
+    fetchShekelData();
+  }, [stream, open]);
 
   if (!stream) return null;
 
@@ -157,6 +182,18 @@ const StreamDetailsModal: React.FC<StreamDetailsModalProps> = ({ stream, open, o
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Last Updated:</span>
                     <span className="font-medium">{formatDate(stream.updated_at)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Shekelz Gifts:</span>
+                    <span className="font-medium">
+                      {isLoadingShekel ? (
+                        <span className="text-gray-400">Loading...</span>
+                      ) : shekelSummary ? (
+                        `${shekelSummary.total_shekelz} shekelz (${shekelSummary.gift_count} gifts)`
+                      ) : (
+                        '0 shekelz (0 gifts)'
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>

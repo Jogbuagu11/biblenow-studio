@@ -289,6 +289,79 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
             />
           </div>
 
+          {/* Stream Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 dark:text-yellow-100 mb-3">
+              Stream Type <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-4 items-stretch">
+              {/* Video Stream option */}
+              <div 
+                className={`p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800 rounded-lg h-12 flex items-center justify-start cursor-pointer ${
+                  formData.stream_type === 'video' ? 'border-yellow-500 bg-yellow-50 dark:bg-darkBrown-700 dark:border-yellow-400 shadow-lg ring-2 ring-yellow-200 dark:ring-yellow-600' : ''
+                }`}
+                onClick={() => setFormData(prev => ({ ...prev, stream_type: 'video' }))}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {/* Radio button circle */}
+                  <div className={`w-4 h-4 border-2 rounded-full flex-shrink-0 ${
+                    formData.stream_type === 'video' 
+                      ? 'border-yellow-500 bg-yellow-500' 
+                      : 'border-gray-400 dark:border-yellow-300'
+                  }`}>
+                    {formData.stream_type === 'video' && (
+                      <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-gray-600 dark:text-yellow-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-medium dark:text-yellow-100 text-sm">Video Stream</span>
+                </div>
+              </div>
+              
+              {/* Audio Only option */}
+              <div 
+                className={`p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800 rounded-lg h-12 flex items-center justify-start cursor-pointer ${
+                  formData.stream_type === 'audio' ? 'border-yellow-500 bg-yellow-50 dark:bg-darkBrown-700 dark:border-yellow-400 shadow-lg ring-2 ring-yellow-200 dark:ring-yellow-600' : ''
+                }`}
+                onClick={() => setFormData(prev => ({ ...prev, stream_type: 'audio' }))}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {/* Radio button circle */}
+                  <div className={`w-4 h-4 border-2 rounded-full flex-shrink-0 ${
+                    formData.stream_type === 'audio' 
+                      ? 'border-yellow-500 bg-yellow-500' 
+                      : 'border-gray-400 dark:border-yellow-300'
+                  }`}>
+                    {formData.stream_type === 'audio' && (
+                      <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-gray-600 dark:text-yellow-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  <span className="font-medium dark:text-yellow-100 text-sm">Audio Only</span>
+                </div>
+              </div>
+              {/* Call-Based option - visible but disabled */}
+              <div 
+                className="p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800 opacity-50 cursor-not-allowed rounded-lg h-12 flex items-center justify-start"
+                onClick={(e) => e.preventDefault()}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {/* Radio button circle (unselected state) */}
+                  <div className="w-4 h-4 border-2 border-gray-400 dark:border-yellow-300 rounded-full flex-shrink-0"></div>
+                  <svg className="w-5 h-5 text-gray-600 dark:text-yellow-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <span className="font-medium dark:text-yellow-100 text-sm">Call-Based</span>
+                  <span className="text-xs text-gray-500 dark:text-yellow-200 ml-auto">Coming Soon</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Platform Selection */}
           <div>
             <label className="block text-sm font-semibold text-gray-900 dark:text-yellow-100 mb-3">
@@ -300,9 +373,9 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
                   key={platform.value}
                   type="button"
                   onClick={() => handleSelectChange('platform', platform.value)}
-                  className={`p-4 border rounded-lg text-left transition-all duration-200 ${
+                  className={`p-4 border-2 rounded-lg text-left transition-all duration-200 ${
                     formData.platform === platform.value
-                                    ? 'border-yellow-500 bg-yellow-50 dark:bg-darkBrown-700 dark:border-yellow-400 shadow-md'
+                                    ? 'border-yellow-500 bg-yellow-50 dark:bg-darkBrown-700 dark:border-yellow-400 shadow-lg ring-2 ring-yellow-200 dark:ring-yellow-600'
               : 'border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 hover:bg-yellow-25 dark:hover:bg-darkBrown-700 dark:bg-darkBrown-800'
                   }`}
                 >
@@ -339,43 +412,6 @@ const GoLiveModal: React.FC<GoLiveModalProps> = ({ open, onOpenChange }) => {
                 </svg>
               </div>
             </div>
-          </div>
-
-          {/* Stream Type */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 dark:text-yellow-100 mb-3">
-              Stream Type <span className="text-red-500">*</span>
-            </label>
-            <RadioGroup
-              value={formData.stream_type}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, stream_type: value as 'video' | 'audio' | 'call-based' }))}
-              className="grid grid-cols-3 gap-4"
-            >
-              <RadioGroupItem value="video" className="p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800">
-                <div className="flex items-center space-x-3">
-                  <svg className="w-6 h-6 text-gray-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-medium dark:text-yellow-100">Video Stream</span>
-                </div>
-              </RadioGroupItem>
-              <RadioGroupItem value="audio" className="p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800">
-                <div className="flex items-center space-x-3">
-                  <svg className="w-6 h-6 text-gray-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                  <span className="font-medium dark:text-yellow-100">Audio Only</span>
-                </div>
-              </RadioGroupItem>
-              <RadioGroupItem value="call-based" className="p-4 border border-gray-300 dark:border-darkBrown-600 hover:border-yellow-300 dark:bg-darkBrown-800">
-                <div className="flex items-center space-x-3">
-                  <svg className="w-6 h-6 text-gray-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span className="font-medium dark:text-yellow-100">Call-Based</span>
-                </div>
-              </RadioGroupItem>
-            </RadioGroup>
           </div>
 
           {/* External Platform Fields */}

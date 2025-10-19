@@ -48,28 +48,73 @@ export class LivestreamNotificationService {
     streamingLimitEmails: boolean;
   }> {
     try {
+      console.log('🔍 LivestreamNotificationService: Getting email preferences for user:', userId);
+      
+      // First try the email_preferences column
       const { data, error } = await supabase
         .from('verified_profiles')
         .select('email_preferences')
         .eq('id', userId)
         .single();
 
+      console.log('🔍 LivestreamNotificationService: Query result:', { data, error });
+
       if (error) {
-        console.error('Error fetching email preferences:', error);
+        console.error('❌ LivestreamNotificationService: Error fetching email preferences:', error);
+        console.error('❌ LivestreamNotificationService: Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // If email_preferences column doesn't exist, try the preferences column as fallback
+        console.log('🔍 LivestreamNotificationService: Trying fallback with preferences column...');
+        
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('verified_profiles')
+          .select('preferences')
+          .eq('id', userId)
+          .single();
+
+        console.log('🔍 LivestreamNotificationService: Fallback query result:', { data: fallbackData, error: fallbackError });
+
+        if (fallbackError) {
+          console.error('❌ LivestreamNotificationService: Fallback query also failed:', fallbackError);
+          return {
+            livestreamNotifications: true, // Default to enabled
+            streamingLimitEmails: true
+          };
+        }
+
+        const fallbackPrefs = fallbackData?.preferences || {};
+        console.log('🔍 LivestreamNotificationService: Fallback preferences:', fallbackPrefs);
+        
         return {
-          livestreamNotifications: true, // Default to enabled
-          streamingLimitEmails: true
+          livestreamNotifications: true, // Default for livestream notifications
+          streamingLimitEmails: fallbackPrefs.streamingLimitEmails !== false
         };
       }
 
       const preferences = data?.email_preferences || {};
-      return {
+      console.log('🔍 LivestreamNotificationService: Raw preferences:', preferences);
+      
+      const result = {
         livestreamNotifications: preferences.livestreamNotifications !== false,
         streamingLimitEmails: preferences.streamingLimitEmails !== false
       };
+      
+      console.log('✅ LivestreamNotificationService: Returning preferences:', result);
+      return result;
 
     } catch (error) {
-      console.error('Error in getEmailPreferences:', error);
+      console.error('❌ LivestreamNotificationService: Error in getEmailPreferences:', error);
+      console.error('❌ LivestreamNotificationService: Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      });
+      
       return {
         livestreamNotifications: true,
         streamingLimitEmails: true

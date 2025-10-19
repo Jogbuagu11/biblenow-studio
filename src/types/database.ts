@@ -49,7 +49,7 @@ export interface SubscriptionPlan {
 export interface WeeklyUsage {
   id: string;
   user_id: string;
-  week_start_date: string;
+  streaming_weekly_start_date: string;
   streamed_minutes: number;
   created_at?: string;
   updated_at?: string;
