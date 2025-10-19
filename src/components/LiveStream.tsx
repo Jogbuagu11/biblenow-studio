@@ -67,8 +67,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     viewerCount: 0,
     hostId: undefined
   });
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  // Removed unused follow state variables
   const [giftOverlay, setGiftOverlay] = useState<null | { amount: number; sender?: string }>(null);
   const [debugInfo, setDebugInfo] = useState<{
     roomName: string;
