@@ -67,7 +67,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     viewerCount: 0,
     hostId: undefined
   });
-  // Removed unused follow state variables
   const [giftOverlay, setGiftOverlay] = useState<null | { amount: number; sender?: string }>(null);
   const [debugInfo, setDebugInfo] = useState<{
     roomName: string;
@@ -480,22 +479,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     fetchStreamData();
   }, [roomName, user?.uid, user?.displayName]);
 
-  // Check if user is already following the streamer
-  useEffect(() => {
-    const checkFollowStatus = async () => {
-      if (!user?.uid || !streamData.hostId) return;
-      
-      try {
-        const following = await databaseService.getFollowing(user.uid);
-        const isFollowingStreamer = following.some(follow => follow.following_id === streamData.hostId);
-        setIsFollowing(isFollowingStreamer);
-      } catch (error) {
-        console.error('Error checking follow status:', error);
-      }
-    };
-
-    checkFollowStatus();
-  }, [user?.uid, streamData.hostId]);
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -1534,7 +1517,6 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     }
   };
 
-  // Handle follow/unfollow button click - removed unused function
 
   return (
     <div className="flex h-screen bg-gray-900">
