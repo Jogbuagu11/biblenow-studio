@@ -1231,7 +1231,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         apiRef.current = null;
       }
     };
-  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator, fetchViewers, trackViewerJoin]);
+  }, [user, roomName, handleStreamEnd, isJitsiReady, isStreamer, isModerator, fetchViewers, trackViewerJoin, isRecording]);
 
   // Don't render anything if user is not logged in
   if (!user) {
@@ -1535,25 +1535,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
     }
   };
 
-  // Handle follow/unfollow button click
-  const handleFollowClick = async () => {
-    if (!user?.uid || !streamData.hostId || isFollowLoading) return;
-    
-    setIsFollowLoading(true);
-    try {
-      if (isFollowing) {
-        await databaseService.unfollowUser(user.uid, streamData.hostId);
-        setIsFollowing(false);
-      } else {
-        await databaseService.followUser(user.uid, streamData.hostId);
-        setIsFollowing(true);
-      }
-    } catch (error) {
-      console.error('Error following/unfollowing user:', error);
-    } finally {
-      setIsFollowLoading(false);
-    }
-  };
+  // Handle follow/unfollow button click - removed unused function
 
   return (
     <div className="flex h-screen bg-gray-900">
