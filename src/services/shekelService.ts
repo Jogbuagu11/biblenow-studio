@@ -320,6 +320,114 @@ class ShekelService {
     }
   }
 
+  // Get paginated gifts for a user (both sent and received)
+  async getPaginatedGifts(userId: string, page: number = 1, limit: number = 10): Promise<{
+    gifts: ShekelGift[];
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  }> {
+    try {
+      console.log('getPaginatedGifts called for user:', userId, 'page:', page, 'limit:', limit);
+      
+      // Get total count first
+      const { count: receivedCount } = await supabaseAdmin
+        .from('shekel_gifts')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', userId)
+        .eq('status', 'completed');
+
+      const { count: sentCount } = await supabaseAdmin
+        .from('shekel_gifts')
+        .select('*', { count: 'exact', head: true })
+        .eq('sender_id', userId)
+        .eq('status', 'completed');
+
+      const totalCount = (receivedCount || 0) + (sentCount || 0);
+      const totalPages = Math.ceil(totalCount / limit);
+      const offset = (page - 1) * limit;
+
+      // Get paginated received gifts
+      const { data: receivedGifts, error: receivedError } = await supabaseAdmin
+        .from('shekel_gifts')
+        .select('*')
+        .eq('recipient_id', userId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      // Get paginated sent gifts
+      const { data: sentGifts, error: sentError } = await supabaseAdmin
+        .from('shekel_gifts')
+        .select('*')
+        .eq('sender_id', userId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      if (receivedError || sentError) {
+        console.error('Error fetching paginated gifts:', receivedError || sentError);
+        return {
+          gifts: [],
+          totalCount: 0,
+          totalPages: 0,
+          currentPage: page,
+          hasNextPage: false,
+          hasPreviousPage: false
+        };
+      }
+
+      // Combine and sort all gifts
+      const allGifts = [...(receivedGifts || []), ...(sentGifts || [])].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Apply pagination
+      const paginatedGifts = allGifts.slice(offset, offset + limit);
+
+      // Get sender/recipient information for paginated gifts
+      const senderIds = Array.from(new Set(paginatedGifts.map(gift => gift.sender_id)));
+      const recipientIds = Array.from(new Set(paginatedGifts.map(gift => gift.recipient_id)));
+      const allUserIds = Array.from(new Set([...senderIds, ...recipientIds]));
+
+      const userProfiles = await this.getUserProfilesByIds(allUserIds);
+
+      const enrichedGifts = paginatedGifts.map(gift => {
+        const senderProfile = userProfiles.find((profile: any) => profile.id === gift.sender_id);
+        const recipientProfile = userProfiles.find((profile: any) => profile.id === gift.recipient_id);
+
+        return {
+          ...gift,
+          sender_name: senderProfile?.name || 'Unknown',
+          sender_email: senderProfile?.email,
+          recipient_name: recipientProfile?.name || 'Unknown',
+          recipient_email: recipientProfile?.email
+        };
+      });
+
+      console.log('Paginated gifts:', enrichedGifts.length, 'of', totalCount);
+
+      return {
+        gifts: enrichedGifts,
+        totalCount,
+        totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      };
+    } catch (error) {
+      console.error('Error in getPaginatedGifts:', error);
+      return {
+        gifts: [],
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: page,
+        hasNextPage: false,
+        hasPreviousPage: false
+      };
+    }
+  }
+
   // Get shekel summary for a user
   async getShekelSummary(userId: string): Promise<ShekelSummary> {
     try {

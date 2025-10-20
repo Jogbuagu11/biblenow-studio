@@ -18,6 +18,9 @@ const { createClient } = require('@supabase/supabase-js');
 // Load environment variables
 dotenv.config();
 
+// Import creator payouts router
+const creatorPayoutsRouter = require('./routes/creator-payouts');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -852,6 +855,9 @@ app.post('/api/jitsi/token', async (req, res) => {
     });
   }
 });
+
+// Add creator payouts routes
+app.use('/api/creator-payouts', creatorPayoutsRouter);
 
 // Start server
 app.listen(PORT, () => {
