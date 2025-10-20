@@ -48,8 +48,8 @@ REACT_APP_JAAS_APP_ID=your-jaas-app-id
 REACT_APP_JAAS_JWT_SECRET=your-jwt-secret
 
 # Google OAuth Configuration (for Supabase)
-SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-google-oauth-client-id
-SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=your-google-oauth-client-secret
+AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+AUTH_EXTERNAL_GOOGLE_SECRET=your-google-oauth-client-secret
 EOF
 
 echo "✅ .env file created successfully!"

@@ -54,8 +54,8 @@ The Supabase configuration has already been updated in `supabase/config.toml`:
 ```toml
 [auth.external.google]
 enabled = true
-client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
-secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+client_id = "env(AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(AUTH_EXTERNAL_GOOGLE_SECRET)"
 ```
 
 ### 2.2 Set Environment Variables
@@ -63,8 +63,8 @@ Add these to your `.env` file:
 
 ```bash
 # Google OAuth Configuration (for Supabase)
-SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-google-oauth-client-id
-SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=your-google-oauth-client-secret
+AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+AUTH_EXTERNAL_GOOGLE_SECRET=your-google-oauth-client-secret
 ```
 
 Replace the placeholder values with your actual Google OAuth credentials.
@@ -122,8 +122,8 @@ When deploying to production:
 ### 5.2 Environment Variables
 Make sure to set the production environment variables:
 ```bash
-SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-production-client-id
-SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=your-production-client-secret
+AUTH_EXTERNAL_GOOGLE_CLIENT_ID=your-production-client-id
+AUTH_EXTERNAL_GOOGLE_SECRET=your-production-client-secret
 ```
 
 ## Troubleshooting

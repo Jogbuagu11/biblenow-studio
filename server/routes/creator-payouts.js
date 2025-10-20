@@ -173,7 +173,7 @@ router.get('/summary/:creatorId', async (req, res) => {
     // Get creator info
     const { data: creator, error: creatorError } = await supabase
       .from('verified_profiles')
-      .select('id, ministry_name, total_payouts_usd, last_payout_date, next_payout_date, payouts_enabled')
+      .select('id, ministry_name, first_name, last_name, total_payouts_usd, last_payout_date, next_payout_date, payouts_enabled')
       .eq('id', creatorId)
       .single();
 
@@ -218,6 +218,9 @@ router.get('/summary/:creatorId', async (req, res) => {
       creator: {
         id: creator.id,
         ministry_name: creator.ministry_name,
+        first_name: creator.first_name,
+        last_name: creator.last_name,
+        full_name: creator.ministry_name || `${creator.first_name || ''} ${creator.last_name || ''}`.trim(),
         total_payouts_usd: creator.total_payouts_usd,
         last_payout_date: creator.last_payout_date,
         next_payout_date: creator.next_payout_date,

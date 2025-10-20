@@ -9,6 +9,7 @@ interface DashboardData {
   last_payout_date: string | null;
   next_payout_date: string | null;
   stripe_status: 'enabled' | 'disabled';
+  creator_name: string;
   history: Array<{
     date: string;
     viewer: string;
@@ -48,7 +49,7 @@ serve(async (req: Request) => {
     // Get creator info
     const { data: creator, error: creatorError } = await supabase
       .from('verified_profiles')
-      .select('id, ministry_name, total_payouts_usd, last_payout_date, next_payout_date, payouts_enabled')
+      .select('id, ministry_name, first_name, last_name, total_payouts_usd, last_payout_date, next_payout_date, payouts_enabled')
       .eq('id', creator_id)
       .single();
 
@@ -161,6 +162,7 @@ serve(async (req: Request) => {
       last_payout_date: creator.last_payout_date,
       next_payout_date: creator.next_payout_date,
       stripe_status: creator.payouts_enabled ? 'enabled' : 'disabled',
+      creator_name: creator.ministry_name || `${creator.first_name || ''} ${creator.last_name || ''}`.trim(),
       history,
       pagination: {
         current_page: pageNum,

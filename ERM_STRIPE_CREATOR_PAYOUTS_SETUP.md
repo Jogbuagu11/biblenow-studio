@@ -54,12 +54,12 @@ Set up Stripe creator payouts functionality in the ERM (Enterprise Resource Mana
 ### 1. Creator Management Interface
 
 #### Creator List View
-- **Table columns**: Creator Name, Ministry Name, Email, Stripe Account Status, Payouts Enabled, Total Payouts, Last Payout Date, Next Payout Date
+- **Table columns**: Creator Name (first_name + last_name or ministry_name), Ministry Name, Email, Stripe Account Status, Payouts Enabled, Total Payouts, Last Payout Date, Next Payout Date
 - **Filters**: Payouts Enabled/Disabled, Stripe Account Connected/Not Connected, Payout Frequency
 - **Actions**: Enable/Disable Payouts, View Payout History, Process Manual Payout
 
 #### Creator Detail View
-- **Basic Info**: Name, email, ministry, Stripe account ID
+- **Basic Info**: First Name, Last Name, Ministry Name, Email, Stripe account ID
 - **Payout Settings**: 
   - Toggle payouts enabled/disabled
   - Set payout frequency (weekly/monthly/quarterly)

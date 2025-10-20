@@ -179,7 +179,7 @@ const Login: React.FC = () => {
           <button
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full bg-white text-slate-800 py-4 px-6 rounded-2xl font-bold text-lg hover:bg-gray-50 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 hover:scale-[1.02] relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+            className="w-80 mx-auto bg-white text-slate-800 py-4 px-6 rounded-2xl font-bold text-lg hover:bg-gray-50 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 hover:scale-[1.02] relative overflow-hidden group disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 border border-gray-200"
           >
             {isLoading ? (
               <div className="flex items-center justify-center">

@@ -280,3 +280,4 @@ export class IndependentEmailService {
 
 // Export for use in other parts of the application
 export default IndependentEmailService;
+

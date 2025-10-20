@@ -215,3 +215,4 @@ ORDER BY streamed_minutes DESC;
 5. **Schedule regular checks** to ensure emails are sent
 
 The independent email system gives you full control over when and how streaming limit emails are sent, without relying on the broken usage recording triggers!
+
