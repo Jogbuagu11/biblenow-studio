@@ -660,8 +660,10 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
               const data = await response.json();
               jwtToken = data.jwt;
               console.log('JWT token generated successfully with moderator status:', moderatorStatus);
+              console.log('JWT token preview:', jwtToken.substring(0, 50) + '...');
             } else {
-              console.error('Failed to generate JWT token:', await response.text());
+              const errorText = await response.text();
+              console.error('Failed to generate JWT token:', errorText);
               jwtToken = null;
             }
           } catch (error) {
@@ -732,6 +734,8 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         interfaceConfigOverwrite: {
           SHOW_PREJOIN_PAGE: false,
           SHOW_WELCOME_PAGE: false,
+          SHOW_DIAL_IN_NUMBERS: false,
+          HIDE_DIAL_IN_NUMBERS: true,
           DISABLE_CHAT: false,
           HIDE_CHAT_BUTTON: false,
           SHOW_JITSI_WATERMARK: false,
