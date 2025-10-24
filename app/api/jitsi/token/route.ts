@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // CORS headers for Next.js
 const corsHeaders = {
@@ -17,7 +24,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { room, moderator = false, name, email } = body;
+    const { room, name, email, userId } = body;
 
     // Input validation
     if (!room || typeof room !== 'string') {
@@ -65,6 +72,29 @@ export async function POST(request: NextRequest) {
 
     const now = Math.floor(Date.now() / 1000);
     
+    // Check if user should be a moderator (server-side authority)
+    let isModerator = false;
+    if (userId) {
+      try {
+        // Check if user exists in verified_profiles table
+        const { data: verifiedProfile, error } = await supabase
+          .from('verified_profiles')
+          .select('id')
+          .eq('id', userId)
+          .single();
+        
+        if (!error && verifiedProfile) {
+          isModerator = true;
+          console.log('User is verified moderator:', userId);
+        } else {
+          console.log('User is not verified moderator:', userId);
+        }
+      } catch (error) {
+        console.error('Error checking moderator status:', error);
+        isModerator = false;
+      }
+    }
+    
                // Build JWT payload
            const payload: any = {
              aud: JITSI_AUD,
@@ -77,7 +107,7 @@ export async function POST(request: NextRequest) {
                user: {
                  name: name || 'BibleNOW User',
                  email: email || undefined,
-                 moderator: !!moderator
+                 moderator: isModerator
                }
              }
            };

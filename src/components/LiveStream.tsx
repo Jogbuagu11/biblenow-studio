@@ -641,9 +641,33 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           console.log('User profile found, moderator status:', moderatorStatus ? 'MODERATOR' : 'VIEWER');
           console.log('User table:', isFromVerifiedProfiles ? 'verified_profiles' : 'profiles');
           
-          // JWT is disabled on server - skip JWT token generation
-          console.log('JWT authentication is disabled on server - proceeding without JWT token');
-          jwtToken = null;
+          // Generate JWT token with moderator status
+          try {
+            const response = await fetch('/api/jitsi/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                room: roomName,
+                userId: user.uid,
+                name: user.displayName || 'BibleNOW User',
+                email: user.email
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              jwtToken = data.jwt;
+              console.log('JWT token generated successfully with moderator status:', moderatorStatus);
+            } else {
+              console.error('Failed to generate JWT token:', await response.text());
+              jwtToken = null;
+            }
+          } catch (error) {
+            console.error('Error generating JWT token:', error);
+            jwtToken = null;
+          }
           
           // Log the final JWT token status
           console.log('Final JWT token status:', jwtToken ? 'AVAILABLE' : 'NOT AVAILABLE');
@@ -666,14 +690,16 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         parentNode: containerRef.current,
         width: "100%",
         height: "100%",
-        // JWT authentication is disabled - no JWT token needed
+        // JWT token for authentication
+        jwt: jwtToken,
         userInfo: {
           displayName: user?.displayName || "BibleNOW User",
-          email: user?.email || "user@biblenowstudio.com"
+          email: user?.email || "user@biblenowstudio.com",
+          moderator: isModerator
         },
         configOverwrite: {
           // Authentication settings
-          authenticationRequired: false, // Disable auth dialog
+          authenticationRequired: true, // Enable JWT authentication
           passwordRequired: false, // Disable password requirement
           
           // Camera and microphone settings
@@ -712,11 +738,12 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_POWERED_BY: false,
           SHOW_BRAND_WATERMARK: false,
-          SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+          SHOW_PROMOTIONAL_CLOSE_PAGE: true,
           SHOW_CLOSE_PAGE: false,
-          APP_NAME: 'BibleNOW Studio',
-          NATIVE_APP_NAME: 'BibleNOW Studio',
-          PROVIDER_NAME: 'BibleNOW Studio',
+          PROMOTIONAL_CLOSE_PAGE_URL: 'https://stream.biblenow.io/endstream',
+          APP_NAME: 'biblenow',
+          NATIVE_APP_NAME: 'biblenow',
+          PROVIDER_NAME: 'biblenow',
           PRIMARY_COLOR: '#D97706',
           BRAND_COLOR: '#D97706',
           TOOLBAR_ALWAYS_VISIBLE: true,
@@ -737,7 +764,7 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
         console.log('🚀 Initializing Jitsi Meet with configuration:');
         console.log('   Domain:', jitsiConfig.domain);
         console.log('   Room:', options.roomName);
-        console.log('   JWT Token:', '❌ Disabled (JWT authentication is turned off)');
+        console.log('   JWT Token:', jwtToken ? '✅ Present' : '❌ Missing');
         console.log('   Authentication Required:', options.configOverwrite.authenticationRequired);
         console.log('   User:', options.userInfo.displayName, `(${options.userInfo.email})`);
         console.log('   Moderator Status:', isModerator);

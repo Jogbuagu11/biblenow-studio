@@ -151,13 +151,6 @@ const EndStream: React.FC = () => {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-delay-3">
             <button
-              className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-              onClick={() => window.location.href = 'https://biblenow.io'}
-            >
-              Return to BibleNOW
-            </button>
-
-            <button
               className="px-8 py-4 border-2 border-yellow-400 text-yellow-400 font-semibold rounded-full hover:bg-yellow-400 hover:text-darkBrown-900 transition-all duration-300"
               onClick={() => window.location.href = '/dashboard'}
             >
