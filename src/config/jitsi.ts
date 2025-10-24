@@ -8,6 +8,14 @@ export const jitsiConfig = {
   // Interface settings
   showPrejoinPage: false,
   showWelcomePage: false,
+  
+  // Mobile and deep linking settings
+  disableDeepLinking: true,
+  mobileAppPromo: false,
+  
+  // Room and prejoin settings
+  enableInsecureRoomNameWarning: false,
+  prejoinPageEnabled: true,
   // Branding
   appName: 'biblenow',
   providerName: 'biblenow',
