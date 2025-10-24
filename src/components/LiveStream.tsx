@@ -660,7 +660,9 @@ const LiveStream: React.FC<Props> = ({ roomName: propRoomName, isStreamer = fals
               const data = await response.json();
               jwtToken = data.jwt;
               console.log('JWT token generated successfully with moderator status:', moderatorStatus);
-              console.log('JWT token preview:', jwtToken.substring(0, 50) + '...');
+              if (jwtToken) {
+                console.log('JWT token preview:', jwtToken.substring(0, 50) + '...');
+              }
             } else {
               const errorText = await response.text();
               console.error('Failed to generate JWT token:', errorText);
